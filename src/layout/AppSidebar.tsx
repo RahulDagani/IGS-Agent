@@ -144,7 +144,7 @@ const AppSidebar: React.FC = () => {
           ) : (
             nav.path && (
               <Link
-                href={nav.path}
+                href={"/dashboard"+nav.path}
                 className={`menu-item group ${
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                 }`}
@@ -181,7 +181,7 @@ const AppSidebar: React.FC = () => {
                 {nav.subItems.map((subItem) => (
                   <li key={subItem.name}>
                     <Link
-                      href={subItem.path}
+                      href={"/dashboard"+subItem.path}
                       className={`menu-dropdown-item ${
                         isActive(subItem.path)
                           ? "menu-dropdown-item-active"
