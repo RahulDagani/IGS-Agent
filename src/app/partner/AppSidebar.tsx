@@ -3,13 +3,13 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useSidebar } from "../context/SidebarContext";
+import { useSidebar } from "@/context/SidebarContext";
 import {
   BoxCubeIcon,
   ChevronDownIcon,
   HorizontaLDots,
   PieChartIcon,
-} from "../icons/index";
+} from "@/icons/index";
 
 import {
   LayoutDashboard,
@@ -29,7 +29,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-import SidebarWidget from "./SidebarWidget";
+
 
 interface NavItem {
   name: string;
@@ -326,7 +326,7 @@ const AppSidebar: React.FC = () => {
         ) : (
           item.path && (
             <Link
-              href={"/admin" + item.path}
+              href={"/dashboard" + item.path}
               className={`menu-item group ${
                 isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
               }`}
@@ -433,7 +433,7 @@ const AppSidebar: React.FC = () => {
                       {item.subItems!.map((subItem) => (
                         <li key={subItem.name}>
                           <Link
-                            href={"/admin" + subItem.path}
+                            href={"/dashboard" + subItem.path}
                             className={`menu-dropdown-item ${
                               isActive(subItem.path)
                                 ? "menu-dropdown-item-active"
@@ -459,7 +459,7 @@ const AppSidebar: React.FC = () => {
             ) : (
               item.path && (
                 <Link
-                  href={"/admin" + item.path}
+                  href={"/dashboard" + item.path}
                   className={`menu-item group ${
                     isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
                   }`}
@@ -690,7 +690,7 @@ const AppSidebar: React.FC = () => {
             </div>
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
+        {isExpanded || isHovered || isMobileOpen ? null : null}
       </div>
     </aside>
   );
