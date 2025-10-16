@@ -67,7 +67,7 @@ export const navItems: NavItem[] = [
     path: "/",
   },
   {
-    name: "Students",
+    name: "Students ",
     icon: <Users size={18} />,
     subItems: [
       {
