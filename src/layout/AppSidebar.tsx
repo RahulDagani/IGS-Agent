@@ -57,7 +57,7 @@ const partnerItems: NavItem[] = [
     subItems: [
       {
         name: "Agents",
-        path: "/applications/students",
+        path: "/agents",
         icon: <Handshake size={18} />,
       },
       {
