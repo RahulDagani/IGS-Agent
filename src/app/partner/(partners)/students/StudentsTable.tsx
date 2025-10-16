@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import Badge from "@/components/ui/badge/Badge";
+
 
 interface Student {
   id: number;
@@ -87,7 +87,7 @@ export default function StudentTable() {
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    let filtered = tableData.filter((student) => {
+    const filtered = tableData.filter((student) => {
       const matchesSearch = 
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||

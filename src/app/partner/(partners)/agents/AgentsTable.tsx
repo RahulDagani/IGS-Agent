@@ -74,7 +74,7 @@ export default function AgentTable() {
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    let filtered = tableData.filter((agent) => {
+    const filtered = tableData.filter((agent) => {
       const matchesSearch = 
         agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||

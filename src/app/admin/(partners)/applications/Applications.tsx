@@ -89,10 +89,17 @@ const tableData: Application[] = [
 type SortField = keyof Application | "";
 type SortDirection = "asc" | "desc";
 
+interface FilterOptions {
+  agent: string;
+  student: string;
+  university: string;
+  course: string;
+}
+
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: any) => void;
+  onApply: (filters: FilterOptions) => void;
   agents: Array<{ email: string; name: string }>;
   students: Array<{ email: string; name: string }>;
   universities: string[];
@@ -108,18 +115,19 @@ const FilterModal: React.FC<FilterModalProps> = ({
   universities,
   courses,
 }) => {
-  const [selectedAgent, setSelectedAgent] = useState("all");
-  const [selectedStudent, setSelectedStudent] = useState("all");
-  const [selectedUniversity, setSelectedUniversity] = useState("all");
-  const [selectedCourse, setSelectedCourse] = useState("all");
+  const [selectedAgent, setSelectedAgent] = useState<string>("all");
+  const [selectedStudent, setSelectedStudent] = useState<string>("all");
+  const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
+  const [selectedCourse, setSelectedCourse] = useState<string>("all");
 
   const handleApply = () => {
-    onApply({
+    const filters: FilterOptions = {
       agent: selectedAgent,
       student: selectedStudent,
       university: selectedUniversity,
       course: selectedCourse,
-    });
+    };
+    onApply(filters);
     onClose();
   };
 
@@ -247,11 +255,11 @@ const FilterModal: React.FC<FilterModalProps> = ({
 };
 
 export default function ApplicationsTable() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [filters, setFilters] = useState({
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+  const [filters, setFilters] = useState<FilterOptions>({
     agent: "all",
     student: "all",
     university: "all",
@@ -291,7 +299,7 @@ export default function ApplicationsTable() {
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    let filtered = tableData.filter((application) => {
+    const filtered = tableData.filter((application) => {
       const matchesSearch = 
         application.university.toLowerCase().includes(searchTerm.toLowerCase()) ||
         application.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -359,7 +367,7 @@ export default function ApplicationsTable() {
     }
   };
 
-  const handleApplyFilters = (newFilters: any) => {
+  const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
   };
 
@@ -464,9 +472,8 @@ export default function ApplicationsTable() {
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
-                    { key: "student", label: "Student" },
-                    { key: "agent", label: "Agent" },
-
+                    { key: "studentName", label: "Student" },
+                    { key: "agentName", label: "Agent" },
                     { key: "university", label: "University" },
                     { key: "course", label: "Course" },
                     { key: "intake", label: "Intake" },
@@ -493,11 +500,25 @@ export default function ApplicationsTable() {
                 {filteredAndSortedData.length > 0 ? (
                   filteredAndSortedData.map((application) => (
                     <TableRow key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {application.studentName}
+                      <TableCell className="px-5 py-4 text-start">
+                        <div>
+                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                            {application.studentName}
+                          </div>
+                          <div className="text-gray-500 text-theme-xs dark:text-gray-400">
+                            {application.studentEmail}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {application.agentName}
+                      <TableCell className="px-5 py-4 text-start">
+                        <div>
+                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                            {application.agentName}
+                          </div>
+                          <div className="text-gray-500 text-theme-xs dark:text-gray-400">
+                            {application.agentEmail}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
@@ -519,11 +540,8 @@ export default function ApplicationsTable() {
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
-                        <div>
-                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {application.assignedTo}
-                          </div>
-                          
+                        <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                          {application.assignedTo}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -531,7 +549,7 @@ export default function ApplicationsTable() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      
+                     
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       No applications found matching your criteria.
