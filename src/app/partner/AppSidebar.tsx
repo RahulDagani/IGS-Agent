@@ -51,42 +51,22 @@ interface NavItemOther {
 }
 
 const partnerItems: NavItem[] = [
+
   {
-    name: "Agencies",
-    icon: <Users size={18} />,
-    subItems: [
-      {
-        name: "Agents",
-        path: "/agents",
-        icon: <Handshake size={18} />,
-      },
-      {
-        name: "Students",
-        path: "/students",
-        icon: <User size={18} />,
-      },
-      {
-        name: "Applications",
-        path: "/applications",
-        icon: <FileText size={18} />,
-      },
-      {
-        name: "Wallet",
-        path: "/formcontroller",
-        icon: <Wallet size={18} />,
-      },
-      {
-        name: "Support",
-        icon: <Mail size={18} />,
-        path: "/formcontroller",
-      },
-    ],
-  },
-  {
-    name: "Commissions",
+    name: "Students",
     icon: <Percent size={18} />,
     path: "/",
   },
+  {
+    name: "Applications",
+    icon: <Percent size={18} />,
+    path: "/",
+  },
+  {
+    name: "Programs",
+    icon: <Percent size={18} />,
+    path: "/",
+  },    
   {
     name: "Setup ",
     icon: <Settings size={18} />,
@@ -614,7 +594,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Partner Platform"
+                  "Student Management"
                 ) : (
                   <HorizontaLDots />
                 )}
