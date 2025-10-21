@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Link from "next/link";
 
 
 interface Student {
@@ -223,9 +224,12 @@ export default function StudentTable() {
                   filteredAndSortedData.map((student) => (
                     <TableRow key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
+                        <Link href={"/admin/students/"+student.id}>
+
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {student.name}
                         </span>
+                        </Link>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {student.email}

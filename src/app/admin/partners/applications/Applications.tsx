@@ -1,12 +1,5 @@
 "use client"
 import React, { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 
 interface Application {
@@ -20,6 +13,13 @@ interface Application {
   studentEmail: string;
   agentName: string;
   agentEmail: string;
+  country?: string;
+  degree?: string;
+  location?: string;
+  externalEvaluation?: string;
+  ielts?: number;
+  pte?: number;
+  duolingo?: number;
 }
 
 // Define the table data using the interface
@@ -35,6 +35,13 @@ const tableData: Application[] = [
     studentEmail: "alice.johnson@example.com",
     agentName: "John Smith",
     agentEmail: "john.smith@example.com",
+    country: "United States of America",
+    degree: "Bachelors",
+    location: "Massachusetts, United States of America",
+    externalEvaluation: "Required (WES)",
+    ielts: 7.0,
+    pte: 68,
+    duolingo: 120
   },
   {
     id: 2,
@@ -47,6 +54,13 @@ const tableData: Application[] = [
     studentEmail: "bob.wilson@example.com",
     agentName: "Sarah Johnson",
     agentEmail: "sarah.j@example.com",
+    country: "United States of America",
+    degree: "Masters",
+    location: "California, United States of America",
+    externalEvaluation: "Required (ECE)",
+    ielts: 7.5,
+    pte: 70,
+    duolingo: 125
   },
   {
     id: 3,
@@ -59,6 +73,13 @@ const tableData: Application[] = [
     studentEmail: "carol.davis@example.com",
     agentName: "Mike Chen",
     agentEmail: "mike.chen@example.com",
+    country: "United States of America",
+    degree: "Masters",
+    location: "Massachusetts, United States of America",
+    externalEvaluation: "Not Required",
+    ielts: 7.0,
+    pte: 65,
+    duolingo: 115
   },
   {
     id: 4,
@@ -71,6 +92,13 @@ const tableData: Application[] = [
     studentEmail: "david.brown@example.com",
     agentName: "Emily Davis",
     agentEmail: "emily.davis@example.com",
+    country: "Canada",
+    degree: "Bachelors",
+    location: "Ontario, Canada",
+    externalEvaluation: "Required (WES)",
+    ielts: 6.5,
+    pte: 60,
+    duolingo: 110
   },
   {
     id: 5,
@@ -83,6 +111,13 @@ const tableData: Application[] = [
     studentEmail: "eva.martinez@example.com",
     agentName: "Robert Wilson",
     agentEmail: "r.wilson@example.com",
+    country: "Canada",
+    degree: "Bachelors",
+    location: "British Columbia, Canada",
+    externalEvaluation: "Required (ICAS)",
+    ielts: 6.5,
+    pte: 58,
+    duolingo: 105
   },
 ];
 
@@ -141,8 +176,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex z-999999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Apply Filters
@@ -254,10 +289,176 @@ const FilterModal: React.FC<FilterModalProps> = ({
   );
 };
 
+// Icons component for the card
+const CardIcons = {
+  GraduationCap: () => (
+    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v6l9-5M12 20l-9-5" />
+    </svg>
+  ),
+  MapMarker: () => (
+    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  FileAlt: () => (
+    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+};
+
+const ApplicationCard: React.FC<{ application: Application }> = ({ application }) => {
+  const getStatusColor = (status: Application["status"]) => {
+    switch (status) {
+      case "Applied":
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+      case "Received":
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
+      case "Submitted to University":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+      case "Documents Pending":
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300";
+    }
+  };
+
+  return (
+    <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+      {/* Status Badge */}
+        <div className="flex justify-end">
+             <span className={`text-xs font-semibold px-3 py-1 rounded-full mb-2 ${getStatusColor(application.status)}`}>
+          {application.status}
+        </span>
+        </div>
+       
+      {/* Top Section */}
+      <div className="flex items-start justify-between">
+        {/* University Info */}
+        <div className="flex items-start gap-3">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center text-white font-bold text-sm">
+            {application.university.split(' ').map(word => word[0]).join('')}
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-gray-800 dark:text-white leading-snug">
+              {application.course}
+            </h2>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+              {application.university}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {application.country}
+            </p>
+          </div>
+        </div>
+
+        
+      </div>
+
+      <div className="border-t border-gray-100 dark:border-gray-700 mt-4 pt-4 space-y-3">
+       
+        {/* Degree */}
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <CardIcons.GraduationCap />
+          <span>
+            <strong className="font-semibold text-gray-800 dark:text-white">Degree:</strong>{" "}
+            {application.degree}
+          </span>
+        </div>
+
+        
+
+        {/* Location */}
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <CardIcons.MapMarker />
+          <span>
+            <strong className="font-semibold text-gray-800 dark:text-white">Location:</strong>{" "}
+            {application.location}
+          </span>
+        </div>
+
+        {/* External Evaluation */}
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <CardIcons.FileAlt />
+          <span>
+            <strong className="font-semibold text-gray-800 dark:text-white">
+              External Evaluation:
+            </strong>{" "}
+            {application.externalEvaluation}
+          </span>
+        </div>
+      </div>
+
+      {/* Entry Requirements */}
+      <div className="mt-5">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-2">
+          ENTRY REQUIREMENTS
+        </h3>
+        <div className="flex gap-2 flex-wrap">
+          {application.ielts && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
+              IELTS: <span className="text-gray-900 dark:text-white">{application.ielts}</span>
+            </span>
+          )}
+          {application.pte && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
+              PTE: <span className="text-gray-900 dark:text-white">{application.pte}</span>
+            </span>
+          )}
+          {application.duolingo && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
+              Duolingo: <span className="text-gray-900 dark:text-white">{application.duolingo}</span>
+            </span>
+          )}
+        </div>
+      </div>
+      
+       
+
+      <div className="mt-4">
+        <p className="text-sm font-semibold text-red-500 mb-3">Pending</p>
+        <div className="flex justify-between items-center text-center">
+          <div className="flex flex-col items-center">
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mb-1">
+              <span className="text-red-500 text-lg font-bold">✕</span>
+            </div>
+            <p className="text-xs dark:text-white">Common Form</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mb-1">
+              <span className="text-red-500 text-lg font-bold">✕</span>
+            </div>
+            <p className="text-xs dark:text-white">Common Docs</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mb-1">
+              <span className="text-red-500 text-lg font-bold">✕</span>
+            </div>
+            <p className="text-xs dark:text-white ">Specific Docs</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="mt-6 flex gap-3">
+        <button className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all">
+          LIVE CHAT
+        </button>
+        <button className="flex-1 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-900/30 font-semibold py-2 rounded-lg text-sm transition-all">
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function ApplicationsTable() {
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [sortField, setSortField] = useState<SortField>("");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortField] = useState<SortField>("");
+  const [sortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [filters, setFilters] = useState<FilterOptions>({
     agent: "all",
@@ -298,74 +499,54 @@ export default function ApplicationsTable() {
   }, []);
 
   // Filter and sort data
-  const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((application) => {
-      const matchesSearch = 
-        application.university.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        application.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        application.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        application.assignedTo.toLowerCase().includes(searchTerm.toLowerCase());
+const filteredAndSortedData = useMemo(() => {
+  const filtered = tableData.filter((application) => {
+    
+    const matchesAgent = filters.agent === "all" || application.agentEmail === filters.agent;
+    const matchesStudent = filters.student === "all" || application.studentEmail === filters.student;
+    const matchesUniversity = filters.university === "all" || application.university === filters.university;
+    const matchesCourse = filters.course === "all" || application.course === filters.course;
+    
+    return matchesAgent && matchesStudent && matchesUniversity && matchesCourse;
+  });
+
+  // Sorting
+  if (sortField) {
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
       
-      const matchesAgent = filters.agent === "all" || application.agentEmail === filters.agent;
-      const matchesStudent = filters.student === "all" || application.studentEmail === filters.student;
-      const matchesUniversity = filters.university === "all" || application.university === filters.university;
-      const matchesCourse = filters.course === "all" || application.course === filters.course;
+      // Handle undefined values
+      if (aValue === undefined && bValue === undefined) return 0;
+      if (aValue === undefined) return sortDirection === "asc" ? 1 : -1;
+      if (bValue === undefined) return sortDirection === "asc" ? -1 : 1;
       
-      return matchesSearch && matchesAgent && matchesStudent && matchesUniversity && matchesCourse;
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) {
+        return sortDirection === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === "asc" ? 1 : -1;
+      }
+      return 0;
     });
+  }
 
-    // Sorting
-    if (sortField) {
-      filtered.sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-        
-        if (aValue < bValue) {
-          return sortDirection === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortDirection === "asc" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
+  return filtered;
+}, [filters, sortField, sortDirection]);
 
-    return filtered;
-  }, [searchTerm, filters, sortField, sortDirection]);
-
-  const handleSort = (field: keyof Application) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const getSortIcon = (field: keyof Application) => {
-    if (sortField !== field) return "↕️";
-    return sortDirection === "asc" ? "↑" : "↓";
-  };
-
-  const getStatusColor = (status: Application["status"]) => {
-    switch (status) {
-      case "Applied":
-        return "primary";
-      case "Received":
-        return "warning";
-      case "Submitted to University":
-        return "success";
-      case "Documents Pending":
-        return "error";
-      default:
-        return "primary";
-    }
-  };
+  // const handleSort = (field: keyof Application) => {
+  //   if (sortField === field) {
+  //     setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+  //   } else {
+  //     setSortField(field);
+  //     setSortDirection("asc");
+  //   }
+  // };
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
@@ -387,33 +568,7 @@ export default function ApplicationsTable() {
     <div className="space-y-4">
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        {/* Search Input */}
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by university, course, student, or assigned to..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
+        
 
         {/* Filter Button and Active Filters */}
         <div className="flex items-center gap-3">
@@ -463,103 +618,22 @@ export default function ApplicationsTable() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[1000px]">
-            <Table>
-              {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                <TableRow>
-                  {[
-                    { key: "studentName", label: "Student" },
-                    { key: "agentName", label: "Agent" },
-                    { key: "university", label: "University" },
-                    { key: "course", label: "Course" },
-                    { key: "intake", label: "Intake" },
-                    { key: "status", label: "Status" },
-                    { key: "assignedTo", label: "Assigned" },
-                  ].map(({ key, label }) => (
-                    <TableCell
-                      key={key}
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => handleSort(key as keyof Application)}
-                    >
-                      <div className="flex items-center gap-1">
-                        {label}
-                        <span className="text-xs">{getSortIcon(key as keyof Application)}</span>
-                      </div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHeader>
-
-              {/* Table Body */}
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((application) => (
-                    <TableRow key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="px-5 py-4 text-start">
-                        <div>
-                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {application.studentName}
-                          </div>
-                          <div className="text-gray-500 text-theme-xs dark:text-gray-400">
-                            {application.studentEmail}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div>
-                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {application.agentName}
-                          </div>
-                          <div className="text-gray-500 text-theme-xs dark:text-gray-400">
-                            {application.agentEmail}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {application.university}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-start text-theme-sm dark:text-white/90">
-                        {application.course}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {application.intake}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getStatusColor(application.status)}
-                        >
-                          {application.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {application.assignedTo}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                     
-                      className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
-                    >
-                      No applications found matching your criteria.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredAndSortedData.length > 0 ? (
+          filteredAndSortedData.map((application) => (
+            <ApplicationCard key={application.id} application={application} />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-12">
+            <div className="text-gray-500 dark:text-gray-400 text-lg mb-2">
+              No applications found matching your criteria.
+            </div>
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              Try adjusting your filters
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Results Count */}

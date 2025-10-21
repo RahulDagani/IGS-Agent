@@ -10,7 +10,7 @@ interface CourseFormData {
   universityName: string;
   discipline: string;
   studyLevel: string;
-  intake: string;
+  // intake: string;
   externalEvaluation: "yes" | "no";
   popular: "yes" | "no";
   
@@ -52,7 +52,7 @@ const fetchCourse = async (id: string): Promise<CourseFormData> => {
     universityName: "Stanford University",
     discipline: "Computer Science",
     studyLevel: "Postgraduate",
-    intake: "Fall 2024",
+    // intake: "Fall 2024",
     externalEvaluation: "yes",
     popular: "yes",
     greScore: "320",
@@ -97,7 +97,7 @@ export default function EditCourse() {
     universityName: "",
     discipline: "",
     studyLevel: "",
-    intake: "",
+    // intake: "",
     externalEvaluation: "no",
     popular: "no",
     
@@ -227,14 +227,14 @@ export default function EditCourse() {
     "Foundation"
   ];
 
-  const intakes = [
-    "Fall 2024",
-    "Spring 2025",
-    "Summer 2025",
-    "Fall 2025",
-    "Spring 2026",
-    "Rolling"
-  ];
+  // const intakes = [
+  //   "Fall 2024",
+  //   "Spring 2025",
+  //   "Summer 2025",
+  //   "Fall 2025",
+  //   "Spring 2026",
+  //   "Rolling"
+  // ];
 
   const tabs = [
     { id: "basics", label: "Basics", icon: Book },
@@ -360,7 +360,7 @@ export default function EditCourse() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Intake */}
-        <div>
+        {/* <div>
           <label htmlFor="intake" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Intake *
           </label>
@@ -382,7 +382,7 @@ export default function EditCourse() {
               ))}
             </select>
           </div>
-        </div>
+        </div> */}
 
         {/* Popular */}
         <div>

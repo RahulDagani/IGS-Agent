@@ -10,7 +10,7 @@ interface CourseFormData {
   universityName: string;
   discipline: string;
   studyLevel: string;
-  intake: string;
+  // intake: string;
   externalEvaluation: "yes" | "no";
   popular: "yes" | "no";
   
@@ -52,7 +52,7 @@ export default function AddCourse() {
     universityName: "",
     discipline: "",
     studyLevel: "",
-    intake: "",
+    // intake: "",
     externalEvaluation: "no",
     popular: "no",
     
@@ -151,13 +151,13 @@ export default function AddCourse() {
     "Foundation"
   ];
 
-  const intakes = [
-    "Fall 2024",
-    "Spring 2025",
-    "Summer 2025",
-    "Fall 2025",
-    "Spring 2026"
-  ];
+  // const intakes = [
+  //   "Fall 2024",
+  //   "Spring 2025",
+  //   "Summer 2025",
+  //   "Fall 2025",
+  //   "Spring 2026"
+  // ];
 
   const tabs = [
     { id: "basics", label: "Basics", icon: Book },
@@ -283,7 +283,7 @@ export default function AddCourse() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Intake */}
-        <div>
+        {/* <div>
           <label htmlFor="intake" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Intake *
           </label>
@@ -305,7 +305,7 @@ export default function AddCourse() {
               ))}
             </select>
           </div>
-        </div>
+        </div> */}
 
         {/* Popular */}
         <div>

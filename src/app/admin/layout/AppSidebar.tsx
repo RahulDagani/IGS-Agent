@@ -193,12 +193,12 @@ const userItems: NavItem[] = [
   {
     name: "Users",
     icon: <UserPlus size={18} />,
-    path: "/applications/students",
+    path: "/users",
   },
   {
     name: "Roles",
     icon: <Users size={18} />,
-    path: "/",
+    path: "/roles",
   },
 ]
 

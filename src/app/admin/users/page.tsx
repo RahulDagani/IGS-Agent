@@ -9,190 +9,123 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
-import { Edit, Trash, Book, Building2, GraduationCap, Star, DollarSign } from "lucide-react";
-// import { Eye } from "lucide-react";
+import { Edit, Trash, Plus, Mail, Phone, User, IdCard } from "lucide-react";
 
-
-interface Course {
+interface User {
   id: number;
-  courseName: string;
-  universityName: string;
-  discipline: string;
-  studyLevel: string;
-  // intake: string;
-  applicationFee: string;
-  externalEvaluation: "yes" | "no";
-  popular: "yes" | "no";
-  status: "active" | "inactive";
+  name: string;
+  email: string;
+  employeeCode: string;
+  mobile: string;
+  role: "admin" | "manager" | "staff" | "viewer";
+  registeredBy: string;
   createdAt: string;
+  status: "active" | "inactive";
 }
 
 // Define the table data using the interface
-const tableData: Course[] = [
+const tableData: User[] = [
   {
     id: 1,
-    courseName: "Master of Computer Science",
-    universityName: "Stanford University",
-    discipline: "Computer Science",
-    studyLevel: "Postgraduate",
-    // intake: "Fall 2024",
-    applicationFee: "$100",
-    externalEvaluation: "yes",
-    popular: "yes",
-    status: "active",
+    name: "John Smith",
+    email: "john.smith@university.com",
+    employeeCode: "EMP001",
+    mobile: "+1 (555) 123-4567",
+    role: "admin",
+    registeredBy: "System",
     createdAt: "2024-01-15",
+    status: "active",
   },
   {
     id: 2,
-    courseName: "MBA",
-    universityName: "Harvard University",
-    discipline: "Business Administration",
-    studyLevel: "Postgraduate",
-    // intake: "Fall 2024",
-    applicationFee: "$250",
-    externalEvaluation: "yes",
-    popular: "yes",
-    status: "active",
+    name: "Sarah Johnson",
+    email: "sarah.j@university.com",
+    employeeCode: "EMP002",
+    mobile: "+1 (555) 234-5678",
+    role: "manager",
+    registeredBy: "John Smith",
     createdAt: "2024-02-20",
+    status: "active",
   },
   {
     id: 3,
-    courseName: "Bachelor of Engineering",
-    universityName: "MIT",
-    discipline: "Engineering",
-    studyLevel: "Undergraduate",
-    // intake: "Spring 2025",
-    applicationFee: "$75",
-    externalEvaluation: "no",
-    popular: "no",
-    status: "active",
-    createdAt: "2024-01-28",
+    name: "Mike Chen",
+    email: "mike.chen@university.com",
+    employeeCode: "EMP003",
+    mobile: "+1 (555) 345-6789",
+    role: "staff",
+    registeredBy: "Sarah Johnson",
+    createdAt: "2024-03-10",
+    status: "inactive",
   },
   {
     id: 4,
-    courseName: "PhD in Physics",
-    universityName: "University of Oxford",
-    discipline: "Physics",
-    studyLevel: "PhD",
-    // intake: "Fall 2024",
-    applicationFee: "$120",
-    externalEvaluation: "yes",
-    popular: "no",
-    status: "inactive",
-    createdAt: "2024-03-10",
+    name: "Emily Davis",
+    email: "emily.davis@university.com",
+    employeeCode: "EMP004",
+    mobile: "+1 (555) 456-7890",
+    role: "viewer",
+    registeredBy: "John Smith",
+    createdAt: "2024-01-28",
+    status: "active",
   },
   {
     id: 5,
-    courseName: "Diploma in Data Science",
-    universityName: "University of Toronto",
-    discipline: "Data Science",
-    studyLevel: "Diploma",
-    // intake: "Summer 2025",
-    applicationFee: "$80",
-    externalEvaluation: "no",
-    popular: "yes",
+    name: "Robert Wilson",
+    email: "robert.w@university.com",
+    employeeCode: "EMP005",
+    mobile: "+1 (555) 567-8901",
+    role: "staff",
+    registeredBy: "Sarah Johnson",
+    createdAt: "2024-04-05",
     status: "active",
-    createdAt: "2024-02-05",
-  },
-  {
-    id: 6,
-    courseName: "Bachelor of Arts",
-    universityName: "University of Cambridge",
-    discipline: "Arts & Humanities",
-    studyLevel: "Undergraduate",
-    // intake: "Fall 2024",
-    applicationFee: "$90",
-    externalEvaluation: "no",
-    popular: "no",
-    status: "active",
-    createdAt: "2024-01-20",
-  },
-  {
-    id: 7,
-    courseName: "Master of Public Health",
-    universityName: "Johns Hopkins University",
-    discipline: "Medicine",
-    studyLevel: "Postgraduate",
-    // intake: "Spring 2025",
-    applicationFee: "$150",
-    externalEvaluation: "yes",
-    popular: "yes",
-    status: "active",
-    createdAt: "2024-03-15",
-  },
-  {
-    id: 8,
-    courseName: "Certificate in Digital Marketing",
-    universityName: "University of Sydney",
-    discipline: "Marketing",
-    studyLevel: "Certificate",
-    // intake: "Rolling",
-    applicationFee: "$60",
-    externalEvaluation: "no",
-    popular: "yes",
-    status: "inactive",
-    createdAt: "2024-02-28",
   },
 ];
 
-type SortField = keyof Course | "";
+type SortField = keyof User | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
-  universityName: string;
-  discipline: string;
-  studyLevel: string;
+  role: string;
   status: string;
-  popular: string;
-  externalEvaluation: string;
+  registeredBy: string;
 }
 
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterOptions) => void;
-  universities: string[];
-  disciplines: string[];
-  studyLevels: string[];
+  roles: string[];
   statuses: string[];
+  registeredByUsers: string[];
 }
 
 const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
   onApply,
-  universities,
-  disciplines,
-  studyLevels,
+  roles,
   statuses,
+  registeredByUsers,
 }) => {
-  const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
-  const [selectedDiscipline, setSelectedDiscipline] = useState<string>("all");
-  const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>("all");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedPopular, setSelectedPopular] = useState<string>("all");
-  const [selectedExternalEvaluation, setSelectedExternalEvaluation] = useState<string>("all");
+  const [selectedRegisteredBy, setSelectedRegisteredBy] = useState<string>("all");
 
   const handleApply = () => {
     const filters: FilterOptions = {
-      universityName: selectedUniversity,
-      discipline: selectedDiscipline,
-      studyLevel: selectedStudyLevel,
+      role: selectedRole,
       status: selectedStatus,
-      popular: selectedPopular,
-      externalEvaluation: selectedExternalEvaluation,
+      registeredBy: selectedRegisteredBy,
     };
     onApply(filters);
     onClose();
   };
 
   const handleReset = () => {
-    setSelectedUniversity("all");
-    setSelectedDiscipline("all");
-    setSelectedStudyLevel("all");
+    setSelectedRole("all");
     setSelectedStatus("all");
-    setSelectedPopular("all");
-    setSelectedExternalEvaluation("all");
+    setSelectedRegisteredBy("all");
   };
 
   if (!isOpen) return null;
@@ -202,7 +135,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
       <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Filter Courses
+            Filter Users
           </h3>
           <button
             onClick={onClose}
@@ -215,58 +148,20 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
 
         <div className="space-y-4">
-          {/* University Filter */}
+          {/* Role Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              University
+              Role
             </label>
             <select
-              value={selectedUniversity}
-              onChange={(e) => setSelectedUniversity(e.target.value)}
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             >
-              <option value="all">All Universities</option>
-              {universities.map((university) => (
-                <option key={university} value={university}>
-                  {university}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Discipline Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Discipline
-            </label>
-            <select
-              value={selectedDiscipline}
-              onChange={(e) => setSelectedDiscipline(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Disciplines</option>
-              {disciplines.map((discipline) => (
-                <option key={discipline} value={discipline}>
-                  {discipline}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Study Level Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Study Level
-            </label>
-            <select
-              value={selectedStudyLevel}
-              onChange={(e) => setSelectedStudyLevel(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Study Levels</option>
-              {studyLevels.map((level) => (
-                <option key={level} value={level}>
-                  {level}
+              <option value="all">All Roles</option>
+              {roles.map((role) => (
+                <option key={role} value={role}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
                 </option>
               ))}
             </select>
@@ -291,35 +186,22 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </select>
           </div>
 
-          {/* Popular Filter */}
+          {/* Registered By Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Popular Course
+              Registered By
             </label>
             <select
-              value={selectedPopular}
-              onChange={(e) => setSelectedPopular(e.target.value)}
+              value={selectedRegisteredBy}
+              onChange={(e) => setSelectedRegisteredBy(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             >
-              <option value="all">All Courses</option>
-              <option value="yes">Popular Only</option>
-              <option value="no">Not Popular</option>
-            </select>
-          </div>
-
-          {/* External Evaluation Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              External Evaluation
-            </label>
-            <select
-              value={selectedExternalEvaluation}
-              onChange={(e) => setSelectedExternalEvaluation(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Courses</option>
-              <option value="yes">Required</option>
-              <option value="no">Not Required</option>
+              <option value="all">All Users</option>
+              {registeredByUsers.map((user) => (
+                <option key={user} value={user}>
+                  {user}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -343,57 +225,46 @@ const FilterModal: React.FC<FilterModalProps> = ({
   );
 };
 
-export default function CoursesTable() {
+export default function UsersTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [filters, setFilters] = useState<FilterOptions>({
-    universityName: "all",
-    discipline: "all",
-    studyLevel: "all",
+    role: "all",
     status: "all",
-    popular: "all",
-    externalEvaluation: "all",
+    registeredBy: "all",
   });
 
   // Get unique values for filters
-  const universities = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.universityName)));
-  }, []);
-
-  const disciplines = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.discipline)));
-  }, []);
-
-  const studyLevels = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.studyLevel)));
+  const roles = useMemo(() => {
+    return Array.from(new Set(tableData.map(user => user.role)));
   }, []);
 
   const statuses = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.status)));
+    return Array.from(new Set(tableData.map(user => user.status)));
+  }, []);
+
+  const registeredByUsers = useMemo(() => {
+    return Array.from(new Set(tableData.map(user => user.registeredBy)));
   }, []);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((course) => {
+    const filtered = tableData.filter((user) => {
       const matchesSearch = 
-        course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.universityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.discipline.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.studyLevel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        // course.intake.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.applicationFee.toLowerCase().includes(searchTerm.toLowerCase());
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.mobile.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.registeredBy.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesUniversity = filters.universityName === "all" || course.universityName === filters.universityName;
-      const matchesDiscipline = filters.discipline === "all" || course.discipline === filters.discipline;
-      const matchesStudyLevel = filters.studyLevel === "all" || course.studyLevel === filters.studyLevel;
-      const matchesStatus = filters.status === "all" || course.status === filters.status;
-      const matchesPopular = filters.popular === "all" || course.popular === filters.popular;
-      const matchesExternalEvaluation = filters.externalEvaluation === "all" || course.externalEvaluation === filters.externalEvaluation;
+      const matchesRole = filters.role === "all" || user.role === filters.role;
+      const matchesStatus = filters.status === "all" || user.status === filters.status;
+      const matchesRegisteredBy = filters.registeredBy === "all" || user.registeredBy === filters.registeredBy;
       
-      return matchesSearch && matchesUniversity && matchesDiscipline && matchesStudyLevel && 
-             matchesStatus && matchesPopular && matchesExternalEvaluation;
+      return matchesSearch && matchesRole && matchesStatus && matchesRegisteredBy;
     });
 
     // Sorting
@@ -420,7 +291,7 @@ export default function CoursesTable() {
     return filtered;
   }, [searchTerm, filters, sortField, sortDirection]);
 
-  const handleSort = (field: keyof Course) => {
+  const handleSort = (field: keyof User) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -429,12 +300,27 @@ export default function CoursesTable() {
     }
   };
 
-  const getSortIcon = (field: keyof Course) => {
+  const getSortIcon = (field: keyof User) => {
     if (sortField !== field) return "↕️";
     return sortDirection === "asc" ? "↑" : "↓";
   };
 
-  const getStatusColor = (status: Course["status"]) => {
+  const getRoleColor = (role: User["role"]) => {
+    switch (role) {
+      case "admin":
+        return "error";
+      case "manager":
+        return "warning";
+      case "staff":
+        return "info";
+      case "viewer":
+        return "primary";
+      default:
+        return "primary";
+    }
+  };
+
+  const getStatusColor = (status: User["status"]) => {
     switch (status) {
       case "active":
         return "success";
@@ -443,14 +329,6 @@ export default function CoursesTable() {
       default:
         return "primary";
     }
-  };
-
-  const getPopularColor = (popular: Course["popular"]) => {
-    return popular === "yes" ? "warning" : "primary";
-  };
-
-  const getExternalEvaluationColor = (externalEvaluation: Course["externalEvaluation"]) => {
-    return externalEvaluation === "yes" ? "info" : "primary";
   };
 
   const formatDate = (dateString: string) => {
@@ -465,24 +343,20 @@ export default function CoursesTable() {
     setFilters(newFilters);
   };
 
-  const hasActiveFilters = filters.universityName !== "all" || filters.discipline !== "all" || 
-                          filters.studyLevel !== "all" || filters.status !== "all" ||
-                          filters.popular !== "all" || filters.externalEvaluation !== "all";
+  const hasActiveFilters = filters.role !== "all" || filters.status !== "all" || 
+                          filters.registeredBy !== "all";
 
   const clearAllFilters = () => {
     setFilters({
-      universityName: "all",
-      discipline: "all",
-      studyLevel: "all",
+      role: "all",
       status: "all",
-      popular: "all",
-      externalEvaluation: "all",
+      registeredBy: "all",
     });
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this course?")) {
-      console.log("Delete course:", id);
+    if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      console.log("Delete user:", id);
       // Perform delete operation
     }
   };
@@ -492,39 +366,39 @@ export default function CoursesTable() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Courses</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
             {filteredAndSortedData.length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Active Courses</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Active Users</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(c => c.status === 'active').length}
+            {filteredAndSortedData.filter(u => u.status === 'active').length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Popular Courses</div>
-          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {filteredAndSortedData.filter(c => c.popular === 'yes').length}
+          <div className="text-sm text-gray-500 dark:text-gray-400">Admin Users</div>
+          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+            {filteredAndSortedData.filter(u => u.role === 'admin').length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Universities</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Roles</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Array.from(new Set(filteredAndSortedData.map(c => c.universityName))).length}
+            {Array.from(new Set(filteredAndSortedData.map(u => u.role))).length}
           </div>
         </div>
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between">
         {/* Search Input */}
         <div className="flex-1 max-w-md">
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by course name, university, discipline, study level, or fee..."
+              placeholder="Search by name, email, employee code, mobile, or role..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
@@ -566,12 +440,10 @@ export default function CoursesTable() {
             </svg>
             Apply Filters
           </button>
-          <Link href="/admin/courses/add">
+          <Link href="/admin/users/add">
             <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Course
+              <Plus size={18} />
+              Add User
             </button>
           </Link>
         </div>
@@ -580,19 +452,9 @@ export default function CoursesTable() {
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2">
-          {filters.universityName !== "all" && (
+          {filters.role !== "all" && (
             <Badge size="sm" color="primary">
-              University: {filters.universityName}
-            </Badge>
-          )}
-          {filters.discipline !== "all" && (
-            <Badge size="sm" color="primary">
-              Discipline: {filters.discipline}
-            </Badge>
-          )}
-          {filters.studyLevel !== "all" && (
-            <Badge size="sm" color="primary">
-              Study Level: {filters.studyLevel}
+              Role: {filters.role}
             </Badge>
           )}
           {filters.status !== "all" && (
@@ -600,14 +462,9 @@ export default function CoursesTable() {
               Status: {filters.status}
             </Badge>
           )}
-          {filters.popular !== "all" && (
+          {filters.registeredBy !== "all" && (
             <Badge size="sm" color="primary">
-              Popular: {filters.popular === "yes" ? "Yes" : "No"}
-            </Badge>
-          )}
-          {filters.externalEvaluation !== "all" && (
-            <Badge size="sm" color="primary">
-              External Evaluation: {filters.externalEvaluation === "yes" ? "Required" : "Not Required"}
+              Registered By: {filters.registeredBy}
             </Badge>
           )}
         </div>
@@ -616,21 +473,19 @@ export default function CoursesTable() {
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[1400px]">
+          <div className="min-w-[1200px]">
             <Table>
               {/* Table Header */}
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
                     { key: "id", label: "ID" },
-                    { key: "courseName", label: "Course Name" },
-                    { key: "universityName", label: "University" },
-                    { key: "discipline", label: "Discipline" },
-                    { key: "studyLevel", label: "Study Level" },
-                    // { key: "intake", label: "Intake" },
-                    { key: "applicationFee", label: "Application Fee" },
-                    { key: "externalEvaluation", label: "Ext. Evaluation" },
-                    { key: "popular", label: "Popular" },
+                    { key: "name", label: "Name" },
+                    { key: "email", label: "Email" },
+                    { key: "employeeCode", label: "Employee Code" },
+                    { key: "mobile", label: "Mobile" },
+                    { key: "role", label: "Role" },
+                    { key: "registeredBy", label: "Registered By" },
                     { key: "status", label: "Status" },
                     { key: "createdAt", label: "Created At" },
                     { key: "action", label: "Action" },
@@ -639,12 +494,12 @@ export default function CoursesTable() {
                       key={key}
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => key !== "action" ? handleSort(key as keyof Course) : undefined}
+                      onClick={() => key !== "action" ? handleSort(key as keyof User) : undefined}
                     >
                       <div className="flex items-center gap-1">
                         {label}
                         {key !== "action" && (
-                          <span className="text-xs">{getSortIcon(key as keyof Course)}</span>
+                          <span className="text-xs">{getSortIcon(key as keyof User)}</span>
                         )}
                       </div>
                     </TableCell>
@@ -655,116 +510,86 @@ export default function CoursesTable() {
               {/* Table Body */}
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                 {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((course) => (
-                    <TableRow key={course.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  filteredAndSortedData.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
                         <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          #{course.id}
+                          #{user.id}
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                            <Book size={16} className="text-gray-600 dark:text-gray-400" />
+                            <User size={16} className="text-gray-600 dark:text-gray-400" />
                           </div>
                           <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {course.courseName}
+                            {user.name}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
-                          <Building2 size={14} className="text-gray-400" />
+                          <Mail size={14} className="text-gray-400" />
                           <span className="text-gray-600 text-theme-sm dark:text-gray-400">
-                            {course.universityName}
+                            {user.email}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
-                        <Badge size="sm" color="info">
-                          {course.discipline}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
-                          <GraduationCap size={14} className="text-gray-400" />
-                          <Badge size="sm" color="primary">
-                            {course.studyLevel}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      {/* <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
+                          <IdCard size={14} className="text-gray-400" />
                           <span className="text-gray-600 text-theme-sm dark:text-gray-400">
-                            {course.intake}
+                            {user.employeeCode}
                           </span>
                         </div>
-                      </TableCell> */}
+                      </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
-                          <DollarSign size={14} className="text-gray-400" />
+                          <Phone size={14} className="text-gray-400" />
                           <span className="text-gray-600 text-theme-sm dark:text-gray-400">
-                            {course.applicationFee}
+                            {user.mobile}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getExternalEvaluationColor(course.externalEvaluation)}
+                          color={getRoleColor(user.role)}
                         >
-                          {course.externalEvaluation === "yes" ? "Required" : "Not Required"}
+                          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start">
+                        <div className="text-gray-600 text-theme-sm dark:text-gray-400">
+                          {user.registeredBy}
+                        </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getPopularColor(course.popular)}
+                          color={getStatusColor(user.status)}
                         >
-                          {course.popular === "yes" ? (
-                            <div className="flex items-center gap-1">
-                              <Star size={12} className="fill-current" />
-                              Popular
-                            </div>
-                          ) : (
-                            "Standard"
-                          )}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getStatusColor(course.status)}
-                        >
-                          {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
+                          {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="text-gray-500 text-theme-sm dark:text-gray-400">
-                          {formatDate(course.createdAt)}
+                          {formatDate(user.createdAt)}
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
-                          {/* <Link
-                            href={`/admin/courses/view/${course.id}`}
-                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                            title="View Course"
-                          >
-                            <Eye size={18} />
-                          </Link> */}
                           <Link
-                            href={`/admin/universities/courses/edit/${course.id}`}
+                            href={`/admin/users/edit/${user.id}`}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            title="Edit Course"
+                            title="Edit User"
                           >
                             <Edit size={18} />
                           </Link>
                           <button
-                            onClick={() => handleDelete(course.id)}
+                            onClick={() => handleDelete(user.id)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                            title="Delete Course"
+                            title="Delete User"
                           >
                             <Trash size={18} />
                           </button>
@@ -778,7 +603,7 @@ export default function CoursesTable() {
                       
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
-                      No courses found matching your criteria.
+                      No users found matching your criteria.
                     </TableCell>
                   </TableRow>
                 )}
@@ -790,7 +615,7 @@ export default function CoursesTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} courses
+        Showing {filteredAndSortedData.length} of {tableData.length} users
       </div>
 
       {/* Filter Modal */}
@@ -798,10 +623,9 @@ export default function CoursesTable() {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onApply={handleApplyFilters}
-        universities={universities}
-        disciplines={disciplines}
-        studyLevels={studyLevels}
+        roles={roles}
         statuses={statuses}
+        registeredByUsers={registeredByUsers}
       />
     </div>
   );

@@ -118,7 +118,6 @@ type SortField = keyof Application | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
-  student: string;
   university: string;
   course: string;
 }
@@ -127,7 +126,6 @@ interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterOptions) => void;
-  students: Array<{ email: string; name: string }>;
   universities: string[];
   courses: string[];
 }
@@ -136,17 +134,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
   onApply,
-  students,
   universities,
   courses,
 }) => {
-  const [selectedStudent, setSelectedStudent] = useState<string>("all");
   const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
   const [selectedCourse, setSelectedCourse] = useState<string>("all");
 
   const handleApply = () => {
     const filters: FilterOptions = {
-      student: selectedStudent,
       university: selectedUniversity,
       course: selectedCourse,
     };
@@ -155,7 +150,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const handleReset = () => {
-    setSelectedStudent("all");
     setSelectedUniversity("all");
     setSelectedCourse("all");
   };
@@ -182,24 +176,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
         <div className="space-y-4">
          
 
-          {/* Student Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select Student
-            </label>
-            <select
-              value={selectedStudent}
-              onChange={(e) => setSelectedStudent(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Students</option>
-              {students.map((student) => (
-                <option key={student.email} value={student.email}>
-                  {student.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          
 
           {/* University Filter */}
           <div>
@@ -431,7 +408,6 @@ export default function ApplicationsTable() {
   const [sortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [filters, setFilters] = useState<FilterOptions>({
-    student: "all",
     university: "all",
     course: "all",
   });
@@ -439,16 +415,7 @@ export default function ApplicationsTable() {
   // Get unique values for filters
 
 
-  const students = useMemo(() => {
-    return Array.from(
-      new Map(
-        tableData.map(app => [app.studentEmail, {
-          email: app.studentEmail,
-          name: app.studentName
-        }])
-      ).values()
-    );
-  }, []);
+ 
 
   const universities = useMemo(() => {
     return Array.from(new Set(tableData.map(app => app.university)));
@@ -462,11 +429,10 @@ export default function ApplicationsTable() {
 const filteredAndSortedData = useMemo(() => {
   const filtered = tableData.filter((application) => {
     
-    const matchesStudent = filters.student === "all" || application.studentEmail === filters.student;
     const matchesUniversity = filters.university === "all" || application.university === filters.university;
     const matchesCourse = filters.course === "all" || application.course === filters.course;
     
-    return matchesStudent && matchesUniversity && matchesCourse;
+    return matchesUniversity && matchesCourse;
   });
 
   // Sorting
@@ -511,12 +477,10 @@ const filteredAndSortedData = useMemo(() => {
     setFilters(newFilters);
   };
 
-  const hasActiveFilters = filters.student !== "all" || 
-                          filters.university !== "all" || filters.course !== "all";
+  const hasActiveFilters = filters.university !== "all" || filters.course !== "all";
 
   const clearAllFilters = () => {
     setFilters({
-      student: "all",
       university: "all",
       course: "all",
     });
@@ -554,11 +518,7 @@ const filteredAndSortedData = useMemo(() => {
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2">
          
-          {filters.student !== "all" && (
-            <Badge size="sm" color="primary">
-              Student: {students.find(s => s.email === filters.student)?.name}
-            </Badge>
-          )}
+          
           {filters.university !== "all" && (
             <Badge size="sm" color="primary">
               University: {filters.university}
@@ -600,7 +560,6 @@ const filteredAndSortedData = useMemo(() => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onApply={handleApplyFilters}
-        students={students}
         universities={universities}
         courses={courses}
       />
