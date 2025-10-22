@@ -1,7 +1,7 @@
 "use client"
 import { ArrowRight, GraduationCap, FileText, Files, MapPin } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+// import { useParams } from "next/navigation";
 
 interface Step {
   id: number;
@@ -12,8 +12,8 @@ interface Step {
 }
 
 export default function StepsGrid() {
-    const params = useParams();
-  const studentId = params.id; 
+    // const params = useParams();
+  // const studentId = params.id; 
   const steps: Step[] = [
     {
       id: 1,
