@@ -214,7 +214,7 @@ const othersItems: NavItemOther[] = [
    {
     icon: <PieChartIcon />,
     name: "Setup",
-    path: "/setup"
+    path: "/setup/general"
     
   },
    {
@@ -236,8 +236,8 @@ const othersItems: NavItemOther[] = [
     name: "Domain",
     subItems: [
 
-      { name: "Domain Management", path: "/domain-management", pro: false },
-      { name: "Domain Request", path: "/domain-request", pro: false },
+      { name: "Domain Management", path: "/domains", pro: false },
+      { name: "Domain Request", path: "/domains/requests", pro: false },
     ],
   },
   {
@@ -256,10 +256,25 @@ const AppSidebar: React.FC = () => {
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const isActive = useCallback((path: string | undefined): boolean => {
+  // const isActive = useCallback((path: string | undefined): boolean => {
+  //   if (!path) return false;
+  //   return pathname === path;
+  // }, [pathname]);
+
+  const isActive = useCallback(
+  (path?: string): boolean => {
     if (!path) return false;
-    return pathname === path;
-  }, [pathname]);
+
+    // Normalize trailing slashes (optional)
+    const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    const cleanCurrent = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+
+    // Match exact or child routes
+    return cleanCurrent === cleanPath || cleanCurrent.startsWith(`${cleanPath}/`);
+  },
+  [pathname]
+);
+
 
   // Recursive component for nested menu items
   const NavItemComponent: React.FC<{ 
