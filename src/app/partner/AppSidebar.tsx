@@ -5,26 +5,15 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/context/SidebarContext";
 import {
-  BoxCubeIcon,
   ChevronDownIcon,
   HorizontaLDots,
-  PieChartIcon,
 } from "@/icons/index";
 
 import {
   LayoutDashboard,
   Users,
-  GraduationCap,
-  User,
   Book,
   FileText,
-  Percent,
-  UserPlus,
-  Handshake,
-  Filter,
-  Settings,
-  University,
-  Newspaper,
   Mail,
   Wallet,
 } from "lucide-react";
@@ -38,32 +27,23 @@ interface NavItem {
   subItems?: NavItem[];
 }
 
-interface NavItemOther {
-  name: string;
-  icon: React.ReactNode;
-  path?: string;
-  subItems?: { 
-    name: string; 
-    path: string; 
-    pro?: boolean; 
-    new?: boolean;
-  }[];
-}
 
-const partnerItems: NavItem[] = [
+
+export const navItems: NavItem[] = [
   {
-    name: "Students",
-    icon: <Users size={18} />,
-    subItems: [
-      {
-        name: "Agents",
-        path: "/agents",
-        icon: <Handshake size={18} />,
-      },
-      {
+    name: "Dashboard",
+    icon: <LayoutDashboard size={18} />,
+    path: "/",
+  },
+  {
         name: "Students",
         path: "/students",
-        icon: <User size={18} />,
+        icon: <Users size={18} />,
+      },
+      {
+        name: "Programs",
+        path: "/programs",
+        icon: <Book size={18} />,
       },
       {
         name: "Applications",
@@ -72,183 +52,16 @@ const partnerItems: NavItem[] = [
       },
       {
         name: "Wallet",
-        path: "/formcontroller",
+        path: "/wallet",
         icon: <Wallet size={18} />,
       },
       {
-        name: "Support",
+        name: "Resources",
         icon: <Mail size={18} />,
-        path: "/formcontroller",
+        path: "/resources",
       },
-    ],
-  },
-  {
-    name: "Commissions",
-    icon: <Percent size={18} />,
-    path: "/",
-  },
-  {
-    name: "Setup ",
-    icon: <Settings size={18} />,
-    subItems: [
-      {
-        name: "Pages",
-        path: "/applications/students",
-        icon: <Book size={18} />,
-      },
-      {
-        name: "Resources",
-        path: "/applications/students",
-        icon: <Newspaper size={18} />,
-      },
-      
-    ],
-  },
-]
-
-const studentItems: NavItem[] = [
-  {
-    name: "Students",
-    icon: <Users size={18} />,
-    path: "/applications/students",
-  },
-  {
-    name: "Applications",
-    icon: <FileText size={18} />,
-    path: "/",
-  },
-  {
-    name: "Wallet",
-    icon: <Wallet size={18} />,
-    path: "/applications/students",
-  },
-  {
-    name: "Support",
-    icon: <Mail size={18} />,
-    path: "/",
-  },
-  {
-    name: "Setup ",
-    icon: <Settings size={18} />,
-    subItems: [
-      {
-        name: "Pages",
-        path: "/applications/students",
-        icon: <Book size={18} />,
-      },
-      {
-        name: "Resources",
-        path: "/applications/students",
-        icon: <Newspaper size={18} />,
-      },
-      
-    ],
-  },
-]
-
-const universityAndCoursesItems: NavItem[] = [
-  {
-    name: "Universities",
-    icon: <University size={18} />,
-    path: "/applications/students",
-  },
-  {
-    name: "Courses",
-    icon: <LayoutDashboard size={18} />,
-    path: "/",
-  },
-  {
-    name: "Master Data",
-    icon: <Filter size={18} />,
-    subItems: [
-      {
-        name: "Study Levels",
-        path: "/applications/students",
-        icon: <GraduationCap size={18} />,
-      },
-      {
-        name: "Disciplines",
-        path: "/applications/students",
-        icon: <GraduationCap size={18} />,
-      },
-      {
-        name: "Countries",
-        path: "/applications/students",
-        icon: <GraduationCap size={18} />,
-      },
-      {
-        name: "States",
-        path: "/applications/students",
-        icon: <GraduationCap size={18} />,
-      },{
-        name: "Intakes",
-        path: "/applications/students",
-        icon: <GraduationCap size={18} />,
-      },
-      
-    ],
-  },
-]
-
-const userItems: NavItem[] = [
-  {
-    name: "Users",
-    icon: <UserPlus size={18} />,
-    path: "/applications/students",
-  },
-  {
-    name: "Roles",
-    icon: <Users size={18} />,
-    path: "/",
-  },
-]
-
-export const navItems: NavItem[] = [
-  {
-    name: "Dashboard",
-    icon: <LayoutDashboard size={18} />,
-    path: "/",
-  }
 ];
 
-const othersItems: NavItemOther[] = [
-   {
-    icon: <PieChartIcon />,
-    name: "Setup",
-    path: "/setup"
-    
-  },
-   {
-    icon: <PieChartIcon />,
-    name: "Activity log",
-    path: "/activity-log"
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "Account",
-    subItems: [
-      { name: "Billing", path: "/billing", pro: false },
-      { name: "Profile", path: "/profile", pro: false },
-      { name: "Logout", path: "/logout", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "Domain",
-    subItems: [
-
-      { name: "Domain Management", path: "/domain-management", pro: false },
-      { name: "Domain Request", path: "/domain-request", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "Resources",
-    subItems: [
-      { name: "Database Backup", path: "/db-backup", pro: false },
-    ],
-  },
-];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -326,7 +139,7 @@ const AppSidebar: React.FC = () => {
         ) : (
           item.path && (
             <Link
-              href={"/dashboard" + item.path}
+              href={"/partner" + item.path}
               className={`menu-item group ${
                 isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
               }`}
@@ -350,132 +163,6 @@ const AppSidebar: React.FC = () => {
       {navItems.map((item) => (
         <NavItemComponent key={item.name} item={item} />
       ))}
-    </ul>
-  );
-
-  const renderPartnerItems = () => (
-    <ul className="flex flex-col gap-4">
-      {partnerItems.map((item) => (
-        <NavItemComponent key={item.name} item={item} />
-      ))}
-    </ul>
-  );
-
-  const renderStudentItems = () => (
-    <ul className="flex flex-col gap-4">
-      {studentItems.map((item) => (
-        <NavItemComponent key={item.name} item={item} />
-      ))}
-    </ul>
-  );
-
-  const renderUniversityItems = () => (
-    <ul className="flex flex-col gap-4">
-      {universityAndCoursesItems.map((item) => (
-        <NavItemComponent key={item.name} item={item} />
-      ))}
-    </ul>
-  );
-
-  const renderUserItems = () => (
-    <ul className="flex flex-col gap-4">
-      {userItems.map((item) => (
-        <NavItemComponent key={item.name} item={item} />
-      ))}
-    </ul>
-  );
-
-  const renderOtherItems = () => (
-    <ul className="flex flex-col gap-4">
-      {othersItems.map((item, index) => {
-        const itemKey = `others-${index}`;
-        const hasSubItems = item.subItems && item.subItems.length > 0;
-        const isSubmenuOpen = openSubmenus.has(itemKey);
-
-        return (
-          <li key={item.name}>
-            {hasSubItems ? (
-              <>
-                <button
-                  onClick={() => handleSubmenuToggle(itemKey)}
-                  className={`menu-item group ${
-                    isSubmenuOpen ? "menu-item-active" : "menu-item-inactive"
-                  } cursor-pointer ${
-                    !isExpanded && !isHovered
-                      ? "lg:justify-center"
-                      : "lg:justify-start"
-                  }`}
-                >
-                  <span className={isSubmenuOpen ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
-                    {item.icon}
-                  </span>
-                  {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className="menu-item-text">{item.name}</span>
-                  )}
-                  {(isExpanded || isHovered || isMobileOpen) && (
-                    <ChevronDownIcon
-                      className={`ml-auto w-5 h-5 transition-transform duration-200 ${
-                        isSubmenuOpen ? "rotate-180 text-brand-500" : ""
-                      }`}
-                    />
-                  )}
-                </button>
-                
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <div
-                    ref={(el) => { subMenuRefs.current[itemKey] = el; }}
-                    className="overflow-hidden transition-all duration-300"
-                    style={{
-                      height: isSubmenuOpen ? `${subMenuRefs.current[itemKey]?.scrollHeight || 0}px` : "0px",
-                    }}
-                  >
-                    <ul className="mt-2 space-y-1 ml-9">
-                      {item.subItems!.map((subItem) => (
-                        <li key={subItem.name}>
-                          <Link
-                            href={"/dashboard" + subItem.path}
-                            className={`menu-dropdown-item ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-item-active"
-                                : "menu-dropdown-item-inactive"
-                            }`}
-                          >
-                            {subItem.name}
-                            <span className="flex items-center gap-1 ml-auto">
-                              {subItem.new && (
-                                <span className="menu-dropdown-badge">new</span>
-                              )}
-                              {subItem.pro && (
-                                <span className="menu-dropdown-badge">pro</span>
-                              )}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
-            ) : (
-              item.path && (
-                <Link
-                  href={"/dashboard" + item.path}
-                  className={`menu-item group ${
-                    isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
-                  }`}
-                >
-                  <span className={isActive(item.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
-                    {item.icon}
-                  </span>
-                  {(isExpanded || isHovered || isMobileOpen) && (
-                    <span className="menu-item-text">{item.name}</span>
-                  )}
-                </Link>
-              )
-            )}
-          </li>
-        );
-      })}
     </ul>
   );
 
@@ -523,18 +210,6 @@ const AppSidebar: React.FC = () => {
     findAndOpenParentMenus(navItems, pathname);
     
     // Find and open menus for other items
-    othersItems.forEach((item, index) => {
-      const itemKey = `others-${index}`;
-      if (item.path === pathname) {
-        setOpenSubmenus(prev => new Set(prev).add(itemKey));
-      }
-      if (item.subItems) {
-        const hasActiveSubItem = item.subItems.some(subItem => subItem.path === pathname);
-        if (hasActiveSubItem) {
-          setOpenSubmenus(prev => new Set(prev).add(itemKey));
-        }
-      }
-    });
   }, [pathname]);
 
   return (
@@ -557,31 +232,30 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link href="/">
+         <Link href="/partner">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
+            <div className="flex justify-center items-center">
               <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
+                className=""
+                src="/images/logo/logo.png"
                 alt="Logo"
-                width={150}
-                height={40}
+                width={45}
+                height={45}
               />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
+              <span className="dark:text-white ms-1 text-black font-semibold text-2xl">
+                ApplyTech
+              </span>
+            </div>
             </>
           ) : (
-            <Image
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+           <Image
+                className=""
+                src="/images/logo/logo.png"
+                alt="Logo"
+                width={32}
+                height={32}
+              />
           )}
         </Link>
       </div>
@@ -603,90 +277,6 @@ const AppSidebar: React.FC = () => {
                 )}
               </h2>
               {renderMainMenuItems()}
-            </div>
-
-             <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Partner Platform"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderPartnerItems()}
-            </div>
-
-             <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  " Student Platform"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderStudentItems()}
-            </div>
-
-             <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  " Universities & Courses"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderUniversityItems()}
-            </div>
-
- <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  " User Management"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderUserItems()}
-            </div>
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderOtherItems()}
             </div>
           </div>
         </nav>

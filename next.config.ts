@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
+  images: {
+    domains: ['indoglobalstudies.org'],
+    // or use remotePatterns for more control:
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'indoglobalstudies.org',
+        pathname: '/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

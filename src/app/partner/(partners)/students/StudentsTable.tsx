@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Link from "next/link";
 
 
 interface Student {
@@ -14,76 +15,91 @@ interface Student {
   name: string;
   email: string;
   phoneNumber: string;
-  agentEmail: string;
-  agentName: string;
+  applicationLink: string;
 }
 
-// Define the table data using the interface
 const tableData: Student[] = [
   {
     id: 1,
     name: "Alice Johnson",
     email: "alice.johnson@example.com",
     phoneNumber: "+1 (555) 123-4567",
-    agentEmail: "john.smith@example.com",
-    agentName: "John Smith",
-
+    applicationLink: "https://live.applytech.org/view-student-application/1"
   },
   {
     id: 2,
     name: "Bob Wilson",
     email: "bob.wilson@example.com",
     phoneNumber: "+1 (555) 987-6543",
-    agentEmail: "sarah.j@example.com",
-    agentName: "Sarah Johnson",
+    applicationLink: "https://live.applytech.org/view-student-application/2"
   },
   {
     id: 3,
     name: "Carol Davis",
     email: "carol.davis@example.com",
     phoneNumber: "+1 (555) 456-7890",
-    agentEmail: "mike.chen@example.com",
-    agentName: "Mike Chen",
+    applicationLink: "https://live.applytech.org/view-student-application/3"
   },
   {
     id: 4,
     name: "David Brown",
     email: "david.brown@example.com",
     phoneNumber: "+1 (555) 234-5678",
-    agentEmail: "emily.davis@example.com",
-    agentName: "Emily Davis",
+    applicationLink: "https://live.applytech.org/view-student-application/4"
   },
   {
     id: 5,
     name: "Eva Martinez",
     email: "eva.martinez@example.com",
     phoneNumber: "+1 (555) 876-5432",
-    agentEmail: "r.wilson@example.com",
-    agentName: "Robert Wilson",
+    applicationLink: "https://live.applytech.org/view-student-application/5"
   },
 ];
 
 type SortField = keyof Student | "";
 type SortDirection = "asc" | "desc";
 
+// Copy function component
+const CopyApplicationLink = ({ link }: { link: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = link;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="truncate max-w-[200px]">{link}</span>
+      <button
+        onClick={handleCopy}
+        className="px-2 py-1 text-theme-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+      >
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
+    </div>
+  );
+};
+
 export default function StudentTable() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [agentFilter, setAgentFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  // Get unique agents for filter dropdown
-  const agents = useMemo(() => {
-    const uniqueAgents = Array.from(
-      new Map(
-        tableData.map(student => [student.agentEmail, {
-          email: student.agentEmail,
-          name: student.agentName
-        }])
-      ).values()
-    );
-    return uniqueAgents;
-  }, []);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
@@ -93,9 +109,8 @@ export default function StudentTable() {
         student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.phoneNumber.includes(searchTerm);
       
-      const matchesAgent = agentFilter === "all" || student.agentEmail === agentFilter;
       
-      return matchesSearch && matchesAgent;
+      return matchesSearch;
     });
 
     // Sorting
@@ -120,7 +135,7 @@ export default function StudentTable() {
     }
 
     return filtered;
-  }, [searchTerm, agentFilter, sortField, sortDirection]);
+  }, [searchTerm, sortField, sortDirection]);
 
   const handleSort = (field: keyof Student) => {
     if (sortField === field) {
@@ -171,21 +186,15 @@ export default function StudentTable() {
           </div>
         </div>
 
-        {/* Agent Filter */}
-        <div className="w-full flex justify-end">
-          <select
-            value={agentFilter}
-            onChange={(e) => setAgentFilter(e.target.value)}
-            className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 py-2.5 px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[230px]"
-          >
-            <option value="all">All Agents</option>
-            {agents.map((agent) => (
-              <option key={agent.email} value={agent.email}>
-                {agent.name} ({agent.email})
-              </option>
-            ))}
-          </select>
-        </div>
+     
+        <Link href="/admin/students/add" className="shrink-0">
+            <button className=" h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Student
+            </button>
+          </Link>
       </div>
 
       {/* Table */}
@@ -200,7 +209,8 @@ export default function StudentTable() {
                     { key: "name", label: "Name" },
                     { key: "email", label: "Email" },
                     { key: "phoneNumber", label: "Phone Number" },
-                    { key: "agentName", label: "Agent" },
+                    { key: "applicationLink", label: "Application Link" },
+
                   ].map(({ key, label }) => (
                     <TableCell
                       key={key}
@@ -223,9 +233,12 @@ export default function StudentTable() {
                   filteredAndSortedData.map((student) => (
                     <TableRow key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
+                        <Link href={"/admin/students/"+student.id}>
+
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {student.name}
                         </span>
+                        </Link>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {student.email}
@@ -233,16 +246,10 @@ export default function StudentTable() {
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {student.phoneNumber}
                       </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div>
-                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {student.agentName}
-                          </div>
-                          <div className="text-gray-500 text-theme-xs dark:text-gray-400">
-                            {student.agentEmail}
-                          </div>
-                        </div>
-                      </TableCell>
+                      <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+  <CopyApplicationLink link={student.applicationLink} />
+</TableCell>
+                      
                      
                     </TableRow>
                   ))
