@@ -1,4 +1,4 @@
-"use client";
+"use client"
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
@@ -40,7 +40,7 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
     country: initialData?.country || "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (initialData) {
@@ -52,7 +52,7 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
         country: "",
       });
     }
-    setError("");
+    setError(null);
   }, [initialData, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,13 +63,14 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
     }
 
     setIsSubmitting(true);
-    setError("");
+    setError(null);
+    
     try {
       await onSave(formData);
       onClose();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to save country";
-      setError(message);
+    } catch (error: any) {
+      console.error('Error saving country:', error);
+      setError(error.message || 'Failed to save country');
     } finally {
       setIsSubmitting(false);
     }
@@ -79,14 +80,14 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
     setFormData({
       country: initialData?.country || "",
     });
-    setError("");
+    setError(null);
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-999999 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md">
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -103,6 +104,12 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+              {error}
+            </div>
+          )}
+          
           <div className="space-y-4">
             {/* Country Name */}
             <div>
@@ -119,16 +126,13 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
                   value={formData.country}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, country: e.target.value }));
-                    setError("");
+                    setError(null);
                   }}
                   placeholder="e.g., United States, United Kingdom"
                   required
                   className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                 />
               </div>
-              {error && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
-              )}
             </div>
           </div>
 
@@ -164,6 +168,68 @@ const AddEditCountryModal: React.FC<AddEditCountryModalProps> = ({
   );
 };
 
+// API service functions
+const countryService = {
+  async getCountries(search?: string): Promise<Country[]> {
+    const url = search ? `/api/university/countries?search=${encodeURIComponent(search)}` : '/api/university/countries';
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch countries');
+    }
+    
+    const result = await response.json();
+    return result.data;
+  },
+
+  async createCountry(countryData: { country: string }): Promise<Country> {
+    const response = await fetch('/api/university/countries', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(countryData),
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create country');
+    }
+    
+    return result.data;
+  },
+
+  async updateCountry(id: number, countryData: { country: string }): Promise<Country> {
+    const response = await fetch(`/api/university/countries/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(countryData),
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to update country');
+    }
+    
+    return result.data;
+  },
+
+  async deleteCountry(id: number): Promise<void> {
+    const response = await fetch(`/api/university/countries/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to delete country');
+    }
+  },
+};
+
 export default function CountriesTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
@@ -173,52 +239,30 @@ export default function CountriesTable() {
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  // Load countries on component mount and when search term changes
+  useEffect(() => {
+    loadCountries();
+  }, [searchTerm]);
 
-  console.log(baseUrl)
-
-  // Fetch countries from API
-  const fetchCountries = async (search: string = "") => {
+  const loadCountries = async () => {
     try {
       setIsLoading(true);
-      const searchParam = search ? `?search=${encodeURIComponent(search)}` : '';
-      const response = await fetch(`${baseUrl}/api/tenant/countries${searchParam}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch countries');
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setCountries(result.data);
-        setError("");
-      } else {
-        throw new Error(result.error || 'Failed to fetch countries');
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Error fetching countrie";
-      setError(message);
-      
+      setError(null);
+      const data = await countryService.getCountries(searchTerm);
+      setCountries(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load countries');
+      console.error('Error loading countries:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Initial load and search debounce
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchCountries(searchTerm);
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = [...countries];
+    let filtered = [...countries];
 
     // Sorting
     if (sortField) {
@@ -267,63 +311,23 @@ export default function CountriesTable() {
   };
 
   const handleAddCountry = async (countryData: { country: string }) => {
-    const response = await fetch(`${baseUrl}/api/tenant/countries`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(countryData),
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to add country');
-    }
-
-    // Refresh the countries list
-    await fetchCountries(searchTerm);
+    await countryService.createCountry(countryData);
+    await loadCountries(); // Refresh the list
   };
 
   const handleEditCountry = async (countryData: { country: string }) => {
     if (!selectedCountry) return;
-
-    const response = await fetch(`${baseUrl}/api/tenant/countries/${selectedCountry.uuid}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(countryData),
-    });
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to update country');
-    }
-
-    // Refresh the countries list
-    await fetchCountries(searchTerm);
+    await countryService.updateCountry(selectedCountry.id, countryData);
+    await loadCountries(); // Refresh the list
   };
 
-  const handleDelete = async (uuid: string) => {
+  const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this country? This action cannot be undone.")) {
       try {
-        const response = await fetch(`${baseUrl}/api/tenant/countries/${uuid}`, {
-          method: 'DELETE',
-        });
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to delete country');
-        }
-
-        // Refresh the countries list
-        await fetchCountries(searchTerm);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to delete country";
-        alert(message);
+        await countryService.deleteCountry(id);
+        await loadCountries(); // Refresh the list
+      } catch (error: any) {
+        alert(error.message || 'Failed to delete country');
       }
     }
   };
@@ -338,27 +342,37 @@ export default function CountriesTable() {
     setIsAddModalOpen(true);
   };
 
-  // Count countries by region (you can customize this logic based on your needs)
+  // Count countries by region (you might want to make this dynamic based on actual regions)
   const getRegionCounts = () => {
-    const northAmerica = countries.filter(c => 
-      ["united states", "canada", "mexico"].includes(c.country.toLowerCase())
-    ).length;
+    const northAmerica = ["United States", "Canada", "Mexico"];
+    const europe = ["United Kingdom", "Germany", "France", "Italy", "Spain"];
     
-    const europe = countries.filter(c => 
-      ["united kingdom", "germany", "france", "italy", "spain"].includes(c.country.toLowerCase())
-    ).length;
-
-    return { northAmerica, europe };
+    return {
+      northAmerica: filteredAndSortedData.filter(c => 
+        northAmerica.includes(c.country)
+      ).length,
+      europe: filteredAndSortedData.filter(c => 
+        europe.includes(c.country)
+      ).length,
+    };
   };
 
   const regionCounts = getRegionCounts();
 
   return (
     <div className="space-y-4">
-      {/* Error Message */}
+      {/* Error Alert */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+          <div className="flex items-center justify-between">
+            <span>{error}</span>
+            <button 
+              onClick={() => setError(null)}
+              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 
@@ -367,7 +381,7 @@ export default function CountriesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Countries</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {isLoading ? "..." : countries.length}
+            {isLoading ? "..." : filteredAndSortedData.length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
@@ -462,13 +476,16 @@ export default function CountriesTable() {
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                 {isLoading ? (
                   <TableRow>
-                    <TableCell className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400">
+                    <TableCell
+              
+                      className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
+                    >
                       Loading countries...
                     </TableCell>
                   </TableRow>
                 ) : filteredAndSortedData.length > 0 ? (
                   filteredAndSortedData.map((country) => (
-                    <TableRow key={country.uuid} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <TableRow key={country.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
                         <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           #{country.id}
@@ -485,7 +502,7 @@ export default function CountriesTable() {
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
-                        <div className="text-gray-500 text-theme-sm dark:text-gray-400">
+                        <div className="text-gray-500 text-theme-sm dark:text-gray-400 font-mono">
                           {country.country_slug}
                         </div>
                       </TableCell>
@@ -504,7 +521,7 @@ export default function CountriesTable() {
                             <Edit size={18} />
                           </button>
                           <button
-                            onClick={() => handleDelete(country.uuid)}
+                            onClick={() => handleDelete(country.id)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                             title="Delete Country"
                           >
@@ -517,6 +534,7 @@ export default function CountriesTable() {
                 ) : (
                   <TableRow>
                     <TableCell
+                    
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       {searchTerm ? "No countries found matching your search." : "No countries available."}
@@ -531,7 +549,7 @@ export default function CountriesTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {countries.length} countries
+        {isLoading ? "Loading..." : `Showing ${filteredAndSortedData.length} of ${countries.length} countries`}
       </div>
 
       {/* Add Modal */}

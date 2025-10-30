@@ -3,65 +3,59 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model tech_users {
-  id                    Int            @id @default(autoincrement())
-  uuid                  String         @unique @default(uuid())
-  ios_user_id           String?        @db.VarChar(255)
-  name                  String?        @db.VarChar(255)
-  email                 String?        @unique @db.VarChar(128)
-  device_type           String         @db.VarChar(255)
-  image                 String?        @db.VarChar(255)
-  country_code          String?        @db.VarChar(11)
-  mobile                String?        @db.VarChar(20)
-  otp                   String?        @db.VarChar(128)
-  terms_of_use          Boolean        @default(false)
-  verification_token    String?
-  firebase_device_token String?
-  password              String?        @db.VarChar(255)
-  role                  UserRole       // Keep for backward compatibility
-  roleId                String?        // Reference to Role table
-  register_by           BigInt?
-  employee_code         String?        @db.VarChar(255)
-  is_deleted            Boolean        @default(false)
-  created_at            DateTime       @default(now())
-  updated_at            DateTime       @updatedAt
-
-  // Relations
-  roleRelation   tech_roles?                           @relation(fields: [roleId], references: [id])
-  tenants               tech_tenants[]
-  reviewed_subscription_requests tech_subscription_requests[]  
-  approved_subscriptions tech_subscriptions[]   
-  newsletter_campaigns tech_newsletter_campaigns[]  
-  pages tech_pages[]    
-  created_website_sections tech_website_sections[] @relation("SectionCreatedBy")
-  updated_website_sections tech_website_sections[] @relation("SectionUpdatedBy") 
-  activities tech_activity_logs[]  
-  tenantMemberships tech_tenant_users[]     
-  student_meta tech_student_meta?
-  agent_meta tech_agents?
-  agent_student_meta tech_agent_student_meta? @relation("AgentsStudentData")
-  student_agent tech_agent_student_meta? @relation("StudentsAgentData")
-  assigned_student_applications tech_student_applications[]
-  assigned_agent_student_applications tech_agent_student_applications[]
-  student_app_status_tracking tech_track_student_app_status[]
-  agent_app_status_tracking tech_track_agent_app_status[]
-
-  student_application_docs tech_student_application_docs[] @relation("StudentUploadedDocs")
-  agent_student_application_docs tech_agent_student_application_docs[] @relation("AgentUploadedDocs")
-  verified_student_docs tech_student_application_docs[] @relation("VerifyStudentDocs")
-  verified_agent_student_docs tech_agent_student_application_docs[] @relation("VerifyAgentDocs")
-
-
-  student_docs tech_student_docs[] @relation("StudentStudyDocs")
-  agent_student_docs tech_agent_student_docs[] @relation("AgentStudentStudyDocs")
-  verified_student_personal_docs tech_student_docs[] @relation("VerifyStudentStudyDocs")
-  verified_agent_student_personal_docs tech_agent_student_docs[] @relation("VerifyAgentStudentStudyDocs")
-
+  id                                   Int                                   @id @default(autoincrement())
+  uuid                                 String                                @unique @default(uuid())
+  ios_user_id                          String?                               @db.VarChar(255)
+  name                                 String?                               @db.VarChar(255)
+  email                                String?                               @unique @db.VarChar(128)
+  device_type                          String                                @db.VarChar(255)
+  image                                String?                               @db.VarChar(255)
+  country_code                         String?                               @db.VarChar(11)
+  mobile                               String?                               @db.VarChar(20)
+  otp                                  String?                               @db.VarChar(128)
+  terms_of_use                         Boolean                               @default(false)
+  verification_token                   String?
+  firebase_device_token                String?
+  password                             String?                               @db.VarChar(255)
+  role                                 UserRole
+  roleId                               String?
+  register_by                          BigInt?
+  employee_code                        String?                               @db.VarChar(255)
+  is_deleted                           Boolean                               @default(false)
+  created_at                           DateTime                              @default(now())
+  updated_at                           DateTime                              @updatedAt
+  activities                           tech_activity_logs[]
+  agent_student_application_docs       tech_agent_student_application_docs[] @relation("AgentUploadedDocs")
+  verified_agent_student_docs          tech_agent_student_application_docs[] @relation("VerifyAgentDocs")
+  assigned_agent_student_applications  tech_agent_student_applications[]
+  agent_student_docs                   tech_agent_student_docs[]             @relation("AgentStudentStudyDocs")
+  verified_agent_student_personal_docs tech_agent_student_docs[]             @relation("VerifyAgentStudentStudyDocs")
+  student_agent                        tech_agent_student_meta?              @relation("StudentsAgentData")
+  agent_student_meta                   tech_agent_student_meta?              @relation("AgentsStudentData")
+  agent_meta                           tech_agents?
+  newsletter_campaigns                 tech_newsletter_campaigns[]
+  pages                                tech_pages[]
+  student_application_docs             tech_student_application_docs[]       @relation("StudentUploadedDocs")
+  verified_student_docs                tech_student_application_docs[]       @relation("VerifyStudentDocs")
+  assigned_student_applications        tech_student_applications[]
+  student_docs                         tech_student_docs[]                   @relation("StudentStudyDocs")
+  verified_student_personal_docs       tech_student_docs[]                   @relation("VerifyStudentStudyDocs")
+  student_meta                         tech_student_meta?
+  reviewed_subscription_requests       tech_subscription_requests[]
+  approved_subscriptions               tech_subscriptions[]
+  tenantMemberships                    tech_tenant_users[]
+  tenants                              tech_tenants[]
+  agent_app_status_tracking            tech_track_agent_app_status[]
+  student_app_status_tracking          tech_track_student_app_status[]
+  roleRelation                         tech_roles?                           @relation(fields: [roleId], references: [id])
+  created_website_sections             tech_website_sections[]               @relation("SectionCreatedBy")
+  updated_website_sections             tech_website_sections[]               @relation("SectionUpdatedBy")
 
   @@index([ios_user_id])
   @@index([mobile])
@@ -69,41 +63,37 @@ model tech_users {
 }
 
 model tech_tenants {
-  id         Int        @id @default(autoincrement())
-  domain     String     @unique
-  name       String
-  email      String     @unique
-  planId     Int
-  ownerId    Int
-  onTrial    Boolean    @default(true)
-  verified   Boolean    @default(false)
-  subscribed Boolean    @default(false)
-  banned     Boolean    @default(false)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  isDeleted  Boolean    @default(false)
-  
-  
-  owner      tech_users @relation(fields: [ownerId], references: [id])
-  plan       tech_plans @relation(fields: [planId], references: [id])
-  payments    tech_payments[]
-  domain_requests tech_domain_requests[]
-  domains tech_domains[]
-  subscription_requests tech_subscription_requests[]  
-  subscriptions tech_subscriptions[] 
-  tenantMembers tech_tenant_users[] 
-
-  // New relations for tenant-specific data
-  countries       tech_countries[]
-  states          tech_states[]
-  cities          tech_cities[]
-  study_levels    tech_study_levels[]
-  disciplines     tech_disciplines[]
-  partner_types   tech_partner_types[]
-  university_types tech_university_types[]
-  intakes         tech_intakes[]
-  universities    tech_universities[]
-  courses         tech_university_courses[] 
+  id                    Int                          @id @default(autoincrement())
+  domain                String                       @unique
+  name                  String
+  email                 String                       @unique
+  planId                Int
+  ownerId               Int
+  onTrial               Boolean                      @default(true)
+  verified              Boolean                      @default(false)
+  subscribed            Boolean                      @default(false)
+  banned                Boolean                      @default(false)
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  isDeleted             Boolean                      @default(false)
+  cities                tech_cities[]
+  countries             tech_countries[]
+  disciplines           tech_disciplines[]
+  domain_requests       tech_domain_requests[]
+  domains               tech_domains[]
+  intakes               tech_intakes[]
+  partner_types         tech_partner_types[]
+  payments              tech_payments[]
+  states                tech_states[]
+  study_levels          tech_study_levels[]
+  subscription_requests tech_subscription_requests[]
+  subscriptions         tech_subscriptions[]
+  tenantMembers         tech_tenant_users[]
+  owner                 tech_users                   @relation(fields: [ownerId], references: [id])
+  plan                  tech_plans                   @relation(fields: [planId], references: [id])
+  universities          tech_universities[]
+  courses               tech_university_courses[]
+  university_types      tech_university_types[]
 }
 
 model tech_plan_features {
@@ -116,44 +106,42 @@ model tech_plan_features {
 }
 
 model tech_plans {
-  id              Int                  @id @default(autoincrement())
-  name            String               @unique
-  amount          Float
-  description     String?
-  limitClients    Int
-  limitSuppliers  Int
-  limitEmployees  Int
-  limitDomains    Int
-  limitInvoices    Int
-  limitPurchases  Int
-  image           String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  isDeleted       Boolean              @default(false)
-  
-  tenants         tech_tenants[]
-  pricingFeatures tech_plan_features[] @relation("PlanFeatures")
-  payments        tech_payments[]
-  subscription_requests tech_subscription_requests[]  
-  subscriptions tech_subscriptions[]  
+  id                    Int                          @id @default(autoincrement())
+  name                  String                       @unique
+  amount                Float
+  description           String?
+  limitClients          Int
+  limitSuppliers        Int
+  limitEmployees        Int
+  limitDomains          Int
+  limitInvoices         Int
+  limitPurchases        Int
+  image                 String?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  isDeleted             Boolean                      @default(false)
+  payments              tech_payments[]
+  subscription_requests tech_subscription_requests[]
+  subscriptions         tech_subscriptions[]
+  tenants               tech_tenants[]
+  pricingFeatures       tech_plan_features[]         @relation("PlanFeatures")
 }
 
 model tech_payments {
-  id               Int           @id @default(autoincrement())
-  uuid             String        @unique @default(uuid())
-  tenantId         Int
-  planId           Int
-  month            String       // e.g., "September 2025"
-  transactionType  String        // e.g., "Credit Card", "PayPal", "Bank Transfer"
-  trxId            String        @unique // e.g., "TRX123456"
-  amount           Float
-  paymentStatus    PaymentStatus
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  isDeleted        Boolean       @default(false)
-
-  tenant tech_tenants @relation(fields: [tenantId], references: [id])
-  plan   tech_plans   @relation(fields: [planId], references: [id])
+  id              Int           @id @default(autoincrement())
+  uuid            String        @unique @default(uuid())
+  tenantId        Int
+  planId          Int
+  month           String
+  transactionType String
+  trxId           String        @unique
+  amount          Float
+  paymentStatus   PaymentStatus
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  isDeleted       Boolean       @default(false)
+  plan            tech_plans    @relation(fields: [planId], references: [id])
+  tenant          tech_tenants  @relation(fields: [tenantId], references: [id])
 
   @@index([trxId])
   @@index([paymentStatus])
@@ -161,16 +149,15 @@ model tech_payments {
 }
 
 model tech_domain_requests {
-  id          Int                 @id @default(autoincrement())
-  uuid        String              @unique @default(uuid())
-  domain      String              @unique
-  status      DomainRequestStatus @default(PENDING)
-  tenantId    Int
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  isDeleted   Boolean             @default(false)
-
-  tenant tech_tenants? @relation(fields: [tenantId], references: [id])
+  id        Int                 @id @default(autoincrement())
+  uuid      String              @unique @default(uuid())
+  domain    String              @unique
+  status    DomainRequestStatus @default(PENDING)
+  tenantId  Int
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  isDeleted Boolean             @default(false)
+  tenant    tech_tenants        @relation(fields: [tenantId], references: [id])
 
   @@index([domain])
   @@index([status])
@@ -178,18 +165,17 @@ model tech_domain_requests {
 }
 
 model tech_domains {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
-  domain      String   @unique
-  tenantId    Int
-  isActive    Boolean  @default(true)
-  isPrimary   Boolean  @default(false)
-  verified    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isDeleted   Boolean  @default(false)
-
-  tenant tech_tenants @relation(fields: [tenantId], references: [id])
+  id        Int          @id @default(autoincrement())
+  uuid      String       @unique @default(uuid())
+  domain    String       @unique
+  tenantId  Int
+  isActive  Boolean      @default(true)
+  isPrimary Boolean      @default(false)
+  verified  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  isDeleted Boolean      @default(false)
+  tenant    tech_tenants @relation(fields: [tenantId], references: [id])
 
   @@index([domain])
   @@index([isActive])
@@ -197,24 +183,23 @@ model tech_domains {
 }
 
 model tech_subscription_requests {
-  id            Int                      @id @default(autoincrement())
-  uuid          String                   @unique @default(uuid())
-  tenantId      Int
-  planId        Int
-  transactionId String?                  @unique // Transaction ID from payment
-  documentPath  String?                  // Path to uploaded document
-  month         String                   // e.g., "September 2025"
-  status        SubscriptionRequestStatus @default(PENDING)
-  requestedAt   DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  reviewedBy    Int?                     // Admin who reviewed the request
-  reviewedAt    DateTime?                // When reviewed
-  adminNotes    String?                  // Admin comments/notes
-  isDeleted     Boolean                  @default(false)
-
-  tenant        tech_tenants @relation(fields: [tenantId], references: [id])
-  plan          tech_plans   @relation(fields: [planId], references: [id])
-  reviewedByUser tech_users? @relation(fields: [reviewedBy], references: [id])
+  id             Int                       @id @default(autoincrement())
+  uuid           String                    @unique @default(uuid())
+  tenantId       Int
+  planId         Int
+  transactionId  String?                   @unique
+  documentPath   String?
+  month          String
+  status         SubscriptionRequestStatus @default(PENDING)
+  requestedAt    DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  reviewedBy     Int?
+  reviewedAt     DateTime?
+  adminNotes     String?
+  isDeleted      Boolean                   @default(false)
+  plan           tech_plans                @relation(fields: [planId], references: [id])
+  reviewedByUser tech_users?               @relation(fields: [reviewedBy], references: [id])
+  tenant         tech_tenants              @relation(fields: [tenantId], references: [id])
 
   @@index([transactionId])
   @@index([status])
@@ -223,44 +208,42 @@ model tech_subscription_requests {
 }
 
 model tech_subscriptions {
-  id           Int        @id @default(autoincrement())
-  uuid         String     @unique @default(uuid())
-  tenantId     Int
-  planId       Int
-  month        String     // e.g., "September 2025"
-  approvedBy   Int?       // Admin who approved the subscription
-  startsAt     DateTime   @default(now())
-  endsAt       DateTime   // Subscription end date
-  status       SubscriptionStatus @default(ACTIVE)
-  autoRenew    Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  isDeleted    Boolean    @default(false)
+  id             Int                @id @default(autoincrement())
+  uuid           String             @unique @default(uuid())
+  tenantId       Int
+  planId         Int
+  month          String
+  approvedBy     Int?
+  startsAt       DateTime           @default(now())
+  endsAt         DateTime
+  status         SubscriptionStatus @default(ACTIVE)
+  autoRenew      Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  isDeleted      Boolean            @default(false)
+  approvedByUser tech_users?        @relation(fields: [approvedBy], references: [id])
+  plan           tech_plans         @relation(fields: [planId], references: [id])
+  tenant         tech_tenants       @relation(fields: [tenantId], references: [id])
 
-  tenant       tech_tenants @relation(fields: [tenantId], references: [id])
-  plan         tech_plans   @relation(fields: [planId], references: [id])
-  approvedByUser tech_users? @relation(fields: [approvedBy], references: [id])
-
+  @@unique([tenantId, month])
   @@index([month])
   @@index([status])
   @@index([startsAt])
   @@index([endsAt])
-  @@unique([tenantId, month]) // One subscription per tenant per month
 }
 
 model tech_newsletter_subscribers {
-  id           Int      @id @default(autoincrement())
-  uuid         String   @unique @default(uuid())
-  email        String   @unique @db.VarChar(255)
-  isActive     Boolean  @default(true)
-  subscribedAt DateTime @default(now())
-  unsubscribedAt DateTime?
-  source       String?  @db.VarChar(100) // How they subscribed (website, form, etc.)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  isDeleted    Boolean  @default(false)
-
-   campaign_recipients tech_campaign_recipients[]
+  id                  Int                        @id @default(autoincrement())
+  uuid                String                     @unique @default(uuid())
+  email               String                     @unique @db.VarChar(255)
+  isActive            Boolean                    @default(true)
+  subscribedAt        DateTime                   @default(now())
+  unsubscribedAt      DateTime?
+  source              String?                    @db.VarChar(100)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  isDeleted           Boolean                    @default(false)
+  campaign_recipients tech_campaign_recipients[]
 
   @@index([email])
   @@index([isActive])
@@ -268,25 +251,24 @@ model tech_newsletter_subscribers {
 }
 
 model tech_newsletter_campaigns {
-  id          Int                    @id @default(autoincrement())
-  uuid        String                 @unique @default(uuid())
-  subject     String                 @db.VarChar(255)
-  sentTo      CampaignAudience       @default(ALL_SUBSCRIBERS)
-  greeting    String                 @db.VarChar(255)
-  body        String                 @db.Text
-  status      CampaignStatus         @default(DRAFT)
-  sentBy      Int?                   // Admin user who sent the campaign
-  sentAt      DateTime?              // When campaign was actually sent
-  scheduledAt DateTime?              // For scheduled campaigns
-  recipientCount Int?                // How many recipients
-  openCount   Int                    @default(0) // How many opened
-  clickCount  Int                    @default(0) // How many clicked links
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  isDeleted   Boolean                @default(false)
-
-  sentByUser tech_users? @relation(fields: [sentBy], references: [id])
-  recipients tech_campaign_recipients[]
+  id             Int                        @id @default(autoincrement())
+  uuid           String                     @unique @default(uuid())
+  subject        String                     @db.VarChar(255)
+  sentTo         CampaignAudience           @default(ALL_SUBSCRIBERS)
+  greeting       String                     @db.VarChar(255)
+  body           String
+  status         CampaignStatus             @default(DRAFT)
+  sentBy         Int?
+  sentAt         DateTime?
+  scheduledAt    DateTime?
+  recipientCount Int?
+  openCount      Int                        @default(0)
+  clickCount     Int                        @default(0)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  isDeleted      Boolean                    @default(false)
+  recipients     tech_campaign_recipients[]
+  sentByUser     tech_users?                @relation(fields: [sentBy], references: [id])
 
   @@index([status])
   @@index([sentAt])
@@ -295,48 +277,46 @@ model tech_newsletter_campaigns {
 }
 
 model tech_campaign_recipients {
-  id          Int                @id @default(autoincrement())
-  uuid        String             @unique @default(uuid())
-  campaignId  Int
+  id           Int                          @id @default(autoincrement())
+  uuid         String                       @unique @default(uuid())
+  campaignId   Int
   subscriberId Int?
-  email       String             @db.VarChar(255)
-  status      DeliveryStatus     @default(PENDING)
-  openedAt    DateTime?
-  clickedAt   DateTime?
+  email        String                       @db.VarChar(255)
+  status       DeliveryStatus               @default(PENDING)
+  openedAt     DateTime?
+  clickedAt    DateTime?
   bounceReason String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  isDeleted   Boolean            @default(false)
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+  isDeleted    Boolean                      @default(false)
+  campaign     tech_newsletter_campaigns    @relation(fields: [campaignId], references: [id])
+  subscriber   tech_newsletter_subscribers? @relation(fields: [subscriberId], references: [id])
 
-  campaign   tech_newsletter_campaigns @relation(fields: [campaignId], references: [id])
-  subscriber tech_newsletter_subscribers? @relation(fields: [subscriberId], references: [id])
-
+  @@unique([campaignId, email])
   @@index([campaignId])
   @@index([subscriberId])
   @@index([email])
   @@index([status])
-  @@unique([campaignId, email])
 }
 
 model tech_pages {
-  id          Int         @id @default(autoincrement())
-  uuid        String      @unique @default(uuid())
-  title       String      @db.VarChar(255)
-  slug        String      @unique @db.VarChar(255)
-  content     String      @db.Text
-  type        PageType    @default(INFORMATION)
-  status      PageStatus  @default(ACTIVE)
-  metaTitle   String?     @db.VarChar(255)
-  metaDescription String? @db.VarChar(500)
-  metaKeywords String?    @db.VarChar(500)
-  featuredImage String?   // URL for featured image
-  authorId    Int?        // User who created the page
-  publishedAt DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  isDeleted   Boolean     @default(false)
-
-  author tech_users? @relation(fields: [authorId], references: [id])
+  id              Int         @id @default(autoincrement())
+  uuid            String      @unique @default(uuid())
+  title           String      @db.VarChar(255)
+  slug            String      @unique @db.VarChar(255)
+  content         String
+  type            PageType    @default(INFORMATION)
+  status          PageStatus  @default(ACTIVE)
+  metaTitle       String?     @db.VarChar(255)
+  metaDescription String?     @db.VarChar(500)
+  metaKeywords    String?     @db.VarChar(500)
+  featuredImage   String?
+  authorId        Int?
+  publishedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  isDeleted       Boolean     @default(false)
+  author          tech_users? @relation(fields: [authorId], references: [id])
 
   @@index([slug])
   @@index([type])
@@ -344,34 +324,30 @@ model tech_pages {
   @@index([createdAt])
 }
 
-// ==================== WEBSITE SECTIONS ====================
 model tech_website_sections {
-  id           Int            @id @default(autoincrement())
-  uuid         String         @unique @default(uuid())
-  section_key  String         @unique
-  section_name String
-  content      Json           // Main section content (tagline, title, description, etc.)
-  show_on_landing Boolean     @default(true)
-  status       SectionStatus  @default(ACTIVE)
-  order_index  Int            @default(0)
-  version      Int            @default(1)
-  created_by   Int?
-  updated_by   Int?
-  created_at   DateTime       @default(now())
-  updated_at   DateTime       @updatedAt
-  is_deleted   Boolean        @default(false)
-
-  // Relations to child elements
-  feature_elements     tech_feature_elements[]
-  why_us_elements      tech_why_us_elements[]
-  explorer_elements    tech_explorer_elements[]
+  id                   Int                         @id @default(autoincrement())
+  uuid                 String                      @unique @default(uuid())
+  section_key          String                      @unique
+  section_name         String
+  content              Json
+  show_on_landing      Boolean                     @default(true)
+  status               SectionStatus               @default(ACTIVE)
+  order_index          Int                         @default(0)
+  version              Int                         @default(1)
+  created_by           Int?
+  updated_by           Int?
+  created_at           DateTime                    @default(now())
+  updated_at           DateTime                    @updatedAt
+  is_deleted           Boolean                     @default(false)
   all_feature_elements tech_all_feature_elements[]
+  brand_elements       tech_brand_elements[]
+  explorer_elements    tech_explorer_elements[]
+  feature_elements     tech_feature_elements[]
   software_elements    tech_software_elements[]
   testimonial_elements tech_testimonial_elements[]
-  brand_elements       tech_brand_elements[]
-
-  created_by_user tech_users? @relation("SectionCreatedBy", fields: [created_by], references: [id])
-  updated_by_user tech_users? @relation("SectionUpdatedBy", fields: [updated_by], references: [id])
+  created_by_user      tech_users?                 @relation("SectionCreatedBy", fields: [created_by], references: [id])
+  updated_by_user      tech_users?                 @relation("SectionUpdatedBy", fields: [updated_by], references: [id])
+  why_us_elements      tech_why_us_elements[]
 
   @@index([section_key])
   @@index([status])
@@ -380,23 +356,19 @@ model tech_website_sections {
   @@map("tech_website_sections")
 }
 
-// ==================== CHILD ELEMENT MODELS ====================
-
-// For Features section table
 model tech_feature_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   title       String
   description String?
   image       String?
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -404,21 +376,19 @@ model tech_feature_elements {
   @@map("tech_feature_elements")
 }
 
-// For Why Us section table
 model tech_why_us_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   title       String
   description String?
   image       String?
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -426,21 +396,19 @@ model tech_why_us_elements {
   @@map("tech_why_us_elements")
 }
 
-// For Explorers section table
 model tech_explorer_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   title       String
   description String?
   image       String?
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -448,21 +416,19 @@ model tech_explorer_elements {
   @@map("tech_explorer_elements")
 }
 
-// For All Features section table
 model tech_all_feature_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   title       String
   description String?
   image       String?
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -470,21 +436,19 @@ model tech_all_feature_elements {
   @@map("tech_all_feature_elements")
 }
 
-// For Software Overview section table
 model tech_software_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   title       String?
   description String?
   image       String
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -492,24 +456,22 @@ model tech_software_elements {
   @@map("tech_software_elements")
 }
 
-// For Testimonial section table
 model tech_testimonial_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   name        String
   title       String?
   description String
   image       String?
-  rating      Int?     // 1-5 stars
+  rating      Int?
   company     String?
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -517,21 +479,19 @@ model tech_testimonial_elements {
   @@map("tech_testimonial_elements")
 }
 
-// For Brands section table
 model tech_brand_elements {
-  id          Int      @id @default(autoincrement())
-  uuid        String   @unique @default(uuid())
+  id          Int                   @id @default(autoincrement())
+  uuid        String                @unique @default(uuid())
   section_id  Int
   name        String
   image       String
   website_url String?
-  status      ElementStatus @default(ACTIVE)
-  order_index Int      @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-
-  section tech_website_sections @relation(fields: [section_id], references: [id])
+  status      ElementStatus         @default(ACTIVE)
+  order_index Int                   @default(0)
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  is_deleted  Boolean               @default(false)
+  section     tech_website_sections @relation(fields: [section_id], references: [id])
 
   @@index([section_id])
   @@index([status])
@@ -539,32 +499,30 @@ model tech_brand_elements {
   @@map("tech_brand_elements")
 }
 
-// ==================== ACTIVITY LOGS ====================
 model tech_activity_logs {
-  id          Int           @id @default(autoincrement())
-  uuid        String        @unique @default(uuid())
-  user_id     Int?          // User who performed the action
-  user_name   String?       // Cached user name for performance
-  user_email  String?       // Cached user email
-  user_role   UserRole?     // Cached user role
-  action      LogAction     // Type of action performed
-  entity_type EntityType    // What entity was affected (user, tenant, plan, etc.)
-  entity_id   Int?          // ID of the affected entity
-  entity_name String?       // Name of the affected entity
-  description String        // Human-readable description
-  old_values  Json?         // Previous values (for updates)
-  new_values  Json?         // New values (for updates)
-  ip_address  String?       // IP address of the user
-  user_agent  String?       // Browser/user agent info
-  location    String?       // Geographic location (if available)
-  severity    LogSeverity   @default(INFO)
-  status      LogStatus     @default(SUCCESS)
-  metadata    Json?         // Additional context data
-  created_at  DateTime      @default(now())
-  updated_at  DateTime      @updatedAt
-  is_deleted  Boolean       @default(false)
-
-  user tech_users? @relation(fields: [user_id], references: [id])
+  id          Int         @id @default(autoincrement())
+  uuid        String      @unique @default(uuid())
+  user_id     Int?
+  user_name   String?
+  user_email  String?
+  user_role   UserRole?
+  action      LogAction
+  entity_type EntityType
+  entity_id   Int?
+  entity_name String?
+  description String
+  old_values  Json?
+  new_values  Json?
+  ip_address  String?
+  user_agent  String?
+  location    String?
+  severity    LogSeverity @default(INFO)
+  status      LogStatus   @default(SUCCESS)
+  metadata    Json?
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+  is_deleted  Boolean     @default(false)
+  user        tech_users? @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
   @@index([action])
@@ -575,305 +533,177 @@ model tech_activity_logs {
   @@map("tech_activity_logs")
 }
 
-// General Settings Schema
 model tech_general_settings {
-  id                  String   @id @default(cuid())
-  
-  // Company Information
-  companyName         String
-  companyTagline      String
-  emailAddress        String
-  phoneNumber         String
-  address             String?
-  
-  // Pricing Plan
-  yearlyPlanDiscount  Float?   // Yearly plan discount percentage
-  trialDayCount       Int      // Trial day count
-  
-  // Default Elements
-  defaultLanguage     String   @default("en")
-  defaultCurrency     String   @default("USD")
-  copyrightText       String
-  
-  // Social Media Links
-  facebookLink        String?
-  instagramLink       String?
-  twitterLink         String?
-  linkedinLink        String?
-  
-  // Logo URLs
-  whiteLogo           String?
-  blackLogo           String?
-  smallLogo           String?
-  favicon             String?
-  
-  // Features
-  emailOtpVerification Boolean @default(false)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  companyName          String
+  companyTagline       String
+  emailAddress         String
+  phoneNumber          String
+  address              String?
+  yearlyPlanDiscount   Float?
+  trialDayCount        Int
+  defaultLanguage      String   @default("en")
+  defaultCurrency      String   @default("USD")
+  copyrightText        String
+  facebookLink         String?
+  instagramLink        String?
+  twitterLink          String?
+  linkedinLink         String?
+  whiteLogo            String?
+  blackLogo            String?
+  smallLogo            String?
+  favicon              String?
+  emailOtpVerification Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("tech_general_settings")
 }
 
-// Mail Configuration Schema
 model tech_mail_configurations {
-  id                String   @id @default(cuid())
-  
-  // Mail Settings
-  mailer            String   // smtp, sendmail, etc.
-  host              String   // smtp.gmail.com, etc.
-  port              String   // 587, 465, etc.
-  username          String   // email username
-  password          String   // email password
-  encryption        String   // tls, ssl, etc.
-  fromAddress       String   // sender email address
-  fromName          String?  // sender name (optional)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  mailer      String
+  host        String
+  port        String
+  username    String
+  password    String
+  encryption  String
+  fromAddress String
+  fromName    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("tech_mail_configurations")
 }
 
-// SMS Configuration Schema (Provider-agnostic)
 model tech_sms_configurations {
-  id                    String   @id @default(cuid())
-  
-  // Provider Settings
-  provider              String   @default("twilio") // twilio, vonage, etc.
-  accountSid            String   // ACCOUNT SID
-  authToken             String   // AUTH TOKEN
-  fromNumber            String   // FROM NUMBER
-  serviceSid            String   // SMS SERVICE SID
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  provider   String   @default("twilio")
+  accountSid String
+  authToken  String
+  fromNumber String
+  serviceSid String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("tech_sms_configurations")
 }
 
-// Currency Schema
 model tech_currencies {
-  id          String   @id @default(cuid())
-  name        String   // Currency name (e.g., US Dollar)
-  code        String   // Currency code (e.g., USD)
-  rate        Float    // Exchange rate compared to USD
-  symbol      String   // Currency symbol (e.g., $)
-  position    String   @default("left") // left or right
-  status      Boolean  @default(true)   // Active/Inactive
-  note        String?  // Optional note
-  
-  // Timestamps
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  rate      Float
+  symbol    String
+  position  String   @default("left")
+  status    Boolean  @default(true)
+  note      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([code])
   @@map("tech_currencies")
 }
 
-// Payment Settings Schema
 model tech_payment_settings {
-  id                      String   @id @default(cuid())
-  
-  // Manual Payment
-  manualPayment           Json?    // { isActive: boolean, note: string }
-  
-  // Stripe
-  stripe                  Json?    // { isActive: boolean, secret: string }
-  
-  // PayPal
-  paypal                  Json?    // { isActive: boolean, mode: string, clientId: string, clientSecret: string }
-  
-  // Paystack
-  paystack                Json?    // { isActive: boolean, merchantEmail: string, publicKey: string, secretKey: string }
-  
-  // Razorpay
-  razorpay                Json?    // { isActive: boolean, keyId: string, keySecret: string }
-  
-  // Live Currency Exchange
-  currencyExchange        Json?    // { isActive: boolean, apiKey: string }
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  manualPayment    Json?
+  stripe           Json?
+  paypal           Json?
+  paystack         Json?
+  razorpay         Json?
+  currencyExchange Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("tech_payment_settings")
 }
 
-// Role & Permissions Schema - Explicit Junction Table
 model tech_roles {
-  id          String           @id @default(cuid())
-  name        String           @unique
+  id          String                  @id @default(cuid())
+  name        String                  @unique
   description String?
-  isSystem    Boolean          @default(false)
-  permissions tech_role_permissions[] // Relation to junction table
+  isSystem    Boolean                 @default(false)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  permissions tech_role_permissions[]
   users       tech_users[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
 
   @@map("tech_roles")
 }
 
 model tech_permissions {
-  id          String           @id @default(cuid())
-  name        String           @unique
+  id          String                  @id @default(cuid())
+  name        String                  @unique
   category    String
   description String?
-  roles       tech_role_permissions[] // Relation to junction table
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  roles       tech_role_permissions[]
 
   @@map("tech_permissions")
 }
 
 model tech_role_permissions {
-  id           String     @id @default(cuid())
+  id           String           @id @default(cuid())
   roleId       String
   permissionId String
-  role         tech_roles       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt    DateTime         @default(now())
   permission   tech_permissions @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
+  role         tech_roles       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@map("tech_role_permissions")
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// TENANT SIDE SCHEMA
-
-
-
-
-
-
-
-
-
-
-
 model tech_tenant_users {
-  id         Int        @id @default(autoincrement())
-  tenantId   Int
-  userId     Int
-  role       String      // e.g. 'student', 'agent', 'university', 'tenant_admin'
-  status     String      @default("active") // active, suspended, invited, etc.
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id        Int          @id @default(autoincrement())
+  tenantId  Int
+  userId    Int
+  role      String
+  status    String       @default("active")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  tenant    tech_tenants @relation(fields: [tenantId], references: [id])
+  user      tech_users   @relation(fields: [userId], references: [id])
 
-  tenant     tech_tenants @relation(fields: [tenantId], references: [id])
-  user       tech_users   @relation(fields: [userId], references: [id])
-
-  @@unique([tenantId, userId]) // a user can’t be duplicated in same tenant
+  @@unique([tenantId, userId])
   @@index([tenantId])
   @@index([userId])
 }
 
-
 model tech_student_meta {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  user_id                 Int       @unique // Reference to main user
-  
-  // Personal Information
-  salutation              String?   @db.VarChar(50)
-  first_name              String    @db.VarChar(255)
-  middle_name             String?   @db.VarChar(255)
-  last_name               String    @db.VarChar(255)
-  
-  // Contact Information
-  alternate_email         String?   @db.VarChar(255) @unique
-  country_code            String?   @db.VarChar(10)
-  alternate_phone_number  String?   @db.VarChar(20)
-  
-  // Demographic Information
-  dob                     DateTime? // Changed to DateTime for consistency
-  gender                  String?   @db.VarChar(50)
-  citizenship             String?   @db.VarChar(100)
-  
-  // Address Information
-  address                 String?   @db.VarChar(500) // Increased length
-  city                    String?   @db.VarChar(100)
-  state                   String?   @db.VarChar(100)
-  country                 String?   @db.VarChar(100)
-  zip_code                String?   @db.VarChar(20)
-  
-  // Emergency Contact
-  emergency_c_name        String?   @db.VarChar(255)
-  emergency_c_relation    String?   @db.VarChar(100)
-  emergency_c_email       String?   @db.VarChar(255)
-  emergency_c_phone       String?   @db.VarChar(20)
-  
-  // Profile & Media
-  profile         String?   @db.VarChar(500)
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  user     tech_users   @relation(fields: [user_id], references: [id])
-  interests tech_student_interests[]
-  applications tech_student_applications[]
-  
-  // Indexes
+  id                     Int                         @id @default(autoincrement())
+  uuid                   String                      @unique @default(uuid())
+  tenant_id              Int
+  user_id                Int                         @unique
+  salutation             String?                     @db.VarChar(50)
+  first_name             String                      @db.VarChar(255)
+  middle_name            String?                     @db.VarChar(255)
+  last_name              String                      @db.VarChar(255)
+  alternate_email        String?                     @unique @db.VarChar(255)
+  country_code           String?                     @db.VarChar(10)
+  alternate_phone_number String?                     @db.VarChar(20)
+  dob                    DateTime?
+  gender                 String?                     @db.VarChar(50)
+  citizenship            String?                     @db.VarChar(100)
+  address                String?                     @db.VarChar(500)
+  city                   String?                     @db.VarChar(100)
+  state                  String?                     @db.VarChar(100)
+  country                String?                     @db.VarChar(100)
+  zip_code               String?                     @db.VarChar(20)
+  emergency_c_name       String?                     @db.VarChar(255)
+  emergency_c_relation   String?                     @db.VarChar(100)
+  emergency_c_email      String?                     @db.VarChar(255)
+  emergency_c_phone      String?                     @db.VarChar(20)
+  profile                String?                     @db.VarChar(500)
+  created_at             DateTime                    @default(now())
+  updated_at             DateTime                    @updatedAt
+  is_deleted             Boolean                     @default(false)
+  applications           tech_student_applications[]
+  interests              tech_student_interests[]
+  user                   tech_users                  @relation(fields: [user_id], references: [id])
+
+  @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([alternate_email])
@@ -881,104 +711,73 @@ model tech_student_meta {
   @@index([citizenship])
   @@index([country])
   @@index([created_at])
-  @@unique([tenant_id, user_id]) // One meta per user per tenant
   @@map("tech_student_meta")
 }
 
-
 model tech_student_interests {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  student_id              Int      // Reference to student meta
-  
-  // Study Preferences
-  preferred_country       String?  @db.VarChar(100)
-  level_of_study          String?  @db.VarChar(100)
-  discipline              String?  @db.VarChar(100)
-  
-  // Test Scores
-  sat_score               Int?     // Renamed for clarity
-  act_score               Int?     // Renamed for clarity
-  toefl_score             Int?     // Renamed for clarity
-  pte_score               Int?     // Renamed for clarity
-  duolingo_score          Int?     // Renamed for clarity
-  ielts_score             Float?   // Changed to Float for band scores (e.g., 6.5, 7.0)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  student      tech_student_meta @relation(fields: [student_id], references: [user_id])
-  
-  // Indexes
+  id                Int               @id @default(autoincrement())
+  uuid              String            @unique @default(uuid())
+  tenant_id         Int
+  student_id        Int
+  preferred_country String?           @db.VarChar(100)
+  level_of_study    String?           @db.VarChar(100)
+  discipline        String?           @db.VarChar(100)
+  sat_score         Int?
+  act_score         Int?
+  toefl_score       Int?
+  pte_score         Int?
+  duolingo_score    Int?
+  ielts_score       Float?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  is_deleted        Boolean           @default(false)
+  student           tech_student_meta @relation(fields: [student_id], references: [user_id])
+
+  @@unique([tenant_id, student_id])
   @@index([tenant_id])
   @@index([student_id])
   @@index([preferred_country])
   @@index([level_of_study])
   @@index([discipline])
   @@index([created_at])
-  @@unique([tenant_id, student_id]) // One interest profile per student per tenant
   @@map("tech_student_interests")
 }
 
 model tech_agent_student_meta {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  user_id                 Int       @unique // Reference to main user
-  
-  // Personal Information
-  salutation              String?   @db.VarChar(50)
-  first_name              String    @db.VarChar(255)
-  middle_name             String?   @db.VarChar(255)
-  last_name               String    @db.VarChar(255)
-  
-  // Contact Information
-  alternate_email         String?   @db.VarChar(255) @unique
-  country_code            String?   @db.VarChar(10)
-  alternate_phone_number  String?   @db.VarChar(20)
-  
-  // Demographic Information
-  dob                     DateTime? // Changed to DateTime for consistency
-  gender                  String?   @db.VarChar(50)
-  citizenship             String?   @db.VarChar(100)
-  
-  // Address Information
-  address                 String?   @db.VarChar(500) // Increased length
-  city                    String?   @db.VarChar(100)
-  state                   String?   @db.VarChar(100)
-  country                 String?   @db.VarChar(100)
-  zip_code                String?   @db.VarChar(20)
-  
-  // Emergency Contact
-  emergency_c_name        String?   @db.VarChar(255)
-  emergency_c_relation    String?   @db.VarChar(100)
-  emergency_c_email       String?   @db.VarChar(255)
-  emergency_c_phone       String?   @db.VarChar(20)
-  
-  // Profile & Media
-  profile                 String?   @db.VarChar(500)
-  
-  // Agent-Specific Fields
-  agent_id                Int       @unique // Reference to the agent who manages this student
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  user     tech_users   @relation("AgentsStudentData", fields: [user_id], references: [id])
-  agent    tech_users  @relation("StudentsAgentData",fields: [agent_id], references: [id])
-  interests tech_agent_student_interests[]
-  applications tech_agent_student_applications[]
-  
-  // Indexes
+  id                     Int                               @id @default(autoincrement())
+  uuid                   String                            @unique @default(uuid())
+  tenant_id              Int
+  user_id                Int                               @unique
+  salutation             String?                           @db.VarChar(50)
+  first_name             String                            @db.VarChar(255)
+  middle_name            String?                           @db.VarChar(255)
+  last_name              String                            @db.VarChar(255)
+  alternate_email        String?                           @unique @db.VarChar(255)
+  country_code           String?                           @db.VarChar(10)
+  alternate_phone_number String?                           @db.VarChar(20)
+  dob                    DateTime?
+  gender                 String?                           @db.VarChar(50)
+  citizenship            String?                           @db.VarChar(100)
+  address                String?                           @db.VarChar(500)
+  city                   String?                           @db.VarChar(100)
+  state                  String?                           @db.VarChar(100)
+  country                String?                           @db.VarChar(100)
+  zip_code               String?                           @db.VarChar(20)
+  emergency_c_name       String?                           @db.VarChar(255)
+  emergency_c_relation   String?                           @db.VarChar(100)
+  emergency_c_email      String?                           @db.VarChar(255)
+  emergency_c_phone      String?                           @db.VarChar(20)
+  profile                String?                           @db.VarChar(500)
+  agent_id               Int                               @unique
+  created_at             DateTime                          @default(now())
+  updated_at             DateTime                          @updatedAt
+  is_deleted             Boolean                           @default(false)
+  applications           tech_agent_student_applications[]
+  interests              tech_agent_student_interests[]
+  agent                  tech_users                        @relation("StudentsAgentData", fields: [agent_id], references: [id])
+  user                   tech_users                        @relation("AgentsStudentData", fields: [user_id], references: [id])
+
+  @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([agent_id])
@@ -987,156 +786,117 @@ model tech_agent_student_meta {
   @@index([citizenship])
   @@index([country])
   @@index([created_at])
-  @@unique([tenant_id, user_id]) // One meta per user per tenant
   @@map("tech_agent_student_meta")
 }
 
 model tech_agent_student_interests {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  student_id              Int      // Reference to agent student meta
-  
-  // Study Preferences
-  preferred_country       String?  @db.VarChar(100)
-  level_of_study          String?  @db.VarChar(100)
-  discipline              String?  @db.VarChar(100)
-  
-  // Test Scores
-  sat_score               Int?     // Renamed for clarity
-  act_score               Int?     // Renamed for clarity
-  toefl_score             Int?     // Renamed for clarity
-  pte_score               Int?     // Renamed for clarity
-  duolingo_score          Int?     // Renamed for clarity
-  ielts_score             Float?   // Changed to Float for band scores (e.g., 6.5, 7.0)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  student      tech_agent_student_meta @relation(fields: [student_id], references: [user_id])
-  
-  // Indexes
+  id                Int                     @id @default(autoincrement())
+  uuid              String                  @unique @default(uuid())
+  tenant_id         Int
+  student_id        Int
+  preferred_country String?                 @db.VarChar(100)
+  level_of_study    String?                 @db.VarChar(100)
+  discipline        String?                 @db.VarChar(100)
+  sat_score         Int?
+  act_score         Int?
+  toefl_score       Int?
+  pte_score         Int?
+  duolingo_score    Int?
+  ielts_score       Float?
+  created_at        DateTime                @default(now())
+  updated_at        DateTime                @updatedAt
+  is_deleted        Boolean                 @default(false)
+  student           tech_agent_student_meta @relation(fields: [student_id], references: [user_id])
+
+  @@unique([tenant_id, student_id])
   @@index([tenant_id])
   @@index([student_id])
   @@index([preferred_country])
   @@index([level_of_study])
   @@index([discipline])
   @@index([created_at])
-  @@unique([tenant_id, student_id]) // One interest profile per student per tenant
   @@map("tech_agent_student_interests")
 }
 
 model tech_agents {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  user_id                 Int       @unique// Reference to main user
-  
-  // Business Information
-  name                    String?   @db.VarChar(255)
-  business_name           String    @db.VarChar(255)
-  business_certificate    String?   @db.VarChar(255)
-  agency_logo             String?   @db.VarChar(255)
-  pan_card_upload         String?   @db.VarChar(255)
-  
-  // Address Information
-  country                 String    @db.VarChar(100)
-  street_address          String?   @db.VarChar(255)
-  city                    String?   @db.VarChar(100)
-  state                   String?   @db.VarChar(100)
-  postal_code             String?   @db.VarChar(20)
-  
-  // Social & Contact Links
-  website_url             String?   @db.VarChar(255)
-  instagram               String?   @db.VarChar(255)
-  facebook                String?   @db.VarChar(255)
-  linkedin                String?   @db.VarChar(255)
-  twitter                 String?   @db.VarChar(255)
-  other                   String?   @db.VarChar(255)
-  whatsapp_id             String?   @db.VarChar(50)
-  skype_id                String?   @db.VarChar(50)
-  
-  // Banking Information
-  ifsc_code               String?   @db.VarChar(50)
-  bank_account_number     String?   @db.VarChar(255)
-  bank_account_name       String?   @db.VarChar(50)
-  
-  // Verification Status
-  is_payment_verified     Boolean   @default(false)
-  is_admin_verified       Boolean   @default(false)
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  user     tech_users   @relation(fields: [user_id], references: [id])
+  id                   Int                               @id @default(autoincrement())
+  uuid                 String                            @unique @default(uuid())
+  tenant_id            Int
+  user_id              Int                               @unique
+  name                 String?                           @db.VarChar(255)
+  business_name        String                            @db.VarChar(255)
+  business_certificate String?                           @db.VarChar(255)
+  agency_logo          String?                           @db.VarChar(255)
+  pan_card_upload      String?                           @db.VarChar(255)
+  country              String                            @db.VarChar(100)
+  street_address       String?                           @db.VarChar(255)
+  city                 String?                           @db.VarChar(100)
+  state                String?                           @db.VarChar(100)
+  postal_code          String?                           @db.VarChar(20)
+  website_url          String?                           @db.VarChar(255)
+  instagram            String?                           @db.VarChar(255)
+  facebook             String?                           @db.VarChar(255)
+  linkedin             String?                           @db.VarChar(255)
+  twitter              String?                           @db.VarChar(255)
+  other                String?                           @db.VarChar(255)
+  whatsapp_id          String?                           @db.VarChar(50)
+  skype_id             String?                           @db.VarChar(50)
+  ifsc_code            String?                           @db.VarChar(50)
+  bank_account_number  String?                           @db.VarChar(255)
+  bank_account_name    String?                           @db.VarChar(50)
+  is_payment_verified  Boolean                           @default(false)
+  is_admin_verified    Boolean                           @default(false)
+  created_at           DateTime                          @default(now())
+  updated_at           DateTime                          @updatedAt
+  is_deleted           Boolean                           @default(false)
   student_applications tech_agent_student_applications[]
-  app_status_tracking tech_track_agent_app_status[]
-  
-  // Indexes
+  user                 tech_users                        @relation(fields: [user_id], references: [id])
+  app_status_tracking  tech_track_agent_app_status[]
+
+  @@unique([tenant_id, user_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([business_name])
   @@index([country])
   @@index([is_admin_verified])
   @@index([created_at])
-  @@unique([tenant_id, user_id]) // One agent profile per user per tenant
   @@map("tech_agents")
 }
 
+model tech_countries {
+  id           Int                       @id @default(autoincrement())
+  uuid         String                    @unique @default(uuid())
+  tenant_id    Int?
+  country      String                    @db.VarChar(255)
+  country_slug String                    @db.VarChar(255)
+  created_at   DateTime                  @default(now())
+  updated_at   DateTime                  @updatedAt
+  is_deleted   Boolean                   @default(false)
+  tenant       tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  states       tech_states[]
+  universities tech_universities[]
+  courses      tech_university_courses[]
 
+  @@unique([tenant_id, country_slug])
+  @@index([country])
+  @@index([country_slug])
+  @@index([tenant_id])
+  @@map("tech_countries")
+}
 
-// Country model with tenant isolation
-  model tech_countries {
-    id           Int      @id @default(autoincrement())
-    uuid         String   @unique @default(uuid())
-    tenant_id    Int?     // Nullable for global countries
-    country      String   @db.VarChar(255)
-    country_slug String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-    
-    // Audit Fields
-    created_at   DateTime @default(now())
-    updated_at   DateTime @updatedAt
-    is_deleted   Boolean  @default(false)
-
-    // Relations
-    tenant       tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-    states       tech_states[]
-    universities tech_universities[]
-    courses      tech_university_courses[]
-
-    @@unique([tenant_id, country_slug])
-    @@index([country])
-    @@index([country_slug])
-    @@index([tenant_id])
-    @@map("tech_countries")
-  }
-
-// State model with tenant isolation
 model tech_states {
-  id           Int      @id @default(autoincrement())
-  uuid         String   @unique @default(uuid())
-  tenant_id    Int?     // Nullable for global states
-  state        String   @db.VarChar(255)
-  state_slug   String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
+  id           Int                       @id @default(autoincrement())
+  uuid         String                    @unique @default(uuid())
+  tenant_id    Int?
+  state        String                    @db.VarChar(255)
+  state_slug   String                    @db.VarChar(255)
   country_id   Int
-  
-  // Audit Fields
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  is_deleted   Boolean  @default(false)
-
-  // Relations
-  tenant       tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  country      tech_countries @relation(fields: [country_id], references: [id])
+  created_at   DateTime                  @default(now())
+  updated_at   DateTime                  @updatedAt
+  is_deleted   Boolean                   @default(false)
   cities       tech_cities[]
+  country      tech_countries            @relation(fields: [country_id], references: [id])
+  tenant       tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   universities tech_universities[]
   courses      tech_university_courses[]
 
@@ -1148,47 +908,37 @@ model tech_states {
   @@map("tech_states")
 }
 
-// City model with tenant isolation
 model tech_cities {
-  id           Int      @id @default(autoincrement())
-  uuid         String   @unique @default(uuid())
-  tenant_id    Int?     // Nullable for global cities
-  city         String   @db.VarChar(255)
+  id           Int                       @id @default(autoincrement())
+  uuid         String                    @unique @default(uuid())
+  tenant_id    Int?
+  city         String                    @db.VarChar(255)
   state_id     Int
-  
-  // Audit Fields
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  is_deleted   Boolean  @default(false)
-
-  // Relations
-  tenant       tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  state        tech_states @relation(fields: [state_id], references: [id])
+  created_at   DateTime                  @default(now())
+  updated_at   DateTime                  @updatedAt
+  is_deleted   Boolean                   @default(false)
+  state        tech_states               @relation(fields: [state_id], references: [id])
+  tenant       tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   universities tech_universities[]
   courses      tech_university_courses[]
 
-  @@unique([tenant_id, city, state_id]) // Unique city name per state per tenant
+  @@unique([tenant_id, city, state_id])
   @@index([city])
   @@index([state_id])
   @@index([tenant_id])
   @@map("tech_cities")
 }
 
-// Study Level model with tenant isolation
 model tech_study_levels {
-  id              Int      @id @default(autoincrement())
-  uuid            String   @unique @default(uuid())
-  tenant_id       Int?     // Nullable for global study levels
-  study_level     String   @db.VarChar(255)
-  studylevel_slug String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  
-  // Audit Fields
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  is_deleted      Boolean  @default(false)
-
-  // Relations
-  tenant          tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  id              Int                       @id @default(autoincrement())
+  uuid            String                    @unique @default(uuid())
+  tenant_id       Int?
+  study_level     String                    @db.VarChar(255)
+  studylevel_slug String                    @db.VarChar(255)
+  created_at      DateTime                  @default(now())
+  updated_at      DateTime                  @updatedAt
+  is_deleted      Boolean                   @default(false)
+  tenant          tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   courses         tech_university_courses[]
 
   @@unique([tenant_id, studylevel_slug])
@@ -1198,22 +948,17 @@ model tech_study_levels {
   @@map("tech_study_levels")
 }
 
-// Discipline model with tenant isolation
 model tech_disciplines {
-  id               Int      @id @default(autoincrement())
-  uuid             String   @unique @default(uuid())
-  tenant_id        Int?     // Nullable for global disciplines
-  discipline       String   @db.VarChar(255)
-  discipline_slug  String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  
-  // Audit Fields
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  is_deleted       Boolean  @default(false)
-
-  // Relations
-  tenant           tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  courses          tech_university_courses[]
+  id              Int                       @id @default(autoincrement())
+  uuid            String                    @unique @default(uuid())
+  tenant_id       Int?
+  discipline      String                    @db.VarChar(255)
+  discipline_slug String                    @db.VarChar(255)
+  created_at      DateTime                  @default(now())
+  updated_at      DateTime                  @updatedAt
+  is_deleted      Boolean                   @default(false)
+  tenant          tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  courses         tech_university_courses[]
 
   @@unique([tenant_id, discipline_slug])
   @@index([discipline])
@@ -1222,21 +967,16 @@ model tech_disciplines {
   @@map("tech_disciplines")
 }
 
-// Partner Type model with tenant isolation
 model tech_partner_types {
-  id                    Int      @id @default(autoincrement())
-  uuid                  String   @unique @default(uuid())
-  tenant_id             Int?     // Nullable for global partner types
-  kind_of_partners      String   @db.VarChar(255)
-  kind_of_partners_slug String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  
-  // Audit Fields
-  created_at            DateTime @default(now())
-  updated_at            DateTime @updatedAt
-  is_deleted            Boolean  @default(false)
-
-  // Relations
-  tenant                tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  id                    Int                       @id @default(autoincrement())
+  uuid                  String                    @unique @default(uuid())
+  tenant_id             Int?
+  kind_of_partners      String                    @db.VarChar(255)
+  kind_of_partners_slug String                    @db.VarChar(255)
+  created_at            DateTime                  @default(now())
+  updated_at            DateTime                  @updatedAt
+  is_deleted            Boolean                   @default(false)
+  tenant                tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   universities          tech_universities[]
   courses               tech_university_courses[]
 
@@ -1247,23 +987,18 @@ model tech_partner_types {
   @@map("tech_partner_types")
 }
 
-// University Type model with tenant isolation
 model tech_university_types {
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int?     // Nullable for global university types
-  type_of_university      String   @db.VarChar(255)
-  type_of_university_slug String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-
-  // Relations
-  tenant                  tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  id                      Int                       @id @default(autoincrement())
+  uuid                    String                    @unique @default(uuid())
+  tenant_id               Int?
+  type_of_university      String                    @db.VarChar(255)
+  type_of_university_slug String                    @db.VarChar(255)
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime                  @updatedAt
+  is_deleted              Boolean                   @default(false)
   universities            tech_universities[]
   courses                 tech_university_courses[]
+  tenant                  tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@unique([tenant_id, type_of_university_slug])
   @@index([type_of_university])
@@ -1272,22 +1007,17 @@ model tech_university_types {
   @@map("tech_university_types")
 }
 
-// Intake model with tenant isolation
 model tech_intakes {
-  id           Int      @id @default(autoincrement())
-  uuid         String   @unique @default(uuid())
-  tenant_id    Int?     // Nullable for global intakes
-  intake       String   @db.VarChar(255)
-  intake_slug  String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  
-  // Audit Fields
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  is_deleted   Boolean  @default(false)
-
-  // Relations
-  tenant       tech_tenants? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  courses      tech_university_courses[]
+  id          Int                       @id @default(autoincrement())
+  uuid        String                    @unique @default(uuid())
+  tenant_id   Int?
+  intake      String                    @db.VarChar(255)
+  intake_slug String                    @db.VarChar(255)
+  created_at  DateTime                  @default(now())
+  updated_at  DateTime                  @updatedAt
+  is_deleted  Boolean                   @default(false)
+  tenant      tech_tenants?             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  courses     tech_university_courses[]
 
   @@unique([tenant_id, intake_slug])
   @@index([intake])
@@ -1296,58 +1026,40 @@ model tech_intakes {
   @@map("tech_intakes")
 }
 
-// Updated University model with tenant isolation
 model tech_universities {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Required - universities are tenant-specific
-  
-  // University Information
-  university              String   @db.VarChar(255)
-  university_slug         String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  
-  description             String?  @db.Text
-  
-  // Location Information (using relations)
-  country_id              Int
-  state_id                Int
-  city_id                 Int
-  address                 String?  @db.Text
-  map_url                 String?  @db.Text
-  location_url            String?  @db.Text
-  
-  // Classification (using relations)
-  kind_of_partners_id     Int
-  type_of_university_id   Int
-  collaboration           String   @db.VarChar(50)
-  partner                 String   @db.VarChar(10)
-  
-  // Media & Resources
-  logo                    String?  @db.VarChar(255)
-  image                   String?  @db.VarChar(255)
-  brocher                 String?  @db.VarChar(255)
-  video_link              String?  @db.Text
-  tution_url              String?  @db.VarChar(255)
-  
-  // Contact Information
-  email                   String?  @db.Text
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
+  id                    Int                       @id @default(autoincrement())
+  uuid                  String                    @unique @default(uuid())
+  tenant_id             Int
+  university            String                    @db.VarChar(255)
+  university_slug       String                    @db.VarChar(255)
+  description           String?
+  country_id            Int
+  state_id              Int
+  city_id               Int
+  address               String?
+  map_url               String?
+  location_url          String?
+  kind_of_partners_id   Int
+  type_of_university_id Int
+  collaboration         String                    @db.VarChar(50)
+  partner               String                    @db.VarChar(10)
+  logo                  String?                   @db.VarChar(255)
+  image                 String?                   @db.VarChar(255)
+  brocher               String?                   @db.VarChar(255)
+  video_link            String?
+  tution_url            String?                   @db.VarChar(255)
+  email                 String?
+  created_at            DateTime                  @default(now())
+  updated_at            DateTime                  @updatedAt
+  is_deleted            Boolean                   @default(false)
+  city                  tech_cities               @relation(fields: [city_id], references: [id])
+  country               tech_countries            @relation(fields: [country_id], references: [id])
+  kind_of_partners      tech_partner_types        @relation(fields: [kind_of_partners_id], references: [id])
+  state                 tech_states               @relation(fields: [state_id], references: [id])
+  tenant                tech_tenants              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  type_of_university    tech_university_types     @relation(fields: [type_of_university_id], references: [id])
+  courses               tech_university_courses[]
 
-  // Relations
-  tenant               tech_tenants           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  country              tech_countries         @relation(fields: [country_id], references: [id])
-  state                tech_states            @relation(fields: [state_id], references: [id])
-  city                 tech_cities            @relation(fields: [city_id], references: [id])
-  kind_of_partners     tech_partner_types     @relation(fields: [kind_of_partners_id], references: [id])
-  type_of_university   tech_university_types  @relation(fields: [type_of_university_id], references: [id])
-  courses              tech_university_courses[]
-  
-  // Indexes
   @@unique([tenant_id, university_slug])
   @@index([university])
   @@index([university_slug])
@@ -1362,77 +1074,58 @@ model tech_universities {
   @@map("tech_universities")
 }
 
-// Updated Course model with tenant isolation
 model tech_university_courses {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Required - courses are tenant-specific
-  university_id           Int
-  
-  // Course Information
-  course                  String   @db.VarChar(255)
-  course_slug             String   @db.VarChar(255) // Remove unique, make tenant-scoped unique
-  is_popular              Boolean  @default(false)
-  
-  // Location & Classification (using relations)
-  country_id              Int
-  state_id                Int
-  city_id                 Int
-  study_level_id          Int
-  discipline_id           Int
-  kind_of_partners_id     Int
-  type_of_university_id   Int
-  intake_id               Int?
-  
-  // Test Score Requirements
-  gre_score               String?  @db.VarChar(255)
-  gmat_score              String?  @db.VarChar(255)
-  ielts_score             String?  @db.VarChar(255)
-  toefl_score             String?  @db.VarChar(255)
-  pte_score               String?  @db.VarChar(255)
-  sat_score               String?  @db.VarChar(255)
-  act_score               String?  @db.VarChar(255)
-  duolingo_score          String?  @db.VarChar(255)
-  gpa_score               String?  @db.VarChar(255)
-  
-  // Fees & Costs
-  tution_fees             String?  @db.VarChar(255)
-  application_fee         String?  @db.VarChar(255)
-  external_evaluation     String?  @db.VarChar(255)
-  
-  // Course Details
-  about_the_course        String?  @db.Text
-  admission_requirements  String?  @db.Text
-  application_deadline    String?  @db.Text
-  tuition_fee             String?  @db.Text
-  
-  // Media
-  image1                  String?  @db.Text
-  image2                  String?  @db.Text
-  image3                  String?  @db.Text
-  image4                  String?  @db.Text
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  tenant               tech_tenants           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  university           tech_universities      @relation(fields: [university_id], references: [id])
-  country              tech_countries         @relation(fields: [country_id], references: [id])
-  state                tech_states            @relation(fields: [state_id], references: [id])
-  city                 tech_cities            @relation(fields: [city_id], references: [id])
-  study_level          tech_study_levels      @relation(fields: [study_level_id], references: [id])
-  discipline           tech_disciplines       @relation(fields: [discipline_id], references: [id])
-  kind_of_partners     tech_partner_types     @relation(fields: [kind_of_partners_id], references: [id])
-  type_of_university   tech_university_types  @relation(fields: [type_of_university_id], references: [id])
-  intake               tech_intakes?          @relation(fields: [intake_id], references: [id])
-  student_applications tech_student_applications[]
+  id                         Int                               @id @default(autoincrement())
+  uuid                       String                            @unique @default(uuid())
+  tenant_id                  Int
+  university_id              Int
+  course                     String                            @db.VarChar(255)
+  course_slug                String                            @db.VarChar(255)
+  is_popular                 Boolean                           @default(false)
+  country_id                 Int
+  state_id                   Int
+  city_id                    Int
+  study_level_id             Int
+  discipline_id              Int
+  kind_of_partners_id        Int
+  type_of_university_id      Int
+  intake_id                  Int?
+  gre_score                  String?                           @db.VarChar(255)
+  gmat_score                 String?                           @db.VarChar(255)
+  ielts_score                String?                           @db.VarChar(255)
+  toefl_score                String?                           @db.VarChar(255)
+  pte_score                  String?                           @db.VarChar(255)
+  sat_score                  String?                           @db.VarChar(255)
+  act_score                  String?                           @db.VarChar(255)
+  duolingo_score             String?                           @db.VarChar(255)
+  gpa_score                  String?                           @db.VarChar(255)
+  tution_fees                String?                           @db.VarChar(255)
+  application_fee            String?                           @db.VarChar(255)
+  external_evaluation        String?                           @db.VarChar(255)
+  about_the_course           String?
+  admission_requirements     String?
+  application_deadline       String?
+  tuition_fee                String?
+  image1                     String?
+  image2                     String?
+  image3                     String?
+  image4                     String?
+  created_at                 DateTime                          @default(now())
+  updated_at                 DateTime                          @updatedAt
+  is_deleted                 Boolean                           @default(false)
   agent_student_applications tech_agent_student_applications[]
-  
-  // Indexes
+  student_applications       tech_student_applications[]
+  city                       tech_cities                       @relation(fields: [city_id], references: [id])
+  country                    tech_countries                    @relation(fields: [country_id], references: [id])
+  discipline                 tech_disciplines                  @relation(fields: [discipline_id], references: [id])
+  intake                     tech_intakes?                     @relation(fields: [intake_id], references: [id])
+  kind_of_partners           tech_partner_types                @relation(fields: [kind_of_partners_id], references: [id])
+  state                      tech_states                       @relation(fields: [state_id], references: [id])
+  study_level                tech_study_levels                 @relation(fields: [study_level_id], references: [id])
+  tenant                     tech_tenants                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  type_of_university         tech_university_types             @relation(fields: [type_of_university_id], references: [id])
+  university                 tech_universities                 @relation(fields: [university_id], references: [id])
+
   @@unique([tenant_id, course_slug])
   @@index([university_id])
   @@index([course])
@@ -1452,92 +1145,66 @@ model tech_university_courses {
 }
 
 model tech_applications_status {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  
-  // Status Information
-  status                  String   @unique @db.VarChar(100)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-
-  //Relation
-  student_applications tech_student_applications[] 
+  id                         Int                               @id @default(autoincrement())
+  uuid                       String                            @unique @default(uuid())
+  status                     String                            @unique @db.VarChar(100)
+  created_at                 DateTime                          @default(now())
+  updated_at                 DateTime                          @updatedAt
+  is_deleted                 Boolean                           @default(false)
   agent_student_applications tech_agent_student_applications[]
-  
+  student_applications       tech_student_applications[]
+
   @@index([status])
   @@index([created_at])
   @@map("tech_applications_status")
 }
 
-
 model tech_student_applications {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  student_id              Int       // Reference to student meta
-  course_id               Int       // Reference to university course
-  
-  // Application Credentials
-  portal_student_id       String?   @db.VarChar(20)
-  application_login       String?   @db.VarChar(255)
-  application_password    String?   @db.VarChar(255)
-  
-  // Application Details (denormalized for performance)
-  university_slug         String    @db.VarChar(255)
-  level_slug              String    @db.VarChar(255)
-  discipline_slug         String    @db.VarChar(255)
-  course_slug             String    @db.VarChar(255)
-  intake_slug             String    @db.VarChar(255)
-  year                    String    @db.VarChar(255)
-  applied_date            String    @db.VarChar(255)
-  
-  // Status & Tracking
-  status_id               Int?      
-  application_status_id   Int       @default(1) // Default status // Reference to applications_status
-  fee_status              FeeStatus?
+  id                          Int                              @id @default(autoincrement())
+  uuid                        String                           @unique @default(uuid())
+  tenant_id                   Int
+  student_id                  Int
+  course_id                   Int
+  portal_student_id           String?                          @db.VarChar(20)
+  application_login           String?                          @db.VarChar(255)
+  application_password        String?                          @db.VarChar(255)
+  university_slug             String                           @db.VarChar(255)
+  level_slug                  String                           @db.VarChar(255)
+  discipline_slug             String                           @db.VarChar(255)
+  course_slug                 String                           @db.VarChar(255)
+  intake_slug                 String                           @db.VarChar(255)
+  year                        String                           @db.VarChar(255)
+  applied_date                String                           @db.VarChar(255)
+  status_id                   Int?
+  application_status_id       Int                              @default(1)
+  fee_status                  FeeStatus?
+  assigned_to                 Int
+  sender_id                   Int?
+  notification                Int?
+  front_notification          Int?
+  high_school_file            String?                          @db.VarChar(255)
+  higher_education_file       String?                          @db.VarChar(255)
+  degree_certificate          String?                          @db.VarChar(255)
+  passport_file               String?                          @db.VarChar(255)
+  gre_gmat_file               String?                          @db.VarChar(255)
+  act_sat_file                String?                          @db.VarChar(255)
+  english_language_score_file String?                          @db.VarChar(255)
+  resume_file                 String?                          @db.VarChar(255)
+  sop_file                    String?                          @db.VarChar(255)
+  lor_file                    String?                          @db.VarChar(255)
+  financial_file              String?                          @db.VarChar(255)
+  additional_file             String?                          @db.VarChar(255)
+  created_at                  DateTime                         @default(now())
+  updated_at                  DateTime                         @updatedAt
+  is_deleted                  Boolean                          @default(false)
+  required_docs               tech_student_app_required_docs[]
+  uploaded_docs               tech_student_application_docs[]
+  application_status          tech_applications_status         @relation(fields: [application_status_id], references: [id])
+  assigned_to_user            tech_users                       @relation(fields: [assigned_to], references: [id])
+  course                      tech_university_courses          @relation(fields: [course_id], references: [id])
+  student                     tech_student_meta                @relation(fields: [student_id], references: [user_id])
+  status_tracking             tech_track_student_app_status?
 
-  // Assignment & Notifications
-  assigned_to             Int       
-  sender_id               Int?
-  notification            Int?
-  front_notification      Int?
-  
-  // File Attachments
-  high_school_file              String? @db.VarChar(255)
-  higher_education_file         String? @db.VarChar(255)
-  degree_certificate            String? @db.VarChar(255)
-  passport_file                 String? @db.VarChar(255)
-  gre_gmat_file                 String? @db.VarChar(255)
-  act_sat_file                  String? @db.VarChar(255)
-  english_language_score_file   String? @db.VarChar(255)
-  resume_file                   String? @db.VarChar(255)
-  sop_file                      String? @db.VarChar(255)
-  lor_file                      String? @db.VarChar(255)
-  financial_file                String? @db.VarChar(255)
-  additional_file               String? @db.VarChar(255)
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  student     tech_student_meta        @relation(fields: [student_id], references: [user_id])
-  course      tech_university_courses  @relation(fields: [course_id], references: [id])
-  application_status      tech_applications_status? @relation(fields: [application_status_id], references: [id])
-  assigned_to_user      tech_users? @relation(fields: [assigned_to], references: [id])
-  status_tracking tech_track_student_app_status?
-  required_docs tech_student_app_required_docs[]
-  uploaded_docs tech_student_application_docs[]
-
-
-  
-  // Indexes
   @@index([tenant_id])
   @@index([student_id])
   @@index([course_id])
@@ -1551,71 +1218,54 @@ model tech_student_applications {
 }
 
 model tech_agent_student_applications {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  agent_student_id        Int       // Reference to agent student meta
-  agent_id                Int       // Reference to agent
-  course_id               Int       // Reference to university course
-  
-  // Application Credentials
-  portal_student_id       String?   @db.VarChar(20)
-  application_login       String?   @db.VarChar(255)
-  application_password    String?   @db.VarChar(255)
-  
-  // Application Details (denormalized for performance)
-  university_slug         String    @db.VarChar(255)
-  level_slug              String    @db.VarChar(255)
-  discipline_slug         String    @db.VarChar(255)
-  course_slug             String    @db.VarChar(255)
-  intake_slug             String    @db.VarChar(255)
-  year                    String    @db.VarChar(255)
-  applied_date            String    @db.VarChar(255)
-  
-  // Status & Tracking
-  status_id               Int?      // Reference to applications_status
-  application_status_id   Int       @default(1) // Default status
-  fee_status              FeeStatus?
-  
-  // Assignment & Notifications
-  assigned_to             Int       
-  designated_contact_id   Int       
-  sender_id               Int?
-  notification            Int?
-  front_notification      Int?
-  
-  // File Attachments
-  high_school_file              String? @db.VarChar(255)
-  higher_education_file         String? @db.VarChar(255)
-  degree_certificate            String? @db.VarChar(255)
-  passport_file                 String? @db.VarChar(255)
-  gre_gmat_file                 String? @db.VarChar(255)
-  act_sat_file                  String? @db.VarChar(255)
-  english_language_score_file   String? @db.VarChar(255)
-  resume_file                   String? @db.VarChar(255)
-  sop_file                      String? @db.VarChar(255)
-  lor_file                      String? @db.VarChar(255)
-  financial_file                String? @db.VarChar(255)
-  additional_file               String? @db.VarChar(255)
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  agent_student tech_agent_student_meta @relation(fields: [agent_student_id], references: [user_id])
-  agent         tech_agents             @relation(fields: [agent_id], references: [user_id])
-  course        tech_university_courses @relation(fields: [course_id], references: [id])
-  status        tech_applications_status? @relation(fields: [status_id], references: [id])
-  assigned_to_user      tech_users? @relation(fields: [assigned_to], references: [id])
-  status_tracking tech_track_agent_app_status?
-  required_docs tech_agent_student_app_required_docs[]
-  uploaded_docs tech_agent_student_application_docs[]
+  id                          Int                                    @id @default(autoincrement())
+  uuid                        String                                 @unique @default(uuid())
+  tenant_id                   Int
+  agent_student_id            Int
+  agent_id                    Int
+  course_id                   Int
+  portal_student_id           String?                                @db.VarChar(20)
+  application_login           String?                                @db.VarChar(255)
+  application_password        String?                                @db.VarChar(255)
+  university_slug             String                                 @db.VarChar(255)
+  level_slug                  String                                 @db.VarChar(255)
+  discipline_slug             String                                 @db.VarChar(255)
+  course_slug                 String                                 @db.VarChar(255)
+  intake_slug                 String                                 @db.VarChar(255)
+  year                        String                                 @db.VarChar(255)
+  applied_date                String                                 @db.VarChar(255)
+  status_id                   Int?
+  application_status_id       Int                                    @default(1)
+  fee_status                  FeeStatus?
+  assigned_to                 Int
+  designated_contact_id       Int
+  sender_id                   Int?
+  notification                Int?
+  front_notification          Int?
+  high_school_file            String?                                @db.VarChar(255)
+  higher_education_file       String?                                @db.VarChar(255)
+  degree_certificate          String?                                @db.VarChar(255)
+  passport_file               String?                                @db.VarChar(255)
+  gre_gmat_file               String?                                @db.VarChar(255)
+  act_sat_file                String?                                @db.VarChar(255)
+  english_language_score_file String?                                @db.VarChar(255)
+  resume_file                 String?                                @db.VarChar(255)
+  sop_file                    String?                                @db.VarChar(255)
+  lor_file                    String?                                @db.VarChar(255)
+  financial_file              String?                                @db.VarChar(255)
+  additional_file             String?                                @db.VarChar(255)
+  created_at                  DateTime                               @default(now())
+  updated_at                  DateTime                               @updatedAt
+  is_deleted                  Boolean                                @default(false)
+  required_docs               tech_agent_student_app_required_docs[]
+  uploaded_docs               tech_agent_student_application_docs[]
+  agent                       tech_agents                            @relation(fields: [agent_id], references: [user_id])
+  agent_student               tech_agent_student_meta                @relation(fields: [agent_student_id], references: [user_id])
+  assigned_to_user            tech_users                             @relation(fields: [assigned_to], references: [id])
+  course                      tech_university_courses                @relation(fields: [course_id], references: [id])
+  status                      tech_applications_status?              @relation(fields: [status_id], references: [id])
+  status_tracking             tech_track_agent_app_status?
 
-  
-  // Indexes
   @@index([tenant_id])
   @@index([agent_student_id])
   @@index([agent_id])
@@ -1631,259 +1281,199 @@ model tech_agent_student_applications {
 }
 
 model tech_track_student_app_status {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  user_id                 Int      // Reference to user who updated (admin/staff)
-  student_id              Int      // Reference to student
-  application_id          Int      @unique // Reference to student application
-  
-  // Status Tracking Dates
-  applied                         DateTime?
-  received                        DateTime?
-  incomplete_application          DateTime?
-  documents_pending               DateTime?
-  application_complete            DateTime?
+  id                                  Int                       @id @default(autoincrement())
+  uuid                                String                    @unique @default(uuid())
+  tenant_id                           Int
+  user_id                             Int
+  student_id                          Int
+  application_id                      Int                       @unique
+  applied                             DateTime?
+  received                            DateTime?
+  incomplete_application              DateTime?
+  documents_pending                   DateTime?
+  application_complete                DateTime?
   application_submitted_to_university DateTime?
-  fully_admitted                  DateTime?
-  conditionally_admitted          DateTime?
-  denied                          DateTime?
-  i20_issued                      DateTime?
-  i20_received                    DateTime?
-  visa_appointment                DateTime?
-  visa_approved                   DateTime?
-  visa_denied                     DateTime?
-  deferred_admission              DateTime?
-  arrived_on_campus               DateTime?
-  application_withdrawn           DateTime?
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  user        tech_users               @relation(fields: [user_id], references: [id])
-  application tech_student_applications @relation(fields: [application_id], references: [id])
-  
-  // Indexes
+  fully_admitted                      DateTime?
+  conditionally_admitted              DateTime?
+  denied                              DateTime?
+  i20_issued                          DateTime?
+  i20_received                        DateTime?
+  visa_appointment                    DateTime?
+  visa_approved                       DateTime?
+  visa_denied                         DateTime?
+  deferred_admission                  DateTime?
+  arrived_on_campus                   DateTime?
+  application_withdrawn               DateTime?
+  created_at                          DateTime                  @default(now())
+  updated_at                          DateTime                  @updatedAt
+  is_deleted                          Boolean                   @default(false)
+  application                         tech_student_applications @relation(fields: [application_id], references: [id])
+  user                                tech_users                @relation(fields: [user_id], references: [id])
+
+  @@unique([tenant_id, application_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([student_id])
   @@index([application_id])
   @@index([created_at])
-  @@unique([tenant_id, application_id]) // One tracking record per application per tenant
   @@map("tech_track_student_app_status")
 }
 
 model tech_track_agent_app_status {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  user_id                 Int      // Reference to user who updated (admin/agent)
-  agent_student_id        Int      // Reference to agent student
-  agent_id                Int      // Reference to agent
-  application_id          Int      @unique // Reference to agent student application
-  
-  // Status Tracking Dates
-  applied                         DateTime?
-  received                        DateTime?
-  incomplete_application          DateTime?
-  documents_pending               DateTime?
-  application_complete            DateTime?
+  id                                  Int                             @id @default(autoincrement())
+  uuid                                String                          @unique @default(uuid())
+  tenant_id                           Int
+  user_id                             Int
+  agent_student_id                    Int
+  agent_id                            Int
+  application_id                      Int                             @unique
+  applied                             DateTime?
+  received                            DateTime?
+  incomplete_application              DateTime?
+  documents_pending                   DateTime?
+  application_complete                DateTime?
   application_submitted_to_university DateTime?
-  fully_admitted                  DateTime?
-  conditionally_admitted          DateTime?
-  denied                          DateTime?
-  i20_issued                      DateTime?
-  i20_received                    DateTime?
-  visa_appointment                DateTime?
-  visa_approved                   DateTime?
-  visa_denied                     DateTime?
-  deferred_admission              DateTime?
-  arrived_on_campus               DateTime?
-  application_withdrawn           DateTime?
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  user           tech_users                    @relation(fields: [user_id], references: [id])
-  agent          tech_agents                   @relation(fields: [agent_id], references: [user_id])
-  application    tech_agent_student_applications @relation(fields: [application_id], references: [id])
-  
-  // Indexes
+  fully_admitted                      DateTime?
+  conditionally_admitted              DateTime?
+  denied                              DateTime?
+  i20_issued                          DateTime?
+  i20_received                        DateTime?
+  visa_appointment                    DateTime?
+  visa_approved                       DateTime?
+  visa_denied                         DateTime?
+  deferred_admission                  DateTime?
+  arrived_on_campus                   DateTime?
+  application_withdrawn               DateTime?
+  created_at                          DateTime                        @default(now())
+  updated_at                          DateTime                        @updatedAt
+  is_deleted                          Boolean                         @default(false)
+  agent                               tech_agents                     @relation(fields: [agent_id], references: [user_id])
+  application                         tech_agent_student_applications @relation(fields: [application_id], references: [id])
+  user                                tech_users                      @relation(fields: [user_id], references: [id])
+
+  @@unique([tenant_id, application_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([agent_student_id])
   @@index([agent_id])
   @@index([application_id])
   @@index([created_at])
-  @@unique([tenant_id, application_id]) // One tracking record per application per tenant
   @@map("tech_track_agent_app_status")
 }
 
 model tech_student_required_docs {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  
-  // Document Information
-  study_level             String   @db.VarChar(255)
-  label                   String   @db.VarChar(255)
-  document_key            String   @db.VarChar(255)
-  required                Boolean  @default(true)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
+  id                Int                 @id @default(autoincrement())
+  uuid              String              @unique @default(uuid())
+  tenant_id         Int
+  study_level       String              @db.VarChar(255)
+  label             String              @db.VarChar(255)
+  document_key      String              @db.VarChar(255)
+  required          Boolean             @default(true)
+  created_at        DateTime            @default(now())
+  updated_at        DateTime            @updatedAt
+  is_deleted        Boolean             @default(false)
   student_documents tech_student_docs[]
 
-
-  // Indexes
+  @@unique([tenant_id, study_level, document_key])
   @@index([tenant_id])
   @@index([study_level])
   @@index([document_key])
   @@index([required])
   @@index([created_at])
-  @@unique([tenant_id, study_level, document_key]) // Unique document per study level per tenant
   @@map("tech_student_required_docs")
-
 }
 
 model tech_agent_student_required_docs {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  
-  // Document Information
-  study_level             String   @db.VarChar(255)
-  label                   String   @db.VarChar(255)
-  document_key            String   @db.VarChar(255)
-  required                Boolean  @default(true)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-
-  // Relation
+  id                Int                       @id @default(autoincrement())
+  uuid              String                    @unique @default(uuid())
+  tenant_id         Int
+  study_level       String                    @db.VarChar(255)
+  label             String                    @db.VarChar(255)
+  document_key      String                    @db.VarChar(255)
+  required          Boolean                   @default(true)
+  created_at        DateTime                  @default(now())
+  updated_at        DateTime                  @updatedAt
+  is_deleted        Boolean                   @default(false)
   student_documents tech_agent_student_docs[]
-  
-  // Indexes
+
+  @@unique([tenant_id, study_level, document_key])
   @@index([tenant_id])
   @@index([study_level])
   @@index([document_key])
   @@index([required])
   @@index([created_at])
-  @@unique([tenant_id, study_level, document_key]) // Unique document per study level per tenant
   @@map("tech_agent_student_required_docs")
-
 }
 
 model tech_student_app_required_docs {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  application_id          Int      // Reference to student application
-  
-  // Document Information
-  label                   String   @db.VarChar(255)
-  document_key            String   @db.VarChar(255)
-  link                    String?  @db.Text
-  required                Boolean  @default(true)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  application tech_student_applications @relation(fields: [application_id], references: [id])
+  id                 Int                             @id @default(autoincrement())
+  uuid               String                          @unique @default(uuid())
+  tenant_id          Int
+  application_id     Int
+  label              String                          @db.VarChar(255)
+  document_key       String                          @db.VarChar(255)
+  link               String?
+  required           Boolean                         @default(true)
+  created_at         DateTime                        @default(now())
+  updated_at         DateTime                        @updatedAt
+  is_deleted         Boolean                         @default(false)
+  application        tech_student_applications       @relation(fields: [application_id], references: [id])
   uploaded_documents tech_student_application_docs[]
-  
-  // Indexes
+
+  @@unique([tenant_id, application_id, document_key])
   @@index([tenant_id])
   @@index([application_id])
   @@index([document_key])
   @@index([required])
   @@index([created_at])
-  @@unique([tenant_id, application_id, document_key]) // Unique document per application
   @@map("tech_student_app_required_docs")
 }
 
 model tech_agent_student_app_required_docs {
-  // Primary Key & Identification
-  id                      Int      @id @default(autoincrement())
-  uuid                    String   @unique @default(uuid())
-  tenant_id               Int      // Multi-tenant isolation
-  application_id          Int      // Reference to agent student application
-  
-  // Document Information
-  label                   String   @db.VarChar(255)
-  document_key            String   @db.VarChar(255)
-  link                    String?  @db.Text
-  required                Boolean  @default(true)
-  
-  // Audit Fields
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  is_deleted              Boolean  @default(false)
-  
-  // Relations
-  application tech_agent_student_applications @relation(fields: [application_id], references: [id])
+  id                 Int                                   @id @default(autoincrement())
+  uuid               String                                @unique @default(uuid())
+  tenant_id          Int
+  application_id     Int
+  label              String                                @db.VarChar(255)
+  document_key       String                                @db.VarChar(255)
+  link               String?
+  required           Boolean                               @default(true)
+  created_at         DateTime                              @default(now())
+  updated_at         DateTime                              @updatedAt
+  is_deleted         Boolean                               @default(false)
+  application        tech_agent_student_applications       @relation(fields: [application_id], references: [id])
   uploaded_documents tech_agent_student_application_docs[]
-  
-  // Indexes
+
+  @@unique([tenant_id, application_id, document_key])
   @@index([tenant_id])
   @@index([application_id])
   @@index([document_key])
   @@index([required])
   @@index([created_at])
-  @@unique([tenant_id, application_id, document_key]) // Unique document per application
   @@map("tech_agent_student_app_required_docs")
-
-  
 }
 
 model tech_student_application_docs {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  application_id          Int       // Reference to student application
-  user_id                 Int       // Reference to user who uploaded
-  document_type_id        Int       // Reference to required document type
-  
-  // Document Information
-  file_path               String    @db.VarChar(255)
-  uploaded_at             DateTime  @default(now())
-  status                  DocStatus @default(Pending)
-  verified_by             Int?      // Reference to user who verified
-  verified_at             DateTime? // When document was verified
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  application   tech_student_applications      @relation(fields: [application_id], references: [id])
-  user          tech_users                     @relation("StudentUploadedDocs", fields: [user_id], references: [id])
-  document_type tech_student_app_required_docs @relation(fields: [document_type_id], references: [id])
-  verified_by_user tech_users?                 @relation("VerifyStudentDocs", fields: [verified_by], references: [id])
-  
-  // Indexes
+  id               Int                            @id @default(autoincrement())
+  uuid             String                         @unique @default(uuid())
+  tenant_id        Int
+  application_id   Int
+  user_id          Int
+  document_type_id Int
+  file_path        String                         @db.VarChar(255)
+  uploaded_at      DateTime                       @default(now())
+  status           DocStatus                      @default(Pending)
+  verified_by      Int?
+  verified_at      DateTime?
+  created_at       DateTime                       @default(now())
+  updated_at       DateTime                       @updatedAt
+  is_deleted       Boolean                        @default(false)
+  application      tech_student_applications      @relation(fields: [application_id], references: [id])
+  document_type    tech_student_app_required_docs @relation(fields: [document_type_id], references: [id])
+  user             tech_users                     @relation("StudentUploadedDocs", fields: [user_id], references: [id])
+  verified_by_user tech_users?                    @relation("VerifyStudentDocs", fields: [verified_by], references: [id])
+
+  @@unique([tenant_id, application_id, document_type_id])
   @@index([tenant_id])
   @@index([application_id])
   @@index([user_id])
@@ -1892,38 +1482,30 @@ model tech_student_application_docs {
   @@index([verified_by])
   @@index([uploaded_at])
   @@index([created_at])
-  @@unique([tenant_id, application_id, document_type_id]) // One document per type per application
   @@map("tech_student_application_docs")
 }
 
 model tech_agent_student_application_docs {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  application_id          Int       // Reference to agent student application
-  user_id                 Int       // Reference to user who uploaded
-  document_type_id        Int       // Reference to required document type
-  
-  // Document Information
-  file_path               String    @db.VarChar(255)
-  uploaded_at             DateTime  @default(now())
-  status                  DocStatus @default(Pending)
-  verified_by             Int?      // Reference to user who verified
-  verified_at             DateTime? // When document was verified
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  application   tech_agent_student_applications      @relation(fields: [application_id], references: [id])
-  user          tech_users                           @relation("AgentUploadedDocs", fields: [user_id], references: [id])
-  document_type tech_agent_student_app_required_docs @relation(fields: [document_type_id], references: [id])
-  verified_by_user tech_users?                       @relation("VerifyAgentDocs", fields: [verified_by], references: [id])
-  
-  // Indexes
+  id               Int                                  @id @default(autoincrement())
+  uuid             String                               @unique @default(uuid())
+  tenant_id        Int
+  application_id   Int
+  user_id          Int
+  document_type_id Int
+  file_path        String                               @db.VarChar(255)
+  uploaded_at      DateTime                             @default(now())
+  status           DocStatus                            @default(Pending)
+  verified_by      Int?
+  verified_at      DateTime?
+  created_at       DateTime                             @default(now())
+  updated_at       DateTime                             @updatedAt
+  is_deleted       Boolean                              @default(false)
+  application      tech_agent_student_applications      @relation(fields: [application_id], references: [id])
+  document_type    tech_agent_student_app_required_docs @relation(fields: [document_type_id], references: [id])
+  user             tech_users                           @relation("AgentUploadedDocs", fields: [user_id], references: [id])
+  verified_by_user tech_users?                          @relation("VerifyAgentDocs", fields: [verified_by], references: [id])
+
+  @@unique([tenant_id, application_id, document_type_id])
   @@index([tenant_id])
   @@index([application_id])
   @@index([user_id])
@@ -1932,38 +1514,28 @@ model tech_agent_student_application_docs {
   @@index([verified_by])
   @@index([uploaded_at])
   @@index([created_at])
-  @@unique([tenant_id, application_id, document_type_id]) // One document per type per application
   @@map("tech_agent_student_application_docs")
 }
 
 model tech_student_docs {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  user_id                 Int       // Reference to student user
-  document_type_id        Int       // Reference to required document type
-  
-  // Document Information
-  file_path               String    @db.VarChar(255)
-  uploaded_at             DateTime  @default(now())
-  status                  DocStatus @default(Pending)
-  verified_by             Int?      // Reference to user who verified
-  verified_at             DateTime? // When document was verified
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  user          tech_users               @relation("StudentStudyDocs", fields: [user_id], references: [id])
-  document_type tech_student_required_docs @relation(fields: [document_type_id], references: [id])
-  verified_by_user tech_users?           @relation("VerifyStudentStudyDocs", fields: [verified_by], references: [id])
+  id               Int                        @id @default(autoincrement())
+  uuid             String                     @unique @default(uuid())
+  tenant_id        Int
+  user_id          Int
+  document_type_id Int
+  file_path        String                     @db.VarChar(255)
+  uploaded_at      DateTime                   @default(now())
+  status           DocStatus                  @default(Pending)
+  verified_by      Int?
+  verified_at      DateTime?
+  created_at       DateTime                   @default(now())
+  updated_at       DateTime                   @updatedAt
+  is_deleted       Boolean                    @default(false)
+  document_type    tech_student_required_docs @relation(fields: [document_type_id], references: [id])
+  user             tech_users                 @relation("StudentStudyDocs", fields: [user_id], references: [id])
+  verified_by_user tech_users?                @relation("VerifyStudentStudyDocs", fields: [verified_by], references: [id])
 
-
-  
-  // Indexes
+  @@unique([tenant_id, user_id, document_type_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([document_type_id])
@@ -1971,36 +1543,28 @@ model tech_student_docs {
   @@index([verified_by])
   @@index([uploaded_at])
   @@index([created_at])
-  @@unique([tenant_id, user_id, document_type_id]) // One document per type per student
   @@map("tech_student_docs")
 }
 
 model tech_agent_student_docs {
-  // Primary Key & Identification
-  id                      Int       @id @default(autoincrement())
-  uuid                    String    @unique @default(uuid())
-  tenant_id               Int       // Multi-tenant isolation
-  user_id                 Int       // Reference to agent student user
-  document_type_id        Int       // Reference to required document type
-  
-  // Document Information
-  file_path               String    @db.VarChar(255)
-  uploaded_at             DateTime  @default(now())
-  status                  DocStatus @default(Pending)
-  verified_by             Int?      // Reference to user who verified
-  verified_at             DateTime? // When document was verified
-  
-  // Audit Fields
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
-  is_deleted              Boolean   @default(false)
-  
-  // Relations
-  user          tech_users                   @relation("AgentStudentStudyDocs", fields: [user_id], references: [id])
-  document_type tech_agent_student_required_docs @relation(fields: [document_type_id], references: [id])
-  verified_by_user tech_users?               @relation("VerifyAgentStudentStudyDocs", fields: [verified_by], references: [id])
-  
-  // Indexes
+  id               Int                              @id @default(autoincrement())
+  uuid             String                           @unique @default(uuid())
+  tenant_id        Int
+  user_id          Int
+  document_type_id Int
+  file_path        String                           @db.VarChar(255)
+  uploaded_at      DateTime                         @default(now())
+  status           DocStatus                        @default(Pending)
+  verified_by      Int?
+  verified_at      DateTime?
+  created_at       DateTime                         @default(now())
+  updated_at       DateTime                         @updatedAt
+  is_deleted       Boolean                          @default(false)
+  document_type    tech_agent_student_required_docs @relation(fields: [document_type_id], references: [id])
+  user             tech_users                       @relation("AgentStudentStudyDocs", fields: [user_id], references: [id])
+  verified_by_user tech_users?                      @relation("VerifyAgentStudentStudyDocs", fields: [verified_by], references: [id])
+
+  @@unique([tenant_id, user_id, document_type_id])
   @@index([tenant_id])
   @@index([user_id])
   @@index([document_type_id])
@@ -2008,20 +1572,20 @@ model tech_agent_student_docs {
   @@index([verified_by])
   @@index([uploaded_at])
   @@index([created_at])
-  @@unique([tenant_id, user_id, document_type_id]) // One document per type per student
   @@map("tech_agent_student_docs")
 }
 
-// ==================== ENUMS ====================
 enum FeeStatus {
   pending
   paid
 }
+
 enum DocStatus {
   Pending
   Approved
   Rejected
 }
+
 enum LogAction {
   CREATE
   READ
@@ -2168,33 +1732,14 @@ enum PaymentStatus {
 }
 
 enum UserRole {
-  // SUPER_ADMIN
-  // ADMIN
-  // SUB_ADMIN
-  // EMPLOYEE
-
-  // 🔹 Global roles (for superadmin panel)
-  SUPER_ADMIN       // Full control of SaaS — manages all tenants, billing, plans
-  ADMIN             // Assists superadmin, maybe for support or monitoring
-  SUPPORT           // Handles support, tickets, etc.
-
-  // 🔹 Tenant-level roles (applytech.com tenants)
-  TENANT_ADMIN      // Owner of the tenant (the one who subscribed)
-  TENANT_SUB_ADMIN         // Secondary admin in the tenant
-  TENANT_EMPLOYEE          // Internal team member (tenant staff)
-
-  // 🔹 Portal-specific roles (for multi-portal access)
-  STUDENT           // Student user in student portal
-  AGENT             // Regular agent user
-  AGENT_STUDENT     // Agent registered students
-  UNIVERSITY        // Manages university portal data
-
-  // STUDENT_ADMIN     // Admin who manages students under tenant
-  // STUDENT           // Student user in student portal
-  // AGENT_ADMIN       // Admin who manages agents under tenant
-  // AGENT             // Regular agent user
-  // AGENT_STUDENT     // Agent registered students
-  // UNIVERSITY_ADMIN  // Manages university portal data
-  // UNIVERSITY_STAFF  // Supporting staff in university portal
-
+  SUPER_ADMIN
+  ADMIN
+  SUPPORT
+  TENANT_ADMIN
+  TENANT_SUB_ADMIN
+  TENANT_EMPLOYEE
+  STUDENT
+  AGENT
+  AGENT_STUDENT
+  UNIVERSITY
 }
