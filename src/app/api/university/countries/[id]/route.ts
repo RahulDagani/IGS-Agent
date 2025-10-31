@@ -5,13 +5,14 @@ import { countrySchema } from '../schemas';
 // GET single country
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Add Promise wrapper
 ) {
   try {
     const tenantId = 1; // Static for now
-    const id = parseInt(params.id);
+    const { id } = await params; // Await the params
+    const countryId = parseInt(id);
 
-    if (isNaN(id)) {
+    if (isNaN(countryId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid country ID' },
         { status: 400 }
@@ -20,7 +21,7 @@ export async function GET(
 
     const country = await prisma.tech_countries.findFirst({
       where: {
-        id,
+        id: countryId,
         tenant_id: tenantId,
         is_deleted: false,
       },
@@ -56,14 +57,15 @@ export async function GET(
 // PUT update country
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Add Promise wrapper
 ) {
   try {
     const tenantId = 1; // Static for now
-    const id = parseInt(params.id);
+    const { id } = await params; // Await the params
+    const countryId = parseInt(id);
     const body = await request.json();
 
-    if (isNaN(id)) {
+    if (isNaN(countryId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid country ID' },
         { status: 400 }
@@ -89,7 +91,7 @@ export async function PUT(
     // Check if country exists and belongs to tenant
     const existingCountry = await prisma.tech_countries.findFirst({
       where: {
-        id,
+        id: countryId,
         tenant_id: tenantId,
         is_deleted: false,
       },
@@ -108,7 +110,7 @@ export async function PUT(
         tenant_id: tenantId,
         country_slug,
         is_deleted: false,
-        NOT: { id },
+        NOT: { id: countryId },
       },
     });
 
@@ -121,7 +123,7 @@ export async function PUT(
 
     // Update country
     const updatedCountry = await prisma.tech_countries.update({
-      where: { id },
+      where: { id: countryId },
       data: {
         country,
         country_slug,
@@ -151,13 +153,14 @@ export async function PUT(
 // DELETE country (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Add Promise wrapper
 ) {
   try {
     const tenantId = 1; // Static for now
-    const id = parseInt(params.id);
+    const { id } = await params; // Await the params
+    const countryId = parseInt(id);
 
-    if (isNaN(id)) {
+    if (isNaN(countryId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid country ID' },
         { status: 400 }
@@ -167,7 +170,7 @@ export async function DELETE(
     // Check if country exists and belongs to tenant
     const existingCountry = await prisma.tech_countries.findFirst({
       where: {
-        id,
+        id: countryId,
         tenant_id: tenantId,
         is_deleted: false,
       },
@@ -182,7 +185,7 @@ export async function DELETE(
 
     // Soft delete the country
     await prisma.tech_countries.update({
-      where: { id },
+      where: { id: countryId },
       data: {
         is_deleted: true,
         updated_at: new Date(),
