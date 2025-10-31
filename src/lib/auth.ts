@@ -67,15 +67,34 @@ export async function verifyTokenWithGuard(token: string): Promise<AuthUser | nu
 }
 
 // Type guard function
-function isAuthUserPayload(payload: any): payload is AuthUser {
-  return (
-    typeof payload === 'object' &&
-    payload !== null &&
-    typeof payload.userId === 'number' &&
-    typeof payload.email === 'string' &&
-    typeof payload.subdomain === 'string' &&
-    typeof payload.companyName === 'string'
-  );
+// More comprehensive type guard
+function isAuthUserPayload(payload: unknown): payload is AuthUser {
+  if (typeof payload !== 'object' || payload === null) {
+    return false;
+  }
+
+  const obj = payload as Record<string, unknown>;
+  
+  const hasRequiredFields = 
+    typeof obj.userId === 'number' &&
+    typeof obj.email === 'string' &&
+    typeof obj.subdomain === 'string' &&
+    typeof obj.companyName === 'string';
+  
+  if (!hasRequiredFields) {
+    return false;
+  }
+
+  // Check optional fields if they exist
+  if ('iat' in obj && obj.iat !== undefined && typeof obj.iat !== 'number') {
+    return false;
+  }
+  
+  if ('exp' in obj && obj.exp !== undefined && typeof obj.exp !== 'number') {
+    return false;
+  }
+
+  return true;
 }
 
 // Method using unknown type casting (if you prefer)
