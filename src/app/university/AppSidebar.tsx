@@ -16,6 +16,8 @@ import {
   FileText,
   Mail,
   Wallet,
+  GraduationCap,
+  Filter,
 } from "lucide-react";
 
 
@@ -40,6 +42,37 @@ export const navItems: NavItem[] = [
         path: "/profile",
         icon: <Users size={18} />,
       },
+       {
+    name: "Master Data",
+    icon: <Filter size={18} />,
+    subItems: [
+      {
+        name: "Study Levels",
+        path: "/settings/study-levels",
+        icon: <GraduationCap size={18} />,
+      },
+      {
+        name: "Disciplines",
+        path: "/settings/disciplines",
+        icon: <GraduationCap size={18} />,
+      },
+      {
+        name: "Countries",
+        path: "/settings/countries",
+        icon: <GraduationCap size={18} />,
+      },
+      {
+        name: "States",
+        path: "/settings/states",
+        icon: <GraduationCap size={18} />,
+      },{
+        name: "Intakes",
+        path: "/settings/intakes",
+        icon: <GraduationCap size={18} />,
+      },
+      
+    ],
+  },
       {
         name: "Applications",
         path: "/applications",
