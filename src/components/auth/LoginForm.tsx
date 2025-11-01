@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn } from "lucide-react";
+import { LogIn, ChevronLeftIcon } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -19,9 +19,96 @@ interface FormErrors {
   submit?: string;
 }
 
+// Move InputField component outside of LoginPage
+const InputField = ({ 
+  type, 
+  placeholder, 
+  value, 
+  onChange, 
+  name,
+  error 
+}: { 
+  type: string; 
+  placeholder: string; 
+  value: string; 
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  name: string;
+  error?: string;
+}) => (
+  <div>
+    <input
+      type={type}
+      name={name}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      className={`w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
+        error ? "border-red-500" : ""
+      }`}
+    />
+    {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+  </div>
+);
+
+// Move other components outside as well
+const Checkbox = ({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) => (
+  <input
+    type="checkbox"
+    checked={checked}
+    onChange={(e) => onChange(e.target.checked)}
+    className="w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 focus:ring-2"
+  />
+);
+
+const Button = ({ 
+  children, 
+  onClick, 
+  disabled, 
+  className = "",
+  size = "md"
+}: { 
+  children: React.ReactNode; 
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  size?: "sm" | "md";
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`w-full bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 text-white font-semibold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+      size === "sm" ? "py-3 text-sm" : "py-3"
+    } ${className}`}
+  >
+    {children}
+  </button>
+);
+
+const Label = ({ children }: { children: React.ReactNode }) => (
+  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+    {children}
+  </label>
+);
+
+// Eye icons components
+const EyeIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
+    <path fillRule="evenodd" clipRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.147.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z"/>
+  </svg>
+);
+
+const EyeCloseIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" clipRule="evenodd" d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.185A10.004 10.004 0 009.999 3a9.956 9.956 0 00-4.744 1.194L3.28 2.22zM7.752 6.69l1.092 1.092a2.5 2.5 0 013.374 3.373l1.091 1.092A4 4 0 007.752 6.69z"/>
+    <path d="M10.748 13.93l2.523 2.523a9.987 9.987 0 01-3.27.547c-4.257 0-7.893-2.66-9.336-6.41a1.651 1.651 0 010-1.186A10.007 10.007 0 012.839 6.02L6.07 9.252A4 4 0 0010.748 13.93z"/>
+  </svg>
+);
+
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -94,112 +181,128 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left Side Image */}
-      <div className="md:w-1/2 w-full h-[40vh] md:h-auto">
-        <Image
-          height={500}
-          width={500}
-          className="w-full h-full object-cover"
-          src="/images/university.jpg"
-          alt="Background"
-        />
-      </div>
+    <div className="flex flex-col flex-1 lg:w-1/2 w-full">
+      {/* Left Side - Form Content */}
+      <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
+        <div className="w-full max-w-md sm:pt-10 mx-auto mb-5 px-4 sm:px-0">
+          <Link
+            href="/"
+            className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+          >
+            <ChevronLeftIcon className="w-4 h-4 mr-1" />
+            Back to dashboard
+          </Link>
+        </div>
 
-      {/* Right Side Content */}
-      <div className="md:w-1/2 w-full flex flex-col justify-center items-center bg-gray-50 p-6 md:p-12 overflow-y-auto">
-        {/* Logo */}
-        <div className="flex flex-col items-center w-full max-w-md">
-          <div className="flex justify-center items-center">
-            <Image
-              className=""
-              src="/images/logo/logo.png"
-              alt="Logo"
-              width={45}
-              height={45}
-            />
-            <span className="dark:text-black ms-1 text-black font-semibold text-2xl">
-              ApplyTech
-            </span>
-          </div>
-          <p className="text-gray-600 text-center mb-8">
-            Welcome back! Please sign in to your account.
-          </p>
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="w-full space-y-4">
-            <div>
-              <input
-                type="email"
-                name="email"
-                placeholder="Email Address"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.email ? "border-red-500" : ""
-                }`}
-              />
-              {errors.email && <p className="text-red-500 text-sm mt-1 px-5">{errors.email}</p>}
-            </div>
-
-            <div>
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.password ? "border-red-500" : ""
-                }`}
-              />
-              {errors.password && <p className="text-red-500 text-sm mt-1 px-5">{errors.password}</p>}
-            </div>
-
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="rememberMe"
-                  checked={formData.rememberMe}
-                  onChange={handleChange}
-                  className="mr-2 rounded border-gray-300"
-                />
-                Remember me
-              </label>
-              
-              <Link href="/forgot-password" className="text-indigo-600 hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-
-            {errors.submit && (
-              <p className="text-red-500 text-sm text-center bg-red-50 py-2 rounded-lg">
-                {errors.submit}
+        <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
+          <div>
+            <div className="mb-5 sm:mb-8">
+              <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
+                Sign In
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Enter your email and password to sign in!
               </p>
-            )}
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white font-semibold py-3 rounded-full flex items-center justify-center gap-2 transition-all duration-200 shadow-sm"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <LogIn />
-              )}
-              {loading ? "SIGNING IN..." : "SIGN IN"}
-            </button>
-          </form>
+            
 
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>
-             {"Don't have an account? "}
-              <Link href="/register" className="text-indigo-600 hover:underline font-semibold">
-                Sign up
-              </Link>
-            </p>
+          
+
+            {/* Login Form */}
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-6">
+                <div>
+                  <Label>
+                    Email <span className="text-red-500">*</span>
+                  </Label>
+                  <InputField 
+                    type="email"
+                    name="email"
+                    placeholder="info@gmail.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    error={errors.email}
+                  />
+                </div>
+
+                <div>
+                  <Label>
+                    Password <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <InputField 
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      placeholder="Enter your password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      error={errors.password}
+                    />
+                    <span
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                    >
+                      {showPassword ? (
+                        <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
+                      ) : (
+                        <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      checked={formData.rememberMe} 
+                      onChange={(checked) => setFormData(prev => ({ ...prev, rememberMe: checked }))} 
+                    />
+                    <span className="block font-normal text-gray-700 text-sm dark:text-gray-400">
+                      Keep me logged in
+                    </span>
+                  </div>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+
+                {errors.submit && (
+                  <div className="p-3 text-sm text-red-500 bg-red-50 rounded-lg dark:bg-red-900/20">
+                    {errors.submit}
+                  </div>
+                )}
+
+                <div>
+                  <Button 
+                    size="sm" 
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <LogIn className="w-5 h-5" />
+                    )}
+                    {loading ? "SIGNING IN..." : "SIGN IN"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+
+            <div className="mt-5">
+              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
+                Don&apos;t have an account? {""}
+                <Link
+                  href="/signup"
+                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                >
+                  Sign Up
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -2,9 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn } from "lucide-react";
+import { LogIn, ChevronLeftIcon, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface FormData {
   name: string;
@@ -23,13 +24,91 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirmPassword?: string;
-  agreeToTerms?: string; // Change from boolean to string
+  agreeToTerms?: string;
   submit?: string;
 }
+
+// Reuse the same components from login page
+const InputField = ({ 
+  type, 
+  placeholder, 
+  value, 
+  onChange, 
+  name,
+  error 
+}: { 
+  type: string; 
+  placeholder: string; 
+  value: string; 
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  name: string;
+  error?: string;
+}) => (
+  <div>
+    <input
+      type={type}
+      name={name}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      className={`w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
+        error ? "border-red-500" : ""
+      }`}
+    />
+    {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+  </div>
+);
+
+const Checkbox = ({ checked, onChange, error }: { checked: boolean; onChange: (checked: boolean) => void; error?: string }) => (
+  <div>
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className={`w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 focus:ring-2 ${
+        error ? "border-red-500" : ""
+      }`}
+    />
+    {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+  </div>
+);
+
+const Button = ({ 
+  children, 
+  onClick, 
+  disabled, 
+  className = "",
+  size = "md"
+}: { 
+  children: React.ReactNode; 
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  size?: "sm" | "md";
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`w-full bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 text-white font-semibold rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+      size === "sm" ? "py-3 text-sm" : "py-3"
+    } ${className}`}
+  >
+    {children}
+  </button>
+);
+
+const Label = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+    {children}
+    {required && <span className="text-red-500 ml-1">*</span>}
+  </label>
+);
 
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -42,21 +121,22 @@ export default function RegisterPage() {
   });
 
   const validateForm = (): boolean => {
-   
     const newErrors: FormErrors = {};
 
     if (!formData.name.trim()) newErrors.name = "Name is required";
     if (!formData.companyName.trim()) newErrors.companyName = "Company name is required";
     if (!formData.subdomain.trim()) newErrors.subdomain = "Subdomain is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email is invalid";
+    
     if (!formData.password) newErrors.password = "Password is required";
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
     if (formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
-    if (!formData.agreeToTerms) newErrors.agreeToTerms = "You must agree to the terms";
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+    if (!formData.agreeToTerms) newErrors.agreeToTerms = "You must agree to the terms and conditions";
 
     // Validate subdomain format
     const subdomainRegex = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -114,176 +194,192 @@ export default function RegisterPage() {
     }));
 
     // Clear error when user starts typing
-    if (errors[name as keyof FormData]) {
+    if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left Side Image */}
-      <div className="md:w-1/2 w-full h-[40vh] md:h-auto">
-        <Image
-          height={500}
-          width={500}
-          className="w-full h-full object-cover"
-          src="/images/university.jpg"
-          alt="Background"
-        />
-      </div>
+    <div className="flex flex-col flex-1 lg:w-1/2 w-full">
+      {/* Left Side - Form Content */}
+      <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
+        <div className="w-full max-w-md sm:pt-10 mx-auto mb-5 px-4 sm:px-0">
+          <Link
+            href="/"
+            className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+          >
+            <ChevronLeftIcon className="w-4 h-4 mr-1" />
+            Back to dashboard
+          </Link>
+        </div>
 
-      {/* Right Side Content */}
-      <div className="md:w-1/2 w-full flex flex-col justify-center items-center bg-gray-50 p-6 md:p-12 overflow-y-auto">
-        {/* Logo */}
-        <div className="flex flex-col items-center w-full max-w-md">
-          <div className="flex justify-center items-center">
-            <Image
-              className=""
-              src="/images/logo/logo.png"
-              alt="Logo"
-              width={45}
-              height={45}
-            />
-            <span className="dark:text-black ms-1 text-black font-semibold text-2xl">
-              ApplyTech
-            </span>
-          </div>
-          <p className="text-gray-600 text-center mb-8">
-            Create your account to get started!
-          </p>
-
-          {/* Register Form */}
-          <form onSubmit={handleSubmit} className="w-full space-y-4">
-            <div>
-              <input
-                type="text"
-                name="name"
-                placeholder="Name"
-                value={formData.name}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.name ? "border-red-500" : ""
-                }`}
-              />
-              {errors.name && <p className="text-red-500 text-sm mt-1 px-5">{errors.name}</p>}
-            </div>
-
-            <div>
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.email ? "border-red-500" : ""
-                }`}
-              />
-              {errors.email && <p className="text-red-500 text-sm mt-1 px-5">{errors.email}</p>}
-            </div>
-
-            <div>
-              <input
-                type="text"
-                name="subdomain"
-                placeholder="Subdomain"
-                value={formData.subdomain}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.subdomain ? "border-red-500" : ""
-                }`}
-              />
-              {errors.subdomain && <p className="text-red-500 text-sm mt-1 px-5">{errors.subdomain}</p>}
-              <p className="text-gray-500 text-sm mt-1 px-5">
-                Your URL will be: {formData.subdomain || "yoursubdomain"}.applytech.org
+        <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
+          <div>
+            <div className="mb-5 sm:mb-8">
+              <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
+                Create Account
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Enter your details to create your account!
               </p>
             </div>
 
-            <div>
-              <input
-                type="text"
-                name="companyName"
-                placeholder="Company Name"
-                value={formData.companyName}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.companyName ? "border-red-500" : ""
-                }`}
-              />
-              {errors.companyName && <p className="text-red-500 text-sm mt-1 px-5">{errors.companyName}</p>}
-            </div>
 
-            <div>
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.password ? "border-red-500" : ""
-                }`}
-              />
-              {errors.password && <p className="text-red-500 text-sm mt-1 px-5">{errors.password}</p>}
-            </div>
+            
 
-            <div>
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={`w-full rounded-full border border-gray-200 py-3 px-5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                  errors.confirmPassword ? "border-red-500" : ""
-                }`}
-              />
-              {errors.confirmPassword && <p className="text-red-500 text-sm mt-1 px-5">{errors.confirmPassword}</p>}
-            </div>
+            {/* Register Form */}
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-6">
+                <div>
+                  <Label required>Full Name</Label>
+                  <InputField 
+                    type="text"
+                    name="name"
+                    placeholder="Enter your full name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    error={errors.name}
+                  />
+                </div>
 
-            <div className="flex items-center text-sm text-gray-600">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="agreeToTerms"
-                  checked={formData.agreeToTerms}
-                  onChange={handleChange}
-                  className={`mr-2 rounded border-gray-300 ${
-                    errors.agreeToTerms ? "border-red-500" : ""
-                  }`}
-                />
-                I agree to Terms of Service and Privacy Policy.
-              </label>
-            </div>
-            {errors.agreeToTerms && <p className="text-red-500 text-sm px-5">{errors.agreeToTerms}</p>}
+                <div>
+                  <Label required>Email</Label>
+                  <InputField 
+                    type="email"
+                    name="email"
+                    placeholder="info@gmail.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    error={errors.email}
+                  />
+                </div>
 
-            {errors.submit && (
-              <p className="text-red-500 text-sm text-center bg-red-50 py-2 rounded-lg">
-                {errors.submit}
+                <div>
+                  <Label required>Subdomain</Label>
+                  <InputField 
+                    type="text"
+                    name="subdomain"
+                    placeholder="your-company"
+                    value={formData.subdomain}
+                    onChange={handleChange}
+                    error={errors.subdomain}
+                  />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Your URL will be: <span className="text-brand-500 font-medium">{formData.subdomain || "your-company"}.applytech.org</span>
+                  </p>
+                </div>
+
+                <div>
+                  <Label required>Company Name</Label>
+                  <InputField 
+                    type="text"
+                    name="companyName"
+                    placeholder="Enter your company name"
+                    value={formData.companyName}
+                    onChange={handleChange}
+                    error={errors.companyName}
+                  />
+                </div>
+
+                <div>
+                  <Label required>Password</Label>
+                  <div className="relative">
+                    <InputField 
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      placeholder="Enter your password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      error={errors.password}
+                    />
+                    <span
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label required>Confirm Password</Label>
+                  <div className="relative">
+                    <InputField 
+                      type={showConfirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      placeholder="Confirm your password"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      error={errors.confirmPassword}
+                    />
+                    <span
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Checkbox 
+                    checked={formData.agreeToTerms} 
+                    onChange={(checked) => setFormData(prev => ({ ...prev, agreeToTerms: checked }))}
+                    error={errors.agreeToTerms}
+                  />
+                  <span className="block font-normal text-gray-700 text-sm dark:text-gray-400">
+                    I agree to the{" "}
+                    <Link href="/terms" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </div>
+
+                {errors.submit && (
+                  <div className="p-3 text-sm text-red-500 bg-red-50 rounded-lg dark:bg-red-900/20">
+                    {errors.submit}
+                  </div>
+                )}
+
+                <div>
+                  <Button 
+                    size="sm" 
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <LogIn className="w-5 h-5" />
+                    )}
+                    {loading ? "CREATING ACCOUNT..." : "CREATE ACCOUNT"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+
+            <div className="mt-5">
+              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
+                Already have an account? {""}
+                <Link
+                  href="/signin"
+                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                >
+                  Sign In
+                </Link>
               </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white font-semibold py-3 rounded-full flex items-center justify-center gap-2 transition-all duration-200 shadow-sm"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <LogIn />
-              )}
-              {loading ? "REGISTERING..." : "REGISTER"}
-            </button>
-          </form>
-
-          <div className="mt-4 text-center text-sm text-gray-600">
-            <p>
-              Already registered?{" "}
-              <a href="#" className="text-indigo-600 hover:underline">
-                Resend Verification Link?
-              </a>
-            </p>
+            </div>
           </div>
         </div>
       </div>
