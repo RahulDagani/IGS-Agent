@@ -22,15 +22,21 @@ export default function AuthLayout({
               <GridShape />
               <div className="flex flex-col items-center max-w-xs">
                 <Link href="/" className="block mb-4">
-                  <Image
-                    width={231}
-                    height={48}
-                    src="./images/logo/auth-logo.svg"
-                    alt="Logo"
-                  />
+                   <div className="flex justify-center items-center">
+                                <Image
+                                  className=""
+                                  src="/images/logo/logo.png"
+                                  alt="Logo"
+                                  width={45}
+                                  height={45}
+                                />
+                                <span className="dark:text-white ms-1 text-black font-semibold text-2xl">
+                                  ApplyTech
+                                </span>
+                              </div>
                 </Link>
                 <p className="text-center text-gray-400 dark:text-white/60">
-                  Free and Open-Source Tailwind CSS Admin Dashboard Template
+                  One platform to scale your student recruitment network
                 </p>
               </div>
             </div>

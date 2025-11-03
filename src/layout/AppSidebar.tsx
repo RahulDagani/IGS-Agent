@@ -101,6 +101,11 @@ const partnerItems: NavItem[] = [
         path: "/applications/students",
         icon: <Newspaper size={18} />,
       },
+      {
+        name: "Fields",
+        path: "/setup/fields",
+        icon: <Newspaper size={18} />,
+      },
       
     ],
   },

@@ -9,6 +9,8 @@ export default function LoginPage() {
       <div className="md:w-1/2 w-full h-[40vh] md:h-auto">
         
         <Image
+        height={500}
+        width={500}
                         className="w-full h-full object-cover"
                         src="/images/university.jpg"
                         alt="Background"

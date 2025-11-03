@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
@@ -9,14 +8,14 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
+
   images: {
-    domains: ['indoglobalstudies.org'],
-    // or use remotePatterns for more control:
+    // ✅ Remove "domains" (deprecated)
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'indoglobalstudies.org',
-        pathname: '/**',
+        protocol: "https",
+        hostname: "indoglobalstudies.org",
+        pathname: "/**",
       },
     ],
   },

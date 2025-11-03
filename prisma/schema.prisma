@@ -1575,6 +1575,111 @@ model tech_agent_student_docs {
   @@map("tech_agent_student_docs")
 }
 
+model apply_tenants {
+  id           Int          @id @default(autoincrement())
+  name         String
+  companyName  String       @map("company_name")
+  subdomain    String       @unique
+  customDomain String?      @unique @map("custom_domain")
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  status       TenantStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @default(now()) @map("updated_at")
+
+  @@map("apply_tenants")
+}
+
+model apply_tenant_users {
+  id            Int                                @id @default(autoincrement())
+  tenant_id     Int
+  name          String
+  email         String                             @unique
+  role          String
+  is_verified   Boolean                            @default(false)
+  created_at    DateTime                           @default(now())
+  updated_at    DateTime                           @updatedAt
+  agent_id      Int?
+  is_allowed    Boolean                            @default(true)
+  uuid          String                             @default(uuid())
+  password      String
+  phone_number  String?
+  authProviders apply_tenant_user_auth_providers[]
+  agent         apply_tenant_users?                @relation("AgentUsers", fields: [agent_id], references: [id])
+  agentStudents apply_tenant_users[]               @relation("AgentUsers")
+
+  @@index([tenant_id])
+  @@index([agent_id])
+}
+
+model apply_role_fields_sections {
+  id        String   @id @default(uuid())
+  tenant_id String   @default("1")
+  name      String
+  role      String   // agent, student, etc.
+  order     Int?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  fields apply_role_field_definitions[]
+
+  @@map("apply_role_fields_sections")
+}
+
+model apply_role_field_definitions {
+  id          String   @id @default(uuid())
+  tenant_id   String   @default("1")
+  section_id  String
+  role        String   // agent, student, etc.
+  field_name  String
+  field_label String
+  field_type  String   // text, email, select, number, date, etc.
+  is_required Boolean  @default(false)
+  order       Int?
+  options     Json?    // For select fields
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  section apply_role_fields_sections @relation(fields: [section_id], references: [id], onDelete: Cascade)
+  field_values apply_user_field_values[]
+
+  @@map("apply_role_field_definitions")
+}
+
+model apply_user_field_values {
+  id         String   @id @default(uuid())
+  user_id    String
+  tenant_id  String   @default("1")
+  field_id   String
+  field_value String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  field_definition apply_role_field_definitions @relation(fields: [field_id], references: [id], onDelete: Cascade)
+
+  @@map("apply_user_field_values")
+}
+
+model apply_tenant_user_auth_providers {
+  id               Int                @id @default(autoincrement())
+  user_id          Int
+  provider         String
+  provider_user_id String?
+  email            String?
+  password_hash    String?
+  access_token     String?
+  created_at       DateTime           @default(now())
+  updated_at       DateTime           @updatedAt
+  user             apply_tenant_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum FeeStatus {
   pending
   paid

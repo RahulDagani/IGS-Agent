@@ -23,19 +23,19 @@ import { seedRolePermissions } from "./seedRolePermissions";
 const prisma = new PrismaClient();
 
 async function main() {
-    const features = await seedPlanFeatures(prisma);
-    const plans = await seedPlans(prisma, features);
-    const users = await seedUsers(prisma);
-    await seedPermissions(prisma);
-    await seedRoles(prisma);
-    await seedRolePermissions(prisma);
+    // const features = await seedPlanFeatures(prisma);
+    // const plans = await seedPlans(prisma, features);
+    // const users = await seedUsers(prisma);
+    // await seedPermissions(prisma);
+    // await seedRoles(prisma);
+    // await seedRolePermissions(prisma);
 
     // await seedGeneralSettings(prisma);
 
     // await seedCurrencies(prisma);
 
     // await seedPaymentSettings(prisma);
-    await seedTenants(prisma, users, plans);
+    // await seedTenants(prisma, users, plans);
     // await seedPayments(prisma);
     // await seedDomainRequests(prisma);
     // await seedDomains(prisma);
