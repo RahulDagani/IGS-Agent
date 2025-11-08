@@ -43,5 +43,5 @@ function PartnerLayout({ children, user }: PartnerLayoutProps) {
 }
 
 
-// export default withAuth(PartnerLayout, ['agent'], ['user']);
-export default PartnerLayout;
+export default withAuth(PartnerLayout, ['agent'], ['user']);
+// export default PartnerLayout;

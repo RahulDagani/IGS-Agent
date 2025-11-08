@@ -1,0 +1,613 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model apply_tenants {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  name                    String
+  company_name            String
+  subdomain               String                      @unique
+  custom_domain           String?                     @unique
+  email                   String                      @unique
+  password_hash           String
+  plan_id                 Int?
+  status                  TenantStatus                @default(ACTIVE)
+  trial_ends_at           DateTime?
+  subscription_ends_at    DateTime?
+  is_active               Boolean                     @default(true)
+  settings                Json?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  // Platform relations
+  plan                    apply_plans?                @relation(fields: [plan_id], references: [id])
+  domains                 apply_domains[]
+  subscription_requests   apply_subscription_requests[]
+  subscriptions           apply_subscriptions[]
+  payments                apply_payments[]
+  
+  // Tenant data
+  users                   apply_tenant_users[]
+  universities            apply_tenant_universities[]
+  courses                 apply_tenant_courses[]
+  applications            apply_tenant_applications[]
+  support_tickets         apply_tenant_support_tickets[]
+
+  //relations
+  agent_student apply_tenant_agent_students[]
+  support_replies apply_tenant_support_replies[]
+  user_permissions apply_tenant_user_permissions[]
+  staff_profiles apply_tenant_staff_profiles[]
+  admin_profiles apply_tenant_admin_profiles[]
+  agent_profiles apply_tenant_agent_profiles[]
+  student_profiles apply_tenant_student_profiles[]
+
+
+  @@index([status])
+  @@map("apply_tenants")
+}
+
+model apply_domains {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  domain                  String                      @unique
+  type                    DomainType                  @default(CUSTOM)
+  status                  DomainStatus                @default(PENDING)
+  is_primary              Boolean                     @default(false)
+  verified_at             DateTime?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id, domain])
+  @@index([tenant_id])
+  @@map("apply_domains")
+}
+
+model apply_plans {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  name                    String
+  description             String?
+  price_monthly           Float
+  price_yearly            Float?
+  features                Json                        // Modular features
+  limits                  Json                        // Usage limits
+  is_active               Boolean                     @default(true)
+  is_default              Boolean                     @default(false)
+  sort_order              Int                         @default(0)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenants                 apply_tenants[]
+  subscription_requests   apply_subscription_requests[]
+  subscriptions           apply_subscriptions[]
+  payments                apply_payments[]
+
+  @@index([is_active])
+  @@index([is_default])
+  @@map("apply_plans")
+}
+
+
+model apply_subscription_requests {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  plan_id                 Int
+  
+  // 🔧 SELECTED MODULES
+  selected_modules        Json                        // {
+                                                      //   "student_portal": true,
+                                                      //   "agent_portal": false
+                                                      // }
+  
+  status                  SubscriptionRequestStatus   @default(PENDING)
+  requested_by            Int?
+  reviewed_by             Int?
+  reviewed_at             DateTime?
+  admin_notes             String?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  // Relations
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  plan                    apply_plans                 @relation(fields: [plan_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([status])
+  @@map("apply_subscription_requests")
+}
+
+model apply_subscriptions {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  plan_id                 Int
+  
+  // 🔧 ACTIVATED MODULES
+  activated_modules       Json                        // {
+                                                      //   "student_portal": true,
+                                                      //   "agent_portal": false
+                                                      // }
+  
+  status                  SubscriptionStatus          @default(ACTIVE)
+  starts_at               DateTime                    @default(now())
+  ends_at                 DateTime
+  is_auto_renew          Boolean                     @default(true)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  // Relations
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  plan                    apply_plans                 @relation(fields: [plan_id], references: [id])
+
+  @@unique([tenant_id, plan_id])
+  @@index([tenant_id])
+  @@index([status])
+  @@map("apply_subscriptions")
+}
+
+model apply_payments {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  plan_id                 Int
+  amount                  Float
+  currency                String                      @default("USD")
+  payment_method          String
+  transaction_id          String?                     @unique
+  status                  PaymentStatus               @default(PENDING)
+  billing_period          String                      // "monthly", "yearly"
+  due_date                DateTime?
+  paid_at                 DateTime?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  // Relations
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  plan                    apply_plans                 @relation(fields: [plan_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([status])
+  @@map("apply_payments")
+}
+
+
+model apply_tenant_users {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  email                   String
+  password_hash           String
+  name                    String
+  phone                   String?
+  avatar                  String?
+  role                    TenantUserRole
+  is_active               Boolean                     @default(true)
+  is_email_verified       Boolean                     @default(false)
+  last_login_at           DateTime?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  // Relations
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  
+  // Role-specific profiles (only one will be populated per user)
+  tenant_admin_profile    apply_tenant_admin_profiles?
+  staff_profile           apply_tenant_staff_profiles?
+  agent_profile           apply_tenant_agent_profiles?
+  student_profile         apply_tenant_student_profiles?
+  
+  // Permissions for staff
+  permissions             apply_tenant_user_permissions[]
+  
+  // Application assignments for staff
+  assigned_applications   apply_tenant_applications[] @relation("AssignedStaffApplications")
+  
+  // Support ticket assignments
+  assigned_tickets        apply_tenant_support_tickets[] @relation("AssignedStaffTickets")
+  support_replies apply_tenant_support_replies[]
+
+  @@unique([tenant_id, email])
+  @@index([tenant_id])
+  @@index([email])
+  @@index([role])
+  @@map("apply_tenant_users")
+}
+
+// TENANT_AGENT_STUDENT Relationship
+model apply_tenant_agent_students {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  agent_id                Int
+  student_id              Int                         @unique
+  
+  // Agent control over student
+  can_login               Boolean                     @default(true)
+  can_edit_profile        Boolean                     @default(false)
+  can_view_applications   Boolean                     @default(true)
+  can_create_applications Boolean                     @default(false)
+  can_upload_documents    Boolean                     @default(false)
+  
+  commission_rate         Float?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  agent                   apply_tenant_agent_profiles @relation(fields: [agent_id], references: [id])
+  student                 apply_tenant_student_profiles @relation(fields: [student_id], references: [id])
+  
+
+  @@unique([tenant_id, agent_id, student_id])
+  @@map("apply_tenant_agent_students")
+}
+
+model apply_tenant_support_replies {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  ticket_id               Int
+  user_id                 Int
+  message                 String
+  is_internal             Boolean                     @default(false)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  ticket                  apply_tenant_support_tickets @relation(fields: [ticket_id], references: [id])
+  user                    apply_tenant_users          @relation(fields: [user_id], references: [id])
+
+  @@map("apply_tenant_support_replies")
+}
+
+
+
+model apply_tenant_universities {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  name                    String
+  slug                    String
+  country_code            String
+  state_code              String?
+  city                    String?
+  address                 String?
+  website                 String?
+  contact_email           String?
+  phone                   String?
+  description             String?
+  logo                    String?
+  is_active               Boolean                     @default(true)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  courses                 apply_tenant_courses[]
+  applications            apply_tenant_applications[]
+
+  @@unique([tenant_id, slug])
+  @@map("apply_tenant_universities")
+}
+
+model apply_tenant_courses {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  university_id           Int
+  name                    String
+  slug                    String
+  study_level             String
+  discipline              String
+  duration                String?
+  tuition_fee            Json?
+  intake_dates            Json?
+  requirements           Json?
+  description             String?
+  is_active               Boolean                     @default(true)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  university              apply_tenant_universities   @relation(fields: [university_id], references: [id])
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  applications            apply_tenant_applications[]
+
+  @@unique([tenant_id, university_id, slug])
+  @@map("apply_tenant_courses")
+}
+
+// ==================== APPLICATIONS ====================
+
+model apply_tenant_applications {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  student_id              Int
+  course_id               Int
+  intake_date             DateTime
+  application_status      ApplicationStatus           @default(DRAFT)
+  application_fee_status  PaymentStatus               @default(PENDING)
+  assigned_staff_id       Int?
+  notes                   Json?
+  submitted_at            DateTime?
+  decision_date           DateTime?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  // Relations
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  student                 apply_tenant_student_profiles @relation(fields: [student_id], references: [id])
+  course                  apply_tenant_courses        @relation(fields: [course_id], references: [id])
+  assigned_staff          apply_tenant_users?         @relation("AssignedStaffApplications", fields: [assigned_staff_id], references: [id])
+  university apply_tenant_universities[]
+
+  @@unique([tenant_id, student_id, course_id, intake_date])
+  @@map("apply_tenant_applications")
+}
+
+model apply_tenant_user_permissions {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  user_id                 Int
+  module                  PermissionModule
+  can_view                Boolean                     @default(false)
+  can_create              Boolean                     @default(false)
+  can_edit                Boolean                     @default(false)
+  can_delete              Boolean                     @default(false)
+  can_manage              Boolean                     @default(false)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  user                    apply_tenant_users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, user_id, module])
+  @@index([tenant_id])
+  @@index([user_id])
+  @@map("apply_tenant_user_permissions")
+}
+
+model apply_tenant_staff_profiles {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  user_id                 Int                         @unique
+  department              String?
+  position                String?
+  notes                   String?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  user                    apply_tenant_users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id, user_id])
+  @@map("apply_tenant_staff_profiles")
+}
+
+// TENANT_AGENT Profile
+model apply_tenant_agent_profiles {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  user_id                 Int                         @unique
+  agency_name             String
+  registration_number     String?
+  business_address        Json?
+  contact_person          String?
+  website                 String?
+  social_media            Json?
+  commission_rate         Float                       @default(15.0)
+  is_verified             Boolean                     @default(false)
+  total_students          Int                         @default(0)
+  successful_applications Int                         @default(0)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  user                    apply_tenant_users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  agent_students          apply_tenant_agent_students[]
+  support_tickets apply_tenant_support_tickets[]
+
+  @@unique([tenant_id, user_id])
+  @@map("apply_tenant_agent_profiles")
+}
+
+model apply_tenant_student_profiles {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  user_id                 Int                         @unique
+  student_type            StudentType                 @default(DIRECT)
+  
+  // Personal Information
+  date_of_birth           DateTime?
+  gender                  String?
+  nationality             String?
+  passport_number         String?
+  address                 Json?
+  emergency_contact       Json?
+  
+  // Academic Information
+  education_background    Json?
+  test_scores             Json?
+  
+  // Study Preferences
+  preferred_countries     Json?
+  preferred_levels        Json?
+  preferred_disciplines   Json?
+  budget_range            Json?
+  
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  user                    apply_tenant_users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  agent_student           apply_tenant_agent_students?
+  applications            apply_tenant_applications[]
+  support_tickets         apply_tenant_support_tickets[]
+
+  @@unique([tenant_id, user_id])
+  @@map("apply_tenant_student_profiles")
+}
+
+model apply_tenant_admin_profiles {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  user_id                 Int                         @unique
+  is_primary_admin        Boolean                     @default(true)
+  can_manage_billing      Boolean                     @default(true)
+  can_manage_users        Boolean                     @default(true)
+  can_manage_settings     Boolean                     @default(true)
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  user                    apply_tenant_users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id, user_id])
+  @@map("apply_tenant_admin_profiles")
+}
+
+
+model apply_tenant_support_tickets {
+  id                      Int                         @id @default(autoincrement())
+  uuid                    String                      @unique @default(uuid())
+  tenant_id               Int
+  student_id              Int?
+  agent_id                Int?
+  title                   String
+  description             String
+  category                SupportCategory
+  priority                SupportPriority             @default(MEDIUM)
+  status                  SupportStatus               @default(OPEN)
+  assigned_staff_id       Int?
+  created_at              DateTime                    @default(now())
+  updated_at              DateTime                    @updatedAt
+  
+  tenant                  apply_tenants               @relation(fields: [tenant_id], references: [id])
+  student                 apply_tenant_student_profiles? @relation(fields: [student_id], references: [id])
+  agent                   apply_tenant_agent_profiles? @relation(fields: [agent_id], references: [id])
+  assigned_staff          apply_tenant_users?         @relation("AssignedStaffTickets", fields: [assigned_staff_id], references: [id])
+  replies                 apply_tenant_support_replies[]
+
+  @@map("apply_tenant_support_tickets")
+}
+
+
+enum DomainType {
+  SUBDOMAIN
+  CUSTOM
+}
+
+enum TenantUserRole {
+  TENANT_ADMIN
+  TENANT_STAFF
+  TENANT_AGENT
+  TENANT_STUDENT
+}
+
+enum SupportCategory {
+  GENERAL
+  TECHNICAL
+  BILLING
+  APPLICATION
+  DOCUMENT
+  OTHER
+}
+
+enum SupportPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PermissionModule {
+  DASHBOARD
+  STUDENTS
+  AGENTS
+  UNIVERSITIES
+  COURSES
+  APPLICATIONS
+  SUPPORT
+  COMMISSIONS
+  SETTINGS
+  REPORTS
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  DOCUMENTS_REQUESTED
+  INTERVIEW_SCHEDULED
+  CONDITIONAL_OFFER
+  UNCONDITIONAL_OFFER
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  DEFERRED
+}
+
+enum SubscriptionRequestStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum StudentType {
+  DIRECT
+  AGENT_MANAGED
+}
+
+
+enum DomainStatus {
+  PENDING
+  VERIFIED
+  ACTIVE
+  INACTIVE
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+  PENDING_RENEWAL
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+}

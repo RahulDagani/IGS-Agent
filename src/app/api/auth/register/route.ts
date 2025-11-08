@@ -48,15 +48,15 @@ export async function POST(request: NextRequest) {
     const tenant = await prisma.apply_tenants.create({
       data: {
         name,
-        companyName,
+        company_name:companyName,
         subdomain: subdomain.toLowerCase(),
         email,
-        passwordHash,
+        password_hash:passwordHash,
       },
     });
 
     // Remove password hash from response
-    const { passwordHash: _, ...tenantWithoutPassword } = tenant;
+    const { password_hash: _, ...tenantWithoutPassword } = tenant;
 
     return NextResponse.json(
       { 

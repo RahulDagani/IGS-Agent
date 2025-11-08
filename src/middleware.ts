@@ -18,6 +18,7 @@ const publicRoutes = [
   '/signin/agent',
   '/register/agent',
   '/api/auth/login',
+  '/api/auth/register/agent',
   '/forgot-password',
 ];
 
@@ -25,47 +26,47 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Check if route is public
-  // if (publicRoutes.some(route => pathname.startsWith(route))) {
-  //   return NextResponse.next();
-  // }
+  if (publicRoutes.some(route => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
 
-  // // Get session token
-  // const token = request.cookies.get('auth-token')?.value;
+  // Get session token
+  const token = request.cookies.get('auth-token')?.value;
 
-  // if (!token) {
-  //   return redirectToLogin(request, pathname);
-  // }
+  if (!token) {
+    return redirectToLogin(request, pathname);
+  }
 
-  // // Verify session
-  // const session = await AuthService.verifyToken(token);
+  // Verify session
+  const session = await AuthService.verifyToken(token);
 
-  // if (!session) {
-  //   return redirectToLogin(request, pathname);
-  // }
+  if (!session) {
+    return redirectToLogin(request, pathname);
+  }
 
-  // // Check role-based access
-  // if (!hasRouteAccess(pathname, session.role, session.type)) {
-  //   return redirectToUnauthorized(request);
-  // }
+  // Check role-based access
+  if (!hasRouteAccess(pathname, session.role, session.type)) {
+    return redirectToUnauthorized(request);
+  }
 
-  // // Add user to request headers for API routes
-  // if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/')) {
-  //   const requestHeaders = new Headers(request.headers);
-  //   requestHeaders.set('x-user-id', session.userId.toString());
-  //   requestHeaders.set('x-tenant-id', session.tenantId.toString());
-  //   requestHeaders.set('x-user-role', session.role);
-  //   requestHeaders.set('x-user-type', session.type);
+  // Add user to request headers for API routes
+  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/')) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', session.userId.toString());
+    requestHeaders.set('x-tenant-id', session.tenantId.toString());
+    requestHeaders.set('x-user-role', session.role);
+    requestHeaders.set('x-user-type', session.type);
     
-  //   if (session.agentId) {
-  //     requestHeaders.set('x-agent-id', session.agentId.toString());
-  //   }
+    if (session.agentId) {
+      requestHeaders.set('x-agent-id', session.agentId.toString());
+    }
 
-  //   return NextResponse.next({
-  //     request: {
-  //       headers: requestHeaders,
-  //     },
-  //   });
-  // }
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
 
   return NextResponse.next();
 }

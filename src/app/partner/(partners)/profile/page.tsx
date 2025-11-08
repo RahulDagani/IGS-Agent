@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, Download, Upload, X, CreditCard } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AgentFormData {
   // Personal Tab
@@ -37,51 +38,115 @@ interface AgentFormData {
   existingPanCard?: string;
 }
 
-// Mock function to fetch agent data
+type Tab = "personal" | "business" | "contact" | "payment";
+
+// API functions with error handling
 const fetchAgentData = async (): Promise<AgentFormData> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  const response = await fetch('/api/partner/profile');
   
-  const mockData: AgentFormData = {
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Authentication required');
+    } else if (response.status === 403) {
+      throw new Error('Agent access required');
+    } else {
+      throw new Error('Failed to fetch agent data');
+    }
+  }
+  
+  const data = await response.json();
+  
+  return {
     // Personal
-    fullName: "John Smith",
-    phoneNumber: "+1 (555) 123-4567",
+    fullName: data.fullName || "",
+    phoneNumber: data.phoneNumber || "",
     agencyLogo: null,
-    existingAgencyLogo: "/images/agency-logo.jpg",
+    existingAgencyLogo: data.existingAgencyLogo || "",
     
     // Business
-    businessName: "Global Education Consultants",
-    country: "United States",
-    streetAddress: "123 Education Street",
-    city: "New York",
-    state: "NY",
-    postalCode: "10001",
+    businessName: data.businessName || "",
+    country: data.country || "",
+    streetAddress: data.streetAddress || "",
+    city: data.city || "",
+    state: data.state || "",
+    postalCode: data.postalCode || "",
     businessCertificate: null,
-    existingBusinessCertificate: "/docs/business-certificate.pdf",
+    existingBusinessCertificate: data.existingBusinessCertificate || "",
     
     // Contact
-    whatsapp: "+1 (555) 123-4567",
-    website: "www.globaleduconsultants.com",
-    facebook: "facebook.com/globaleduconsultants",
-    linkedin: "linkedin.com/company/globaleduconsultants",
-    instagram: "instagram.com/globaleduconsultants",
-    twitter: "twitter.com/globaleducons",
-    otherSocial: "",
+    whatsapp: data.whatsapp || "",
+    website: data.website || "",
+    facebook: data.facebook || "",
+    linkedin: data.linkedin || "",
+    instagram: data.instagram || "",
+    twitter: data.twitter || "",
+    otherSocial: data.otherSocial || "",
     
     // Payment
-    ifscCode: "SBIN0000123",
-    bankAccountNumber: "123456789012",
-    accountHolderName: "John Smith",
+    ifscCode: data.ifscCode || "",
+    bankAccountNumber: data.bankAccountNumber || "",
+    accountHolderName: data.accountHolderName || "",
     panCard: null,
-    existingPanCard: "/docs/pan-card.jpg",
+    existingPanCard: data.existingPanCard || "",
   };
-  
-  return mockData;
 };
 
-type Tab = "personal" | "business" | "contact" | "payment";
+const uploadFile = async (file: File, field: string): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('field', field);
+
+  const response = await fetch('/api/partner/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to upload file');
+  }
+
+  const data = await response.json();
+  return data.fileUrl;
+};
+
+const updateAgentProfile = async (formData: AgentFormData): Promise<void> => {
+  const updateFormData = new FormData();
+  
+  // Add all text fields
+  updateFormData.append('fullName', formData.fullName);
+  updateFormData.append('phoneNumber', formData.phoneNumber);
+  updateFormData.append('businessName', formData.businessName);
+  updateFormData.append('country', formData.country);
+  updateFormData.append('streetAddress', formData.streetAddress);
+  updateFormData.append('city', formData.city);
+  updateFormData.append('state', formData.state);
+  updateFormData.append('postalCode', formData.postalCode);
+  updateFormData.append('whatsapp', formData.whatsapp);
+  updateFormData.append('website', formData.website);
+  updateFormData.append('facebook', formData.facebook);
+  updateFormData.append('linkedin', formData.linkedin);
+  updateFormData.append('instagram', formData.instagram);
+  updateFormData.append('twitter', formData.twitter);
+  updateFormData.append('otherSocial', formData.otherSocial);
+  updateFormData.append('ifscCode', formData.ifscCode);
+  updateFormData.append('bankAccountNumber', formData.bankAccountNumber);
+  updateFormData.append('accountHolderName', formData.accountHolderName);
+
+  const response = await fetch('/api/partner/profile', {
+    method: 'PUT',
+    body: updateFormData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to update profile');
+  }
+};
 
 export default function AgentAccountDetails() {
   const router = useRouter();
+  const { user: authUser, loading: authLoading } = useAuth();
   
   const [activeTab, setActiveTab] = useState<Tab>("personal");
   const [isLoading, setIsLoading] = useState(true);
@@ -122,19 +187,28 @@ export default function AgentAccountDetails() {
   });
 
   useEffect(() => {
-    const loadAgentData = async () => {
-      try {
-        const data = await fetchAgentData();
-        setFormData(data);
-      } catch (error) {
-        console.error('Error loading agent data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!authLoading && !authUser) {
+      router.push('/signin/agent');
+      return;
+    }
 
-    loadAgentData();
-  }, []);
+    if (authUser) {
+      loadAgentData();
+    }
+  }, [authUser, authLoading, router]);
+
+  const loadAgentData = async () => {
+    try {
+      const data = await fetchAgentData();
+      setFormData(data);
+    } catch (error) {
+      console.error('Error loading agent data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load profile data';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -164,7 +238,6 @@ export default function AgentAccountDetails() {
 
   const handleDownloadCertificate = () => {
     if (formData.existingBusinessCertificate) {
-      // Simulate download
       const link = document.createElement('a');
       link.href = formData.existingBusinessCertificate;
       link.download = 'business-registration-certificate.pdf';
@@ -174,20 +247,47 @@ export default function AgentAccountDetails() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!authUser) {
+      alert('Please log in to update your profile');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Upload files first if they exist
+      const uploadPromises = [];
       
-      console.log("Updated agent data:", formData);
-      // Here you would typically make an API call to update the agent profile
-      // await fetch('/api/agent/profile', { method: 'PUT', body: JSON.stringify(formData) });
+      if (formData.agencyLogo) {
+        uploadPromises.push(uploadFile(formData.agencyLogo, 'agencyLogo'));
+      }
+      
+      if (formData.businessCertificate) {
+        uploadPromises.push(uploadFile(formData.businessCertificate, 'businessCertificate'));
+      }
+      
+      if (formData.panCard) {
+        uploadPromises.push(uploadFile(formData.panCard, 'panCard'));
+      }
+
+      // Wait for all file uploads to complete
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises);
+      }
+
+      // Update profile data
+      await updateAgentProfile(formData);
       
       alert("Profile updated successfully!");
+      
+      // Reload the data to get updated file URLs
+      await loadAgentData();
+      
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert("Error updating profile. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -216,50 +316,49 @@ export default function AgentAccountDetails() {
   const renderPersonalTab = () => (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-      {/* Full Name */}
-      <div>
-        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Full Name *
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <User size={18} />
-          </span>
-          <input
-            type="text"
-            id="fullName"
-            name="fullName"
-            value={formData.fullName}
-            onChange={handleInputChange}
-            placeholder="Enter your full name"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
+        {/* Full Name */}
+        <div>
+          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Full Name *
+          </label>
+          <div className="relative">
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              <User size={18} />
+            </span>
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              placeholder="Enter your full name"
+              required
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Phone Number */}
-      <div>
-        <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Phone Number *
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Phone size={18} />
-          </span>
-          <input
-            type="tel"
-            id="phoneNumber"
-            name="phoneNumber"
-            value={formData.phoneNumber}
-            onChange={handleInputChange}
-            placeholder="Enter your phone number"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
+        {/* Phone Number */}
+        <div>
+          <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Phone Number *
+          </label>
+          <div className="relative">
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              <Phone size={18} />
+            </span>
+            <input
+              type="tel"
+              id="phoneNumber"
+              name="phoneNumber"
+              value={formData.phoneNumber}
+              onChange={handleInputChange}
+              placeholder="Enter your phone number"
+              required
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
         </div>
-      </div>
-
       </div>
 
       {/* Agency Logo */}
@@ -276,6 +375,29 @@ export default function AgentAccountDetails() {
                     <Upload size={24} className="text-green-500 mb-2 mx-auto" />
                     <p className="text-xs text-green-600 dark:text-green-400">New logo selected</p>
                     <p className="text-xs text-gray-500 truncate px-2">{formData.agencyLogo.name}</p>
+                  </div>
+                ) : formData.existingAgencyLogo ? (
+                  <div className="text-center">
+                    <img 
+                      src={formData.existingAgencyLogo} 
+                      alt="Agency Logo" 
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        // Show fallback icon if image fails to load
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const fallback = document.createElement('div');
+                          fallback.className = 'text-center';
+                          fallback.innerHTML = `
+                            <Building size={24} className="text-brand-500 mb-2 mx-auto" />
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Current logo</p>
+                          `;
+                          parent.appendChild(fallback);
+                        }
+                      }}
+                    />
                   </div>
                 ) : (
                   <div className="text-center">
@@ -325,30 +447,29 @@ export default function AgentAccountDetails() {
 
   const renderBusinessTab = () => (
     <div className="space-y-5">
-      
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Business Name */}
-      <div>
-        <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Registered Business Name *
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Building size={18} />
-          </span>
-          <input
-            type="text"
-            id="businessName"
-            name="businessName"
-            value={formData.businessName}
-            onChange={handleInputChange}
-            placeholder="Enter your registered business name"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
+        <div>
+          <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Registered Business Name *
+          </label>
+          <div className="relative">
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              <Building size={18} />
+            </span>
+            <input
+              type="text"
+              id="businessName"
+              name="businessName"
+              value={formData.businessName}
+              onChange={handleInputChange}
+              placeholder="Enter your registered business name"
+              required
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
         </div>
-      </div>
+        
         {/* Country */}
         <div>
           <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
@@ -390,6 +511,7 @@ export default function AgentAccountDetails() {
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
           />
         </div>
+        
         {/* City */}
         <div>
           <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
@@ -406,6 +528,7 @@ export default function AgentAccountDetails() {
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
           />
         </div>
+        
         {/* State */}
         <div>
           <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
@@ -440,8 +563,6 @@ export default function AgentAccountDetails() {
           />
         </div>
       </div>
-
-     
 
       {/* Business Registration Certificate */}
       <div>
@@ -516,51 +637,48 @@ export default function AgentAccountDetails() {
 
   const renderContactTab = () => (
     <div className="space-y-5">
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-      {/* WhatsApp */}
-      
-      <div>
-        <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          WhatsApp Number
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <MessageCircle size={18} />
-          </span>
-          <input
-            type="tel"
-            id="whatsapp"
-            name="whatsapp"
-            value={formData.whatsapp}
-            onChange={handleInputChange}
-            placeholder="Enter WhatsApp number"
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
+        {/* WhatsApp */}
+        <div>
+          <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            WhatsApp Number
+          </label>
+          <div className="relative">
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              <MessageCircle size={18} />
+            </span>
+            <input
+              type="tel"
+              id="whatsapp"
+              name="whatsapp"
+              value={formData.whatsapp}
+              onChange={handleInputChange}
+              placeholder="Enter WhatsApp number"
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Website */}
-      <div>
-        <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Company Website
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Globe size={18} />
-          </span>
-          <input
-            type="url"
-            id="website"
-            name="website"
-            value={formData.website}
-            onChange={handleInputChange}
-            placeholder="Enter your company website"
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
+        {/* Website */}
+        <div>
+          <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Company Website
+          </label>
+          <div className="relative">
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+              <Globe size={18} />
+            </span>
+            <input
+              type="url"
+              id="website"
+              name="website"
+              value={formData.website}
+              onChange={handleInputChange}
+              placeholder="Enter your company website"
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
         </div>
-      </div>
-
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -788,7 +906,7 @@ export default function AgentAccountDetails() {
     </div>
   );
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="flex items-center justify-center p-12">
@@ -800,6 +918,14 @@ export default function AgentAccountDetails() {
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading agent data...</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-8 text-center">
+        <p className="text-red-500">Authentication required. Please log in.</p>
       </div>
     );
   }

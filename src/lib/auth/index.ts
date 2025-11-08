@@ -30,8 +30,8 @@ export interface SessionPayload extends Record<string, string | number | undefin
 interface AdminUser {
   id: number;
   email: string;
-  companyName: string;
-  passwordHash: string;
+  company_name: string;
+  password_hash: string;
   status: string;
 }
 
@@ -70,7 +70,7 @@ export class AuthService {
           }
 
           // Verify password
-          const isValidPassword = await bcrypt.compare(password, adminUser.passwordHash);
+          const isValidPassword = await bcrypt.compare(password, adminUser.password_hash);
           if (!isValidPassword) {
             return { success: false, error: 'Invalid credentials' };
           }
@@ -79,7 +79,7 @@ export class AuthService {
           user = {
             id: adminUser.id,
             email: adminUser.email,
-            name: adminUser.companyName,
+            name: adminUser.company_name,
             role: 'admin',
             tenant_id: adminUser.id, // Admin's tenant_id is their own id
             is_verified: true,

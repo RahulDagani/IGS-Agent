@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
 
     const updates = [];
     const creates = [];
-    const fileUploads = [];
+    const fileUploads: Array<{
+      fieldId: string;
+      file: File;
+      existingRecord: (typeof currentFieldValues)[0] | undefined; // You should replace 'any' with proper type if available
+    }> = [];
 
     for (const [fieldId, value] of formData.entries()) {
       // Skip user_id and tenant_id fields
@@ -27,7 +31,8 @@ export async function POST(request: NextRequest) {
       const isFile = fieldId.startsWith('file_');
       const actualFieldId = isFile ? fieldId.replace('file_', '') : fieldId;
       
-      const existingRecord = currentFieldValues.find(record => 
+      // Fix: Add proper typing for the record parameter
+      const existingRecord = currentFieldValues.find((record) => 
         record.field_id === actualFieldId
       );
 
