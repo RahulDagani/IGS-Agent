@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -8,57 +8,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
-import { Edit, Trash, Plus, GraduationCap, BookOpen } from "lucide-react";
+import { Edit, Trash, Plus, GraduationCap } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface StudyLevel {
   id: number;
   name: string;
-  description: string;
-  status: "active" | "inactive";
-  createdAt: string;
+  slug: string;
 }
-
-// Define the table data using the interface
-const tableData: StudyLevel[] = [
-  {
-    id: 1,
-    name: "Bachelors",
-    description: "Bachelor's degree programs and associate degrees",
-    status: "active",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: 2,
-    name: "Masters",
-    description: "Master's degrees and graduate certificates",
-    status: "active",
-    createdAt: "2024-02-20",
-  },
-  {
-    id: 3,
-    name: "PhD",
-    description: "Doctoral research programs",
-    status: "active",
-    createdAt: "2024-03-10",
-  },
-  {
-    id: 4,
-    name: "Diploma",
-    description: "Diploma and advanced diploma programs",
-    status: "active",
-    createdAt: "2024-04-05",
-  },
-  
-  
-];
-
-type SortField = keyof StudyLevel | "";
-type SortDirection = "asc" | "desc";
 
 interface AddEditStudyLevelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (studyLevelData: { name: string; description: string; status: "active" | "inactive" }) => void;
+  onSave: (studyLevelData: { name: string }) => void;
   mode: "add" | "edit";
   initialData?: StudyLevel;
 }
@@ -72,8 +34,6 @@ const AddEditStudyLevelModal: React.FC<AddEditStudyLevelModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
-    description: initialData?.description || "",
-    status: initialData?.status || "active" as "active" | "inactive",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,21 +41,17 @@ const AddEditStudyLevelModal: React.FC<AddEditStudyLevelModalProps> = ({
     if (initialData) {
       setFormData({
         name: initialData.name,
-        description: initialData.description,
-        status: initialData.status,
       });
     } else {
       setFormData({
         name: "",
-        description: "",
-        status: "active",
       });
     }
   }, [initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.description.trim()) return;
+    if (!formData.name.trim()) return;
 
     setIsSubmitting(true);
     try {
@@ -111,8 +67,6 @@ const AddEditStudyLevelModal: React.FC<AddEditStudyLevelModalProps> = ({
   const handleClose = () => {
     setFormData({
       name: initialData?.name || "",
-      description: initialData?.description || "",
-      status: initialData?.status || "active",
     });
     onClose();
   };
@@ -157,43 +111,9 @@ const AddEditStudyLevelModal: React.FC<AddEditStudyLevelModalProps> = ({
                   className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                 />
               </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Description *
-              </label>
-              <div className="relative">
-                <span className="absolute top-4 left-4 text-gray-500 dark:text-gray-400">
-                  <BookOpen size={18} />
-                </span>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter a brief description of this study level..."
-                  rows={3}
-                  required
-                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Status */}
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Status
-              </label>
-              <select
-                id="status"
-                value={formData.status}
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as "active" | "inactive" }))}
-                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                The slug will be automatically generated from the name
+              </p>
             </div>
           </div>
 
@@ -207,7 +127,7 @@ const AddEditStudyLevelModal: React.FC<AddEditStudyLevelModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !formData.name.trim() || !formData.description.trim()}
+              disabled={isSubmitting || !formData.name.trim()}
               className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:bg-brand-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-brand-500/10"
             >
               {isSubmitting ? (
@@ -229,22 +149,64 @@ const AddEditStudyLevelModal: React.FC<AddEditStudyLevelModalProps> = ({
   );
 };
 
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
 export default function StudyLevelsTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [sortField, setSortField] = useState<SortField>("");
+  const [sortField, setSortField] = useState<keyof StudyLevel>("id");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<StudyLevel | null>(null);
-  const [studyLevels, setStudyLevels] = useState<StudyLevel[]>(tableData);
+  const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const token = useAuth();
+  
+
+  // Fetch study levels from API
+  const fetchStudyLevels = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch study levels: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setStudyLevels(result.data);
+      } else {
+        throw new Error('Failed to fetch study levels');
+      }
+    } catch (err) {
+      console.error('Error fetching study levels:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch study levels');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudyLevels();
+  }, []);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
     const filtered = studyLevels.filter((studyLevel) => {
       const matchesSearch = 
         studyLevel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        studyLevel.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        studyLevel.status.toLowerCase().includes(searchTerm.toLowerCase());
+        studyLevel.slug.toLowerCase().includes(searchTerm.toLowerCase());
       
       return matchesSearch;
     });
@@ -287,58 +249,110 @@ export default function StudyLevelsTable() {
     return sortDirection === "asc" ? "↑" : "↓";
   };
 
-  const getStatusColor = (status: StudyLevel["status"]) => {
-    switch (status) {
-      case "active":
+  const getStudyLevelColor = (slug: string) => {
+    switch (slug) {
+      case "bachelors":
+        return "primary";
+      case "masters":
         return "success";
-      case "inactive":
-        return "error";
+      case "phd":
+        return "warning";
+      case "diploma":
+        return "info";
+      case "certificate":
+        return "success";
       default:
         return "primary";
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const handleAddStudyLevel = async (studyLevelData: { name: string }) => {
+    try {
+      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studyLevelData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to add study level: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Refresh the study levels list
+        await fetchStudyLevels();
+      } else {
+        throw new Error('Failed to add study level');
+      }
+    } catch (error) {
+      console.error('Error adding study level:', error);
+      throw error;
+    }
   };
 
-  const handleAddStudyLevel = async (studyLevelData: { name: string; description: string; status: "active" | "inactive" }) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newStudyLevel: StudyLevel = {
-      id: Math.max(...studyLevels.map(sl => sl.id)) + 1,
-      name: studyLevelData.name,
-      description: studyLevelData.description,
-      status: studyLevelData.status,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    
-    setStudyLevels(prev => [...prev, newStudyLevel]);
-  };
-
-  const handleEditStudyLevel = async (studyLevelData: { name: string; description: string; status: "active" | "inactive" }) => {
+  const handleEditStudyLevel = async (studyLevelData: { name: string }) => {
     if (!selectedStudyLevel) return;
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setStudyLevels(prev => prev.map(studyLevel =>
-      studyLevel.id === selectedStudyLevel.id
-        ? { ...studyLevel, name: studyLevelData.name, description: studyLevelData.description, status: studyLevelData.status }
-        : studyLevel
-    ));
-    
-    setSelectedStudyLevel(null);
+    try {
+      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels/${selectedStudyLevel.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studyLevelData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update study level: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Refresh the study levels list
+        await fetchStudyLevels();
+        setSelectedStudyLevel(null);
+      } else {
+        throw new Error('Failed to update study level');
+      }
+    } catch (error) {
+      console.error('Error updating study level:', error);
+      throw error;
+    }
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this study level? This action cannot be undone.")) {
-      setStudyLevels(prev => prev.filter(studyLevel => studyLevel.id !== id));
+      try {
+        const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to delete study level: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          // Refresh the study levels list
+          await fetchStudyLevels();
+        } else {
+          throw new Error('Failed to delete study level');
+        }
+      } catch (error) {
+        console.error('Error deleting study level:', error);
+        alert('Failed to delete study level. Please try again.');
+      }
     }
   };
 
@@ -352,10 +366,41 @@ export default function StudyLevelsTable() {
     setIsAddModalOpen(true);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center gap-2">
+          <svg className="animate-spin h-5 w-5 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="text-gray-600 dark:text-gray-400">Loading study levels...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-2">Error Loading Study Levels</div>
+          <div className="text-gray-600 dark:text-gray-400 mb-4">{error}</div>
+          <button
+            onClick={fetchStudyLevels}
+            className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Study Levels</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -363,23 +408,15 @@ export default function StudyLevelsTable() {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Active Levels</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(sl => sl.status === 'active').length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Inactive Levels</div>
-          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {filteredAndSortedData.filter(sl => sl.status === 'inactive').length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Popular Levels</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Undergraduate</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {filteredAndSortedData.filter(sl => 
-              ['Bachelors', 'Masters', 'PhD'].includes(sl.name)
-            ).length}
+            {filteredAndSortedData.filter(d => ['bachelors', 'diploma', 'certificate'].includes(d.slug)).length}
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Graduate</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            {filteredAndSortedData.filter(d => ['masters', 'phd'].includes(d.slug)).length}
           </div>
         </div>
       </div>
@@ -391,7 +428,7 @@ export default function StudyLevelsTable() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by name, description, or status..."
+              placeholder="Search by study level name or slug..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
@@ -429,7 +466,7 @@ export default function StudyLevelsTable() {
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[800px]">
+          <div className="min-w-[500px]">
             <Table>
               {/* Table Header */}
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
@@ -437,9 +474,6 @@ export default function StudyLevelsTable() {
                   {[
                     { key: "id", label: "ID" },
                     { key: "name", label: "Study Level" },
-                    { key: "description", label: "Description" },
-                    { key: "status", label: "Status" },
-                    { key: "createdAt", label: "Created At" },
                     { key: "action", label: "Action" },
                   ].map(({ key, label }) => (
                     <TableCell
@@ -474,27 +508,18 @@ export default function StudyLevelsTable() {
                           <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                             <GraduationCap size={16} className="text-gray-600 dark:text-gray-400" />
                           </div>
-                          <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {studyLevel.name}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="text-gray-600 text-theme-sm dark:text-gray-400 max-w-[300px]">
-                          {studyLevel.description}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getStatusColor(studyLevel.status)}
-                        >
-                          {studyLevel.status.charAt(0).toUpperCase() + studyLevel.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="text-gray-500 text-theme-sm dark:text-gray-400">
-                          {formatDate(studyLevel.createdAt)}
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                              {studyLevel.name}
+                            </span>
+                            <Badge
+                              size="sm"
+                              color={getStudyLevelColor(studyLevel.slug)}
+                              
+                            >
+                              {studyLevel.slug}
+                            </Badge>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
@@ -520,7 +545,6 @@ export default function StudyLevelsTable() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       {searchTerm ? "No study levels found matching your search." : "No study levels available."}
@@ -560,3 +584,5 @@ export default function StudyLevelsTable() {
     </div>
   );
 }
+
+type SortDirection = "asc" | "desc";

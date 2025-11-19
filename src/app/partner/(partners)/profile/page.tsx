@@ -1,189 +1,186 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, Download, Upload, X, CreditCard } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { Country, State, City } from "country-state-city";
 
-interface AgentFormData {
-  // Personal Tab
-  fullName: string;
-  phoneNumber: string;
-  agencyLogo: File | null;
-  existingAgencyLogo?: string;
-  
-  // Business Tab
-  businessName: string;
-  country: string;
-  streetAddress: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  businessCertificate: File | null;
-  existingBusinessCertificate?: string;
-  
-  // Contact Tab
-  whatsapp: string;
-  website: string;
-  facebook: string;
-  linkedin: string;
-  instagram: string;
-  twitter: string;
-  otherSocial: string;
-  
-  // Payment Tab
-  ifscCode: string;
-  bankAccountNumber: string;
-  accountHolderName: string;
-  panCard: File | null;
-  existingPanCard?: string;
+interface BusinessFormData {
+  business_name: string;
+  business_certificate: string;
+  agency_logo: string;
+  pan_card_upload: string;
+  country_code: string;
+  street_address: string;
+  city_code: string;
+  state_code: string;
+  postal_code: string;
 }
 
-type Tab = "personal" | "business" | "contact" | "payment";
+interface SocialFormData {
+  website_url: string;
+  instagram: string;
+  facebook: string;
+  linkedin: string;
+  twitter: string;
+  other: string;
+  whatsapp_id: string;
+  skype_id: string;
+}
 
-// API functions with error handling
-const fetchAgentData = async (): Promise<AgentFormData> => {
-  const response = await fetch('/api/partner/profile');
+interface PaymentFormData {
+  ifsc_code: string;
+  bank_account_number: string;
+  bank_account_name: string;
+}
+
+interface AgentProfileResponse {
+  success: boolean;
+  profile: {
+    id: number;
+    uuid: string;
+    tenant_id: number;
+    user_id: number;
+    name: string;
+    business_name: string;
+    business_certificate: string;
+    agency_logo: string;
+    pan_card_upload: string;
+    country_code: string;
+    street_address: string;
+    city_code: string;
+    state_code: string;
+    postal_code: string;
+    website_url: string;
+    instagram: string;
+    facebook: string;
+    linkedin: string;
+    twitter: string | null;
+    other: string | null;
+    whatsapp_id: string;
+    skype_id: string;
+    ifsc_code: string;
+    bank_account_number: string;
+    bank_account_name: string;
+    is_payment_verified: number;
+    is_agent_verified: number;
+    agent_verified_at: string;
+    agent_payment_verified_at: string | null;
+    created_at: string;
+    updated_at: string;
+    is_deleted: number;
+  };
+}
+
+type Tab = "business" | "payment" | "social";
+
+const BASE_URL = "https://api.applystore.org/api";
+
+// API functions
+const fetchAgentProfile = async (token: string): Promise<AgentProfileResponse> => {
+  const response = await fetch(`${BASE_URL}/agent/profile`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
   
   if (!response.ok) {
     if (response.status === 401) {
       throw new Error('Authentication required');
-    } else if (response.status === 403) {
-      throw new Error('Agent access required');
     } else {
-      throw new Error('Failed to fetch agent data');
+      throw new Error('Failed to fetch agent profile');
     }
   }
   
-  const data = await response.json();
-  
-  return {
-    // Personal
-    fullName: data.fullName || "",
-    phoneNumber: data.phoneNumber || "",
-    agencyLogo: null,
-    existingAgencyLogo: data.existingAgencyLogo || "",
-    
-    // Business
-    businessName: data.businessName || "",
-    country: data.country || "",
-    streetAddress: data.streetAddress || "",
-    city: data.city || "",
-    state: data.state || "",
-    postalCode: data.postalCode || "",
-    businessCertificate: null,
-    existingBusinessCertificate: data.existingBusinessCertificate || "",
-    
-    // Contact
-    whatsapp: data.whatsapp || "",
-    website: data.website || "",
-    facebook: data.facebook || "",
-    linkedin: data.linkedin || "",
-    instagram: data.instagram || "",
-    twitter: data.twitter || "",
-    otherSocial: data.otherSocial || "",
-    
-    // Payment
-    ifscCode: data.ifscCode || "",
-    bankAccountNumber: data.bankAccountNumber || "",
-    accountHolderName: data.accountHolderName || "",
-    panCard: null,
-    existingPanCard: data.existingPanCard || "",
-  };
+  return await response.json();
 };
 
-const uploadFile = async (file: File, field: string): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('field', field);
-
-  const response = await fetch('/api/partner/upload', {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to upload file');
-  }
-
-  const data = await response.json();
-  return data.fileUrl;
-};
-
-const updateAgentProfile = async (formData: AgentFormData): Promise<void> => {
-  const updateFormData = new FormData();
-  
-  // Add all text fields
-  updateFormData.append('fullName', formData.fullName);
-  updateFormData.append('phoneNumber', formData.phoneNumber);
-  updateFormData.append('businessName', formData.businessName);
-  updateFormData.append('country', formData.country);
-  updateFormData.append('streetAddress', formData.streetAddress);
-  updateFormData.append('city', formData.city);
-  updateFormData.append('state', formData.state);
-  updateFormData.append('postalCode', formData.postalCode);
-  updateFormData.append('whatsapp', formData.whatsapp);
-  updateFormData.append('website', formData.website);
-  updateFormData.append('facebook', formData.facebook);
-  updateFormData.append('linkedin', formData.linkedin);
-  updateFormData.append('instagram', formData.instagram);
-  updateFormData.append('twitter', formData.twitter);
-  updateFormData.append('otherSocial', formData.otherSocial);
-  updateFormData.append('ifscCode', formData.ifscCode);
-  updateFormData.append('bankAccountNumber', formData.bankAccountNumber);
-  updateFormData.append('accountHolderName', formData.accountHolderName);
-
-  const response = await fetch('/api/partner/profile', {
+const updateBusinessProfile = async (formData: BusinessFormData, token: string): Promise<void> => {
+  const response = await fetch(`${BASE_URL}/agent/business`, {
     method: 'PUT',
-    body: updateFormData,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(formData)
   });
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to update profile');
+    throw new Error(errorData.message || 'Failed to update business profile');
+  }
+};
+
+const updatePaymentProfile = async (formData: PaymentFormData, token: string): Promise<void> => {
+  const response = await fetch(`${BASE_URL}/agent/business`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(formData)
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to update payment profile');
+  }
+};
+
+const updateSocialProfile = async (formData: SocialFormData, token: string): Promise<void> => {
+  const response = await fetch(`${BASE_URL}/agent/business`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(formData)
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to update social profile');
   }
 };
 
 export default function AgentAccountDetails() {
   const router = useRouter();
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, token } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<Tab>("personal");
+  const [activeTab, setActiveTab] = useState<Tab>("business");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error,setError] = useState("");
+  const [success,setSuccess] = useState("");
+
   
-  const [formData, setFormData] = useState<AgentFormData>({
-    // Personal Tab
-    fullName: "",
-    phoneNumber: "",
-    agencyLogo: null,
-    existingAgencyLogo: "",
-    
-    // Business Tab
-    businessName: "",
-    country: "",
-    streetAddress: "",
-    city: "",
-    state: "",
-    postalCode: "",
-    businessCertificate: null,
-    existingBusinessCertificate: "",
-    
-    // Contact Tab
-    whatsapp: "",
-    website: "",
+  const [businessData, setBusinessData] = useState<BusinessFormData>({
+    business_name: "",
+    business_certificate: "dummy.png",
+    agency_logo: "dummy.png",
+    pan_card_upload: "dummy.png",
+    country_code: "",
+    street_address: "",
+    city_code: "",
+    state_code: "",
+    postal_code: "",
+  });
+
+  const [paymentData, setPaymentData] = useState<PaymentFormData>({
+    ifsc_code: "",
+    bank_account_number: "",
+    bank_account_name: "",
+  });
+
+  const [socialData, setSocialData] = useState<SocialFormData>({
+    website_url: "",
+    instagram: "",
     facebook: "",
     linkedin: "",
-    instagram: "",
     twitter: "",
-    otherSocial: "",
-    
-    // Payment Tab
-    ifscCode: "",
-    bankAccountNumber: "",
-    accountHolderName: "",
-    panCard: null,
-    existingPanCard: "",
+    other: "",
+    whatsapp_id: "",
+    skype_id: "",
   });
 
   useEffect(() => {
@@ -192,63 +189,84 @@ export default function AgentAccountDetails() {
       return;
     }
 
-    if (authUser) {
-      loadAgentData();
+    if (authUser && token) {
+      loadAgentProfile();
     }
-  }, [authUser, authLoading, router]);
+  }, [authUser, authLoading, router, token]);
 
-  const loadAgentData = async () => {
+  const loadAgentProfile = async () => {
     try {
-      const data = await fetchAgentData();
-      setFormData(data);
+      const profileData = await fetchAgentProfile(token!);
+      
+      // Populate business data
+      setBusinessData({
+        business_name: profileData.profile.business_name || "",
+        business_certificate: profileData.profile.business_certificate || "dummy.png",
+        agency_logo: profileData.profile.agency_logo || "dummy.png",
+        pan_card_upload: profileData.profile.pan_card_upload || "dummy.png",
+        country_code: profileData.profile.country_code || "",
+        street_address: profileData.profile.street_address || "",
+        city_code: profileData.profile.city_code || "",
+        state_code: profileData.profile.state_code || "",
+        postal_code: profileData.profile.postal_code || "",
+      });
+
+      // Populate payment data
+      setPaymentData({
+        ifsc_code: profileData.profile.ifsc_code || "",
+        bank_account_number: profileData.profile.bank_account_number || "",
+        bank_account_name: profileData.profile.bank_account_name || "",
+      });
+
+      // Populate social data
+      setSocialData({
+        website_url: profileData.profile.website_url || "",
+        instagram: profileData.profile.instagram || "",
+        facebook: profileData.profile.facebook || "",
+        linkedin: profileData.profile.linkedin || "",
+        twitter: profileData.profile.twitter || "",
+        other: profileData.profile.other || "",
+        whatsapp_id: profileData.profile.whatsapp_id || "",
+        skype_id: profileData.profile.skype_id || "",
+      });
+      
     } catch (error) {
-      console.error('Error loading agent data:', error);
+      console.error('Error loading agent profile:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load profile data';
-      alert(`Error: ${errorMessage}`);
+      setError(`Error: ${errorMessage}`)
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleBusinessInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setBusinessData(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, files } = e.target;
-    if (files && files[0]) {
-      setFormData(prev => ({
-        ...prev,
-        [name]: files[0]
-      }));
-    }
-  };
-
-  const handleRemoveFile = (fieldName: 'agencyLogo' | 'businessCertificate' | 'panCard') => {
-    setFormData(prev => ({
+  const handlePaymentInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setPaymentData(prev => ({
       ...prev,
-      [fieldName]: null,
-      [`existing${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}` as keyof AgentFormData]: ""
+      [name]: value
     }));
   };
 
-  const handleDownloadCertificate = () => {
-    if (formData.existingBusinessCertificate) {
-      const link = document.createElement('a');
-      link.href = formData.existingBusinessCertificate;
-      link.download = 'business-registration-certificate.pdf';
-      link.click();
-    }
+  const handleSocialInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setSocialData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleBusinessSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!authUser) {
+    if (!authUser || !token) {
       alert('Please log in to update your profile');
       return;
     }
@@ -256,654 +274,588 @@ export default function AgentAccountDetails() {
     setIsSubmitting(true);
 
     try {
-      // Upload files first if they exist
-      const uploadPromises = [];
+      await updateBusinessProfile(businessData, token);
+      setSuccess("Business profile updated successfully!")
+      setTimeout(()=>{setSuccess("")},3000)
       
-      if (formData.agencyLogo) {
-        uploadPromises.push(uploadFile(formData.agencyLogo, 'agencyLogo'));
-      }
-      
-      if (formData.businessCertificate) {
-        uploadPromises.push(uploadFile(formData.businessCertificate, 'businessCertificate'));
-      }
-      
-      if (formData.panCard) {
-        uploadPromises.push(uploadFile(formData.panCard, 'panCard'));
-      }
-
-      // Wait for all file uploads to complete
-      if (uploadPromises.length > 0) {
-        await Promise.all(uploadPromises);
-      }
-
-      // Update profile data
-      await updateAgentProfile(formData);
-      
-      alert("Profile updated successfully!");
-      
-      // Reload the data to get updated file URLs
-      await loadAgentData();
-      
+      // Move to next tab
+      setActiveTab("payment");
     } catch (error) {
-      console.error('Error updating profile:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
-      alert(`Error: ${errorMessage}`);
+      console.error('Error updating business profile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update business profile';
+      setError(`Error: ${errorMessage}`)
+      setTimeout(()=>{setError("")},3000)
+
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const countries = [
-    "United States",
-    "Canada",
-    "United Kingdom",
-    "Australia",
-    "India",
-    "Germany",
-    "France",
-    "Japan",
-    "Singapore",
-    "United Arab Emirates"
-  ];
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!authUser || !token) {
+      alert('Please log in to update your profile');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await updatePaymentProfile(paymentData, token);
+      setSuccess("Payment profile updated successfully!");
+        setTimeout(()=>{setSuccess("")},3000)
+
+      
+      // Move to next tab
+      setActiveTab("social");
+    } catch (error) {
+      console.error('Error updating payment profile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update payment profile';
+      setError(`Error: ${errorMessage}`);
+        setTimeout(()=>{setError("")},3000)
+
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSocialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!authUser || !token) {
+      alert('Please log in to update your profile');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await updateSocialProfile(socialData, token);
+      setSuccess("Social profile updated successfully!");
+        setTimeout(()=>{setSuccess("")},3000)
+      
+    } catch (error) {
+      console.error('Error updating social profile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update social profile';
+      setError(`Error: ${errorMessage}`);
+        setTimeout(()=>{setError("")},3000)
+
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const countries = Country.getAllCountries().map(country => country.name);
 
   const tabs = [
-    { id: "personal", label: "Personal", icon: User },
     { id: "business", label: "Business", icon: Building },
-    { id: "contact", label: "Contact", icon: MessageCircle },
     { id: "payment", label: "Payment", icon: CreditCard },
+    { id: "social", label: "Social", icon: MessageCircle },
   ];
 
-  const renderPersonalTab = () => (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Full Name */}
-        <div>
-          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Full Name *
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <User size={18} />
-            </span>
-            <input
-              type="text"
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleInputChange}
-              placeholder="Enter your full name"
-              required
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Phone Number */}
-        <div>
-          <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Phone Number *
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Phone size={18} />
-            </span>
-            <input
-              type="tel"
-              id="phoneNumber"
-              name="phoneNumber"
-              value={formData.phoneNumber}
-              onChange={handleInputChange}
-              placeholder="Enter your phone number"
-              required
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Agency Logo */}
-      <div>
-        <label htmlFor="agencyLogo" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Agency Logo
-        </label>
-        <div className="flex items-center gap-4">
-          {(formData.existingAgencyLogo || formData.agencyLogo) ? (
-            <div className="relative">
-              <div className="w-32 h-32 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-                {formData.agencyLogo ? (
-                  <div className="text-center">
-                    <Upload size={24} className="text-green-500 mb-2 mx-auto" />
-                    <p className="text-xs text-green-600 dark:text-green-400">New logo selected</p>
-                    <p className="text-xs text-gray-500 truncate px-2">{formData.agencyLogo.name}</p>
-                  </div>
-                ) : formData.existingAgencyLogo ? (
-                  <div className="text-center">
-                    <img 
-                      src={formData.existingAgencyLogo} 
-                      alt="Agency Logo" 
-                      className="w-full h-full object-cover rounded-lg"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        // Show fallback icon if image fails to load
-                        const parent = target.parentElement;
-                        if (parent) {
-                          const fallback = document.createElement('div');
-                          fallback.className = 'text-center';
-                          fallback.innerHTML = `
-                            <Building size={24} className="text-brand-500 mb-2 mx-auto" />
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Current logo</p>
-                          `;
-                          parent.appendChild(fallback);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Building size={24} className="text-brand-500 mb-2 mx-auto" />
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Current logo</p>
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRemoveFile('agencyLogo')}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <Upload size={24} className="text-gray-400 mb-2" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">Upload Logo</p>
-              </div>
-              <input
-                id="agencyLogo"
-                name="agencyLogo"
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-          )}
-          <div className="flex-1">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Recommended: JPG, PNG, SVG, min 200x200px
-            </p>
-            {formData.agencyLogo && (
-              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                New file selected: {formData.agencyLogo.name}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderBusinessTab = () => (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Business Name */}
-        <div>
-          <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Registered Business Name *
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Building size={18} />
-            </span>
+    <form onSubmit={handleBusinessSubmit}>
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Business Name */}
+          <div>
+            <label htmlFor="business_name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Business Name *
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Building size={18} />
+              </span>
+              <input
+                type="text"
+                id="business_name"
+                name="business_name"
+                value={businessData.business_name}
+                onChange={handleBusinessInputChange}
+                placeholder="Enter your business name"
+                required
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* Postal Code */}
+          <div>
+            <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Postal Code *
+            </label>
             <input
               type="text"
-              id="businessName"
-              name="businessName"
-              value={formData.businessName}
-              onChange={handleInputChange}
-              placeholder="Enter your registered business name"
+              id="postal_code"
+              name="postal_code"
+              value={businessData.postal_code}
+              onChange={handleBusinessInputChange}
+              placeholder="Enter postal code"
               required
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
             />
           </div>
         </div>
-        
-        {/* Country */}
-        <div>
-          <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Country/Region *
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <MapPin size={18} />
-            </span>
-            <select
-              id="country"
-              name="country"
-              value={formData.country}
-              onChange={handleInputChange}
-              required
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
-            >
-              <option value="">Select Country</option>
-              {countries.map(country => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-            </select>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Country */}
+          <div>
+            <label htmlFor="country_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Country *
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <MapPin size={18} />
+              </span>
+              <select
+                id="country_code"
+                name="country_code"
+                value={businessData.country_code}
+                onChange={handleBusinessInputChange}
+                required
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+              >
+                <option value="">Select Country</option>
+                {Country.getAllCountries().map(country => (
+                  <option key={country.isoCode} value={country.name}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* State */}
+          <div>
+            <label htmlFor="state_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              State *
+            </label>
+            <div className="relative">
+              <select
+                id="state_code"
+                name="state_code"
+                value={businessData.state_code}
+                onChange={handleBusinessInputChange}
+                required
+                disabled={!businessData.country_code}
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+              >
+                <option value="">Select State</option>
+                {businessData.country_code &&
+                  (() => {
+                    const country = Country.getAllCountries().find(c => c.name === businessData.country_code);
+                    return country 
+                      ? State.getStatesOfCountry(country.isoCode).map(state => (
+                          <option key={state.isoCode} value={state.name}>
+                            {state.name}
+                          </option>
+                        ))
+                      : null;
+                  })()
+                }
+              </select>
+            </div>
+          </div>
+
+          {/* City */}
+          <div>
+            <label htmlFor="city_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              City *
+            </label>
+            <div className="relative">
+              <select
+                id="city_code"
+                name="city_code"
+                value={businessData.city_code}
+                onChange={handleBusinessInputChange}
+                required
+                disabled={!businessData.state_code}
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+              >
+                <option value="">Select City</option>
+                {businessData.country_code && businessData.state_code &&
+                  (() => {
+                    const country = Country.getAllCountries().find(c => c.name === businessData.country_code);
+                    const states = country ? State.getStatesOfCountry(country.isoCode) : [];
+                    const state = states.find(s => s.name === businessData.state_code);
+                    
+                    if (country && state) {
+                      const cities = City.getCitiesOfState(country.isoCode, state.isoCode);
+                      return cities.map(city => (
+                        <option key={city.name} value={city.name}>
+                          {city.name}
+                        </option>
+                      ));
+                    }
+                    return null;
+                  })()
+                }
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Street Address */}
         <div>
-          <label htmlFor="streetAddress" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+          <label htmlFor="street_address" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Street Address *
           </label>
-          <input
-            type="text"
-            id="streetAddress"
-            name="streetAddress"
-            value={formData.streetAddress}
-            onChange={handleInputChange}
-            placeholder="Enter street address"
+          <textarea
+            id="street_address"
+            name="street_address"
+            value={businessData.street_address}
+            onChange={handleBusinessInputChange}
+            placeholder="Enter your complete street address"
             required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-        
-        {/* City */}
-        <div>
-          <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            City/Town *
-          </label>
-          <input
-            type="text"
-            id="city"
-            name="city"
-            value={formData.city}
-            onChange={handleInputChange}
-            placeholder="Enter city"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-        
-        {/* State */}
-        <div>
-          <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            State/Province *
-          </label>
-          <input
-            type="text"
-            id="state"
-            name="state"
-            value={formData.state}
-            onChange={handleInputChange}
-            placeholder="Enter state"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            rows={3}
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
           />
         </div>
 
-        {/* Postal Code */}
-        <div>
-          <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Zip/Postal Code *
-          </label>
-          <input
-            type="text"
-            id="postalCode"
-            name="postalCode"
-            value={formData.postalCode}
-            onChange={handleInputChange}
-            placeholder="Enter postal code"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
+        {/* File Upload Placeholders */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg dark:border-gray-600">
+            <Briefcase size={24} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Business Certificate</p>
+            <p className="text-xs text-gray-400 mt-1">dummy.png</p>
+          </div>
+          <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg dark:border-gray-600">
+            <Building size={24} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Agency Logo</p>
+            <p className="text-xs text-gray-400 mt-1">dummy.png</p>
+          </div>
+          
         </div>
-      </div>
 
-      {/* Business Registration Certificate */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Business Registration Certificate
-        </label>
-        <div className="flex items-center gap-4">
-          {(formData.existingBusinessCertificate || formData.businessCertificate) ? (
-            <div className="relative">
-              <div className="w-32 h-32 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-                {formData.businessCertificate ? (
-                  <div className="text-center">
-                    <Upload size={24} className="text-green-500 mb-2 mx-auto" />
-                    <p className="text-xs text-green-600 dark:text-green-400">New certificate</p>
-                    <p className="text-xs text-gray-500 truncate px-2">{formData.businessCertificate.name}</p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Download size={24} className="text-brand-500 mb-2 mx-auto" />
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Current certificate</p>
-                  </div>
-                )}
-              </div>
-              <div className="absolute -top-2 -right-2 flex gap-1">
-                <button
-                  type="button"
-                  onClick={handleDownloadCertificate}
-                  className="bg-blue-500 text-white rounded-full p-1 hover:bg-blue-600 transition-colors"
-                  title="Download certificate"
-                >
-                  <Download size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveFile('businessCertificate')}
-                  className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <Upload size={24} className="text-gray-400 mb-2" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">Upload Certificate</p>
-              </div>
-              <input
-                id="businessCertificate"
-                name="businessCertificate"
-                type="file"
-                accept=".pdf,.doc,.docx,image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-          )}
-          <div className="flex-1">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Upload your business registration certificate (PDF, DOC, or image files)
-            </p>
-            {formData.businessCertificate && (
-              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                New file selected: {formData.businessCertificate.name}
-              </p>
+        {/* Submit Button */}
+        <div className="flex justify-end pt-4">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating...
+              </>
+            ) : (
+              <>
+                Save & Continue
+                <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+                  <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </>
             )}
-          </div>
+          </button>
         </div>
       </div>
-    </div>
-  );
-
-  const renderContactTab = () => (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* WhatsApp */}
-        <div>
-          <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            WhatsApp Number
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <MessageCircle size={18} />
-            </span>
-            <input
-              type="tel"
-              id="whatsapp"
-              name="whatsapp"
-              value={formData.whatsapp}
-              onChange={handleInputChange}
-              placeholder="Enter WhatsApp number"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Website */}
-        <div>
-          <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Company Website
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Globe size={18} />
-            </span>
-            <input
-              type="url"
-              id="website"
-              name="website"
-              value={formData.website}
-              onChange={handleInputChange}
-              placeholder="Enter your company website"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Facebook */}
-        <div>
-          <label htmlFor="facebook" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Facebook
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Facebook size={18} />
-            </span>
-            <input
-              type="url"
-              id="facebook"
-              name="facebook"
-              value={formData.facebook}
-              onChange={handleInputChange}
-              placeholder="Facebook profile/company URL"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* LinkedIn */}
-        <div>
-          <label htmlFor="linkedin" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            LinkedIn
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Linkedin size={18} />
-            </span>
-            <input
-              type="url"
-              id="linkedin"
-              name="linkedin"
-              value={formData.linkedin}
-              onChange={handleInputChange}
-              placeholder="LinkedIn profile/company URL"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Instagram */}
-        <div>
-          <label htmlFor="instagram" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Instagram
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Instagram size={18} />
-            </span>
-            <input
-              type="url"
-              id="instagram"
-              name="instagram"
-              value={formData.instagram}
-              onChange={handleInputChange}
-              placeholder="Instagram profile URL"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Twitter/X */}
-        <div>
-          <label htmlFor="twitter" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            X (formerly Twitter)
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Twitter size={18} />
-            </span>
-            <input
-              type="url"
-              id="twitter"
-              name="twitter"
-              value={formData.twitter}
-              onChange={handleInputChange}
-              placeholder="X/Twitter profile URL"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Other Social */}
-      <div>
-        <label htmlFor="otherSocial" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Other (provide details or URL)
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Link size={18} />
-          </span>
-          <input
-            type="text"
-            id="otherSocial"
-            name="otherSocial"
-            value={formData.otherSocial}
-            onChange={handleInputChange}
-            placeholder="Enter other social media details or URL"
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-      </div>
-    </div>
+    </form>
   );
 
   const renderPaymentTab = () => (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <form onSubmit={handlePaymentSubmit}>
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Bank Account Name */}
+          <div>
+            <label htmlFor="bank_account_name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Bank Account Name *
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <CreditCard size={18} />
+              </span>
+              <input
+                type="text"
+                id="bank_account_name"
+                name="bank_account_name"
+                value={paymentData.bank_account_name}
+                onChange={handlePaymentInputChange}
+                placeholder="Enter account holder name"
+                required
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* Bank Account Number */}
+          <div>
+            <label htmlFor="bank_account_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Bank Account Number *
+            </label>
+            <input
+              type="text"
+              id="bank_account_number"
+              name="bank_account_number"
+              value={paymentData.bank_account_number}
+              onChange={handlePaymentInputChange}
+              placeholder="Enter bank account number"
+              required
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
+        </div>
+
         {/* IFSC Code */}
         <div>
-          <label htmlFor="ifscCode" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+          <label htmlFor="ifsc_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             IFSC Code *
           </label>
           <input
             type="text"
-            id="ifscCode"
-            name="ifscCode"
-            value={formData.ifscCode}
-            onChange={handleInputChange}
+            id="ifsc_code"
+            name="ifsc_code"
+            value={paymentData.ifsc_code}
+            onChange={handlePaymentInputChange}
             placeholder="Enter IFSC code"
             required
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
           />
         </div>
 
-        {/* Bank Account Number */}
-        <div>
-          <label htmlFor="bankAccountNumber" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Bank Account Number *
-          </label>
-          <input
-            type="text"
-            id="bankAccountNumber"
-            name="bankAccountNumber"
-            value={formData.bankAccountNumber}
-            onChange={handleInputChange}
-            placeholder="Enter bank account number"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-      </div>
-
-      {/* Account Holder Name */}
-      <div>
-        <label htmlFor="accountHolderName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Account Holder Name *
-        </label>
-        <input
-          type="text"
-          id="accountHolderName"
-          name="accountHolderName"
-          value={formData.accountHolderName}
-          onChange={handleInputChange}
-          placeholder="Enter account holder name as in bank records"
-          required
-          className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-        />
-      </div>
-
-      {/* PAN Card Upload */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          PAN Card Upload *
-        </label>
-        <div className="flex items-center gap-4">
-          {(formData.existingPanCard || formData.panCard) ? (
-            <div className="relative">
-              <div className="w-32 h-32 border-2 border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-                {formData.panCard ? (
-                  <div className="text-center">
-                    <Upload size={24} className="text-green-500 mb-2 mx-auto" />
-                    <p className="text-xs text-green-600 dark:text-green-400">New PAN card</p>
-                    <p className="text-xs text-gray-500 truncate px-2">{formData.panCard.name}</p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <CreditCard size={24} className="text-brand-500 mb-2 mx-auto" />
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Current PAN card</p>
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRemoveFile('panCard')}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <Upload size={24} className="text-gray-400 mb-2" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">Upload PAN Card</p>
-              </div>
-              <input
-                id="panCard"
-                name="panCard"
-                type="file"
-                accept=".jpg,.jpeg,.png"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-          )}
-          <div className="flex-1">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Please make sure the Pan Card is in PNG or JPEG file format and is not larger than 200kb in size
-            </p>
-            {formData.panCard && (
-              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                New file selected: {formData.panCard.name}
-              </p>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          
+          <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg dark:border-gray-600">
+            <CreditCard size={24} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">PAN Card</p>
+            <p className="text-xs text-gray-400 mt-1">dummy.png</p>
           </div>
         </div>
+
+        {/* Submit Button */}
+        <div className="flex justify-end pt-4">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating...
+              </>
+            ) : (
+              <>
+                Save & Continue
+                <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+                  <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
+    </form>
+  );
+
+  const renderSocialTab = () => (
+    <form onSubmit={handleSocialSubmit}>
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* WhatsApp */}
+          <div>
+            <label htmlFor="whatsapp_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              WhatsApp Number *
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <MessageCircle size={18} />
+              </span>
+              <input
+                type="tel"
+                id="whatsapp_id"
+                name="whatsapp_id"
+                value={socialData.whatsapp_id}
+                onChange={handleSocialInputChange}
+                placeholder="Enter WhatsApp number"
+                required
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* Skype */}
+          <div>
+            <label htmlFor="skype_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Skype ID
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <MessageCircle size={18} />
+              </span>
+              <input
+                type="text"
+                id="skype_id"
+                name="skype_id"
+                value={socialData.skype_id}
+                onChange={handleSocialInputChange}
+                placeholder="Enter Skype ID"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Website */}
+          <div>
+            <label htmlFor="website_url" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Website
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Globe size={18} />
+              </span>
+              <input
+                type="url"
+                id="website_url"
+                name="website_url"
+                value={socialData.website_url}
+                onChange={handleSocialInputChange}
+                placeholder="Enter your company website"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* LinkedIn */}
+          <div>
+            <label htmlFor="linkedin" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              LinkedIn
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Linkedin size={18} />
+              </span>
+              <input
+                type="url"
+                id="linkedin"
+                name="linkedin"
+                value={socialData.linkedin}
+                onChange={handleSocialInputChange}
+                placeholder="LinkedIn profile/company URL"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Facebook */}
+          <div>
+            <label htmlFor="facebook" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Facebook
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Facebook size={18} />
+              </span>
+              <input
+                type="url"
+                id="facebook"
+                name="facebook"
+                value={socialData.facebook}
+                onChange={handleSocialInputChange}
+                placeholder="Facebook profile/company URL"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* Instagram */}
+          <div>
+            <label htmlFor="instagram" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Instagram
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Instagram size={18} />
+              </span>
+              <input
+                type="url"
+                id="instagram"
+                name="instagram"
+                value={socialData.instagram}
+                onChange={handleSocialInputChange}
+                placeholder="Instagram profile URL"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* Twitter */}
+          <div>
+            <label htmlFor="twitter" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Twitter/X
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Twitter size={18} />
+              </span>
+              <input
+                type="url"
+                id="twitter"
+                name="twitter"
+                value={socialData.twitter}
+                onChange={handleSocialInputChange}
+                placeholder="X/Twitter profile URL"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          {/* Other Social */}
+          <div>
+            <label htmlFor="other" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              Other Social Media
+            </label>
+            <div className="relative">
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                <Link size={18} />
+              </span>
+              <input
+                type="text"
+                id="other"
+                name="other"
+                value={socialData.other}
+                onChange={handleSocialInputChange}
+                placeholder="Enter other social media details or URL"
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex justify-end pt-4">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating...
+              </>
+            ) : (
+              "Complete Profile"
+            )}
+          </button>
+        </div>
+      </div>
+    </form>
   );
 
   if (authLoading || isLoading) {
@@ -937,8 +889,14 @@ export default function AgentAccountDetails() {
           Agent Account Details
         </h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Manage your agent profile and business information.
+          Complete your agent profile setup.
         </p>
+        {success && <p className="mt-1 text-sm text-success-500 dark:text-success-400">
+          {success}
+        </p>}
+        {error && <p className="mt-1 text-sm text-red-500 dark:text-red-400">
+          {error}
+        </p>}
       </div>
       
       {/* Tab Navigation */}
@@ -965,84 +923,38 @@ export default function AgentAccountDetails() {
       </div>
 
       <div className="p-5 sm:p-6">
-        <form onSubmit={handleSubmit}>
-          {/* Tab Content */}
-          <div className="mb-8">
-            {activeTab === "personal" && renderPersonalTab()}
-            {activeTab === "business" && renderBusinessTab()}
-            {activeTab === "contact" && renderContactTab()}
-            {activeTab === "payment" && renderPaymentTab()}
-          </div>
+        {/* Tab Content */}
+        <div>
+          {activeTab === "business" && renderBusinessTab()}
+          {activeTab === "payment" && renderPaymentTab()}
+          {activeTab === "social" && renderSocialTab()}
+        </div>
 
-          {/* Navigation and Submit Buttons */}
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex gap-3">
-              {activeTab !== "personal" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-                    if (tabIndex > 0) {
-                      setActiveTab(tabs[tabIndex - 1].id as Tab);
-                    }
-                  }}
-                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  Previous
-                </button>
-              )}
-              {activeTab !== "payment" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-                    if (tabIndex < tabs.length - 1) {
-                      setActiveTab(tabs[tabIndex + 1].id as Tab);
-                    }
-                  }}
-                  className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600"
-                >
-                  Next
-                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                    <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              )}
-            </div>
+        {/* Navigation Buttons */}
+        <div className="flex justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTab === "payment") setActiveTab("business");
+              if (activeTab === "social") setActiveTab("payment");
+            }}
+            disabled={activeTab === "business"}
+            className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+              <path d="M12 8L8 4L4 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Previous
+          </button>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Updating Profile...
-                  </>
-                ) : (
-                  <>
-                    Update Profile
-                    <svg className="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" clipRule="evenodd" d="M17.4175 9.9986C17.4178 10.1909 17.3446 10.3832 17.198 10.53L12.2013 15.5301C11.9085 15.8231 11.4337 15.8233 11.1407 15.5305C10.8477 15.2377 10.8475 14.7629 11.1403 14.4699L14.8604 10.7472L3.33301 10.7472C2.91879 10.7472 2.58301 10.4114 2.58301 9.99715C2.58301 9.58294 2.91879 9.24715 3.33301 9.24715L14.8549 9.24715L11.1403 5.53016C10.8475 5.23717 10.8477 4.7623 11.1407 4.4695C11.4336 4.1767 11.9085 4.17685 12.2013 4.46984L17.1588 9.43049C17.3173 9.568 17.4175 9.77087 17.4175 9.99715C17.4175 9.99763 17.4175 9.99812 17.4175 9.9986Z" fill="white"/>
-                    </svg>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </form>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   );

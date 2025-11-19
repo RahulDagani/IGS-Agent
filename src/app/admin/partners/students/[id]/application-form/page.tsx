@@ -90,7 +90,7 @@ export default function StudentApplicationForm() {
       // await fetch('/api/student-applications', { method: 'POST', body: JSON.stringify(formData) });
       
       // Redirect back to applications list or show success message
-      router.push('/student/applications');
+      // router.push('/student/applications');
       router.refresh();
     } catch (error) {
       console.error('Error saving application form:', error);

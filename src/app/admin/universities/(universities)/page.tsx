@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -10,110 +10,50 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
 import { Edit, Trash, Globe, Building2, Mail, MapPin } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface University {
   id: number;
-  name: string;
-  country: string;
-  type: string;
+  uuid: string;
+  tenant_id: number;
+  university: string;
+  university_slug: string;
+  description: string;
+  country_code: string;
+  state_code: string;
+  city_code: string;
+  address: string | null;
+  map_url: string | null;
+  location_url: string | null;
+  kind_of_partner_id: number;
+  type_of_university_id: number;
+  collaboration_type_id: number;
+  logo: string | null;
+  image: string | null;
+  brochure: string | null;
+  video_link: string | null;
+  tuition_url: string | null;
   email: string;
-  address: string;
-  status: "active" | "inactive";
-  partnerType: string;
-  createdAt: string;
+  is_deleted: number;
+  created_at: string;
+  updated_at: string;
+  kind_of_partner_name: string;
+  collaboration_type_name: string;
+  university_type_name: string;
 }
 
-// Define the table data using the interface
-const tableData: University[] = [
-  {
-    id: 1,
-    name: "Harvard University",
-    country: "USA",
-    type: "Private",
-    email: "admissions@harvard.edu",
-    address: "Cambridge, Massachusetts",
-    status: "active",
-    partnerType: "Exclusive Partner",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: 2,
-    name: "Stanford University",
-    country: "USA",
-    type: "Private",
-    email: "admissions@stanford.edu",
-    address: "Stanford, California",
-    status: "active",
-    partnerType: "Preferred Partner",
-    createdAt: "2024-02-20",
-  },
-  {
-    id: 3,
-    name: "University of Oxford",
-    country: "UK",
-    type: "Public",
-    email: "admissions@ox.ac.uk",
-    address: "Oxford, England",
-    status: "active",
-    partnerType: "Standard Partner",
-    createdAt: "2024-01-28",
-  },
-  {
-    id: 4,
-    name: "University of Toronto",
-    country: "Canada",
-    type: "Public",
-    email: "admissions@utoronto.ca",
-    address: "Toronto, Ontario",
-    status: "inactive",
-    partnerType: "Tier 1 Partner",
-    createdAt: "2024-03-10",
-  },
-  {
-    id: 5,
-    name: "University of Sydney",
-    country: "Australia",
-    type: "Public",
-    email: "admissions@sydney.edu.au",
-    address: "Sydney, NSW",
-    status: "active",
-    partnerType: "Tier 2 Partner",
-    createdAt: "2024-02-05",
-  },
-  {
-    id: 6,
-    name: "MIT",
-    country: "USA",
-    type: "Private",
-    email: "admissions@mit.edu",
-    address: "Cambridge, Massachusetts",
-    status: "active",
-    partnerType: "Exclusive Partner",
-    createdAt: "2024-01-20",
-  },
-  {
-    id: 7,
-    name: "Imperial College London",
-    country: "UK",
-    type: "Public",
-    email: "admissions@imperial.ac.uk",
-    address: "London, England",
-    status: "inactive",
-    partnerType: "Preferred Partner",
-    createdAt: "2024-03-15",
-  },
-  {
-    id: 8,
-    name: "UBC",
-    country: "Canada",
-    type: "Public",
-    email: "admissions@ubc.ca",
-    address: "Vancouver, BC",
-    status: "active",
-    partnerType: "Standard Partner",
-    createdAt: "2024-02-28",
-  },
-];
+interface ApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    universities: University[];
+    options: {
+      partnerTypes: Array<{ id: number; name: string }>;
+      collaborationTypes: Array<{ id: number; name: string }>;
+      universityTypes: Array<{ id: number; name: string }>;
+    };
+  };
+}
 
 type SortField = keyof University | "";
 type SortDirection = "asc" | "desc";
@@ -294,39 +234,82 @@ export default function UniversitiesTable() {
     status: "all",
     partnerType: "all",
   });
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const {token} = useAuth();
 
-  // Get unique values for filters
-  const countries = useMemo(() => {
-    return Array.from(new Set(tableData.map(university => university.country)));
+  // Fetch data from API
+  useEffect(() => {
+    const fetchUniversities = async () => {
+      try {
+        setLoading(true);
+         // Get token from localStorage
+        // You might want to use a more secure way to store tokens
+        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+        const response = await fetch(`${BASE_URL}/tenant/university/list`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch universities: ${response.status}`);
+        }
+
+        const data: ApiResponse = await response.json();
+        
+        if (data.success) {
+          setUniversities(data.data.universities);
+        } else {
+          throw new Error(data.message || "Failed to fetch universities");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+        console.error("Error fetching universities:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUniversities();
   }, []);
+
+  // Get unique values for filters from API data
+  const countries = useMemo(() => {
+    return Array.from(new Set(universities.map(university => university.country_code))).filter(Boolean);
+  }, [universities]);
 
   const types = useMemo(() => {
-    return Array.from(new Set(tableData.map(university => university.type)));
-  }, []);
+    return Array.from(new Set(universities.map(university => university.university_type_name))).filter(Boolean);
+  }, [universities]);
 
   const statuses = useMemo(() => {
-    return Array.from(new Set(tableData.map(university => university.status)));
+    return ["active", "inactive"]; // Based on is_deleted field
   }, []);
 
   const partnerTypes = useMemo(() => {
-    return Array.from(new Set(tableData.map(university => university.partnerType)));
-  }, []);
+    return Array.from(new Set(universities.map(university => university.kind_of_partner_name))).filter(Boolean);
+  }, [universities]);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((university) => {
+    const filtered = universities.filter((university) => {
       const matchesSearch = 
-        university.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        university.university.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        university.country_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        university.university_type_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         university.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.partnerType.toLowerCase().includes(searchTerm.toLowerCase());
+        (university.address && university.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        university.kind_of_partner_name.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesCountry = filters.country === "all" || university.country === filters.country;
-      const matchesType = filters.type === "all" || university.type === filters.type;
-      const matchesStatus = filters.status === "all" || university.status === filters.status;
-      const matchesPartnerType = filters.partnerType === "all" || university.partnerType === filters.partnerType;
+      const matchesCountry = filters.country === "all" || university.country_code === filters.country;
+      const matchesType = filters.type === "all" || university.university_type_name === filters.type;
+      const matchesStatus = filters.status === "all" || 
+        (filters.status === "active" ? university.is_deleted === 0 : university.is_deleted === 1);
+      const matchesPartnerType = filters.partnerType === "all" || university.kind_of_partner_name === filters.partnerType;
       
       return matchesSearch && matchesCountry && matchesType && matchesStatus && matchesPartnerType;
     });
@@ -341,19 +324,21 @@ export default function UniversitiesTable() {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-        
-        if (aValue < bValue) {
+        if(aValue && bValue){
+          if (aValue < bValue) {
           return sortDirection === "asc" ? -1 : 1;
         }
         if (aValue > bValue) {
           return sortDirection === "asc" ? 1 : -1;
         }
+        }
+        
         return 0;
       });
     }
 
     return filtered;
-  }, [searchTerm, filters, sortField, sortDirection]);
+  }, [searchTerm, filters, sortField, sortDirection, universities]);
 
   const handleSort = (field: keyof University) => {
     if (sortField === field) {
@@ -369,26 +354,23 @@ export default function UniversitiesTable() {
     return sortDirection === "asc" ? "↑" : "↓";
   };
 
-  const getStatusColor = (status: University["status"]) => {
-    switch (status) {
-      case "active":
-        return "success";
-      case "inactive":
-        return "error";
-      default:
-        return "primary";
-    }
+  const getStatusColor = (isDeleted: number) => {
+    return isDeleted === 0 ? "success" : "error";
+  };
+
+  const getStatusText = (isDeleted: number) => {
+    return isDeleted === 0 ? "Active" : "Inactive";
   };
 
   const getPartnerTypeColor = (partnerType: string) => {
     switch (partnerType) {
-      case "Exclusive Partner":
+      case "Elite Partner":
         return "success";
-      case "Preferred Partner":
+      case "Strategic Partner":
         return "warning";
-      case "Tier 1 Partner":
+      case "Channel Partner":
         return "info";
-      case "Tier 2 Partner":
+      case "Affiliate Partner":
         return "primary";
       default:
         return "primary";
@@ -424,9 +406,26 @@ export default function UniversitiesTable() {
     console.log("Delete university:", id);
     // You can add confirmation modal here
     if (confirm("Are you sure you want to delete this university?")) {
-      // Perform delete operation
+      // Perform delete operation via API
+      // You'll need to implement the delete API call here
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading universities...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg text-red-600 dark:text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -441,19 +440,19 @@ export default function UniversitiesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Active</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(u => u.status === 'active').length}
+            {filteredAndSortedData.filter(u => u.is_deleted === 0).length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Countries</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Array.from(new Set(filteredAndSortedData.map(u => u.country))).length}
+            {Array.from(new Set(filteredAndSortedData.map(u => u.country_code))).length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Partner Types</div>
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {Array.from(new Set(filteredAndSortedData.map(u => u.partnerType))).length}
+            {Array.from(new Set(filteredAndSortedData.map(u => u.kind_of_partner_name))).length}
           </div>
         </div>
       </div>
@@ -554,14 +553,14 @@ export default function UniversitiesTable() {
                 <TableRow>
                   {[
                     { key: "id", label: "ID" },
-                    { key: "name", label: "University Name" },
-                    { key: "country", label: "Country" },
-                    { key: "type", label: "Type" },
+                    { key: "university", label: "University Name" },
+                    { key: "country_code", label: "Country" },
+                    { key: "university_type_name", label: "Type" },
                     { key: "email", label: "Email" },
                     { key: "address", label: "Address" },
-                    { key: "status", label: "Status" },
-                    { key: "partnerType", label: "Partner Type" },
-                    { key: "createdAt", label: "Created At" },
+                    { key: "is_deleted", label: "Status" },
+                    { key: "kind_of_partner_name", label: "Partner Type" },
+                    { key: "created_at", label: "Created At" },
                     { key: "action", label: "Action" },
                   ].map(({ key, label }) => (
                     <TableCell
@@ -597,7 +596,7 @@ export default function UniversitiesTable() {
                             <Building2 size={16} className="text-gray-600 dark:text-gray-400" />
                           </div>
                           <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {university.name}
+                            {university.university}
                           </span>
                         </div>
                       </TableCell>
@@ -605,13 +604,13 @@ export default function UniversitiesTable() {
                         <div className="flex items-center gap-2">
                           <Globe size={14} className="text-gray-400" />
                           <Badge size="sm" color="primary">
-                            {university.country}
+                            {university.country_code}
                           </Badge>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge size="sm" color="info">
-                          {university.type}
+                          {university.university_type_name}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
@@ -626,29 +625,29 @@ export default function UniversitiesTable() {
                         <div className="flex items-center gap-2">
                           <MapPin size={14} className="text-gray-400" />
                           <span className="text-gray-600 text-theme-sm dark:text-gray-400 max-w-[150px] truncate">
-                            {university.address}
+                            {university.address || "No address provided"}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getStatusColor(university.status)}
+                          color={getStatusColor(university.is_deleted)}
                         >
-                          {university.status.charAt(0).toUpperCase() + university.status.slice(1)}
+                          {getStatusText(university.is_deleted)}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getPartnerTypeColor(university.partnerType)}
+                          color={getPartnerTypeColor(university.kind_of_partner_name)}
                         >
-                          {university.partnerType}
+                          {university.kind_of_partner_name}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="text-gray-500 text-theme-sm dark:text-gray-400">
-                          {formatDate(university.createdAt)}
+                          {formatDate(university.created_at)}
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
@@ -686,7 +685,7 @@ export default function UniversitiesTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} universities
+        Showing {filteredAndSortedData.length} of {universities.length} universities
       </div>
 
       {/* Filter Modal */}

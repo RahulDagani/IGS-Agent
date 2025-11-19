@@ -156,15 +156,18 @@ export default function RegisterPage() {
 
     setLoading(true);
 
+    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch(`${BASE_URL}/tenant/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           name: formData.name,
-          companyName: formData.companyName,
+          company_name: formData.companyName,
           subdomain: formData.subdomain,
           email: formData.email,
           password: formData.password,

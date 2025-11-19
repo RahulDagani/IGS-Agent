@@ -1,115 +1,55 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Badge from "@/components/ui/badge/Badge";
 import { DockIcon, DollarSign, GraduationCap, MapPin } from "lucide-react";
 import Link from "next/link";
+import {useAuth} from '@/context/AuthContext';
 
-interface Program {
+interface Course {
   id: number;
-  university: string;
-  course: string;
-  intake: string;
-  status: "Applied" | "Received" | "Submitted to University" | "Documents Pending";
-  country?: string;
-  degree?: string;
-  location?: string;
-  applicationFee?: string;
-  discipline?: string;
-  ielts?: number;
-  pte?: number;
-  duolingo?: number;
-  studyLevel?: string;
-  state?: string;
+  tenant_id: number;
+  university_id: number;
+  study_level_id: number;
+  discipline_id: number;
+  partner_type_id: number;
+  collaboration_type_id: number;
+  university_type_id: number;
+  course_name: string;
+  course_slug: string;
+  is_popular: number;
+  duration_min: number;
+  duration_max: number;
+  duration_unit: string;
+  tuition_fee: string;
+  currency_code: string;
+  application_fee: string;
+  gre_score: string | null;
+  gmat_score: string | null;
+  ielts_score: string | null;
+  toefl_score: string | null;
+  pte_score: string | null;
+  sat_score: string | null;
+  act_score: string | null;
+  duolingo_score: string | null;
+  gpa_score: string | null;
+  about_course: string;
+  admission_requirements: string;
+  created_at: string;
+  updated_at: string;
+  university_name: string;
+  study_level_name: string;
+  discipline_name: string;
+  partner_type_name: string;
+  university_type_name: string;
+  collaboration_type_name: string;
 }
 
-// Define the table data using the interface
-const tableData: Program[] = [
-  {
-    id: 1,
-    university: "Harvard University",
-    course: "Computer Science",
-    intake: "Fall 2024",
-    status: "Applied",
-    discipline: "Engineering",
-    country: "United States of America",
-    degree: "Bachelors",
-    studyLevel: "bachelors",
-    location: "Massachusetts, United States of America",
-    applicationFee: "N/A",
-    ielts: 7.0,
-    pte: 68,
-    duolingo: 120,
-    state: "massachusetts"
-  },
-  {
-    id: 2,
-    university: "Stanford University",
-    course: "Business Administration",
-    intake: "Spring 2024",
-    status: "Received",
-    discipline: "Business & Economics",
-    country: "United States of America",
-    degree: "Masters",
-    studyLevel: "masters",
-    location: "California, United States of America",
-    applicationFee: "Waiver",
-    ielts: 7.5,
-    pte: 70,
-    duolingo: 125,
-    state: "california"
-  },
-  {
-    id: 3,
-    university: "MIT",
-    course: "Data Science",
-    intake: "Fall 2024",
-    status: "Submitted to University",
-    discipline: "Computer Science",
-    country: "United States of America",
-    degree: "Masters",
-    studyLevel: "masters",
-    location: "Massachusetts, United States of America",
-    applicationFee: "80$",
-    ielts: 7.0,
-    pte: 65,
-    duolingo: 115,
-    state: "massachusetts"
-  },
-  {
-    id: 4,
-    university: "University of Toronto",
-    course: "Mechanical Engineering",
-    intake: "Winter 2024",
-    status: "Documents Pending",
-    discipline: "Engineering",
-    country: "Canada",
-    degree: "Bachelors",
-    studyLevel: "bachelors",
-    location: "Ontario, Canada",
-    applicationFee: "50$",
-    ielts: 6.5,
-    pte: 60,
-    duolingo: 110
-  },
-  {
-    id: 5,
-    university: "UBC",
-    course: "Psychology",
-    intake: "Fall 2024",
-    status: "Applied",
-    discipline: "Arts & Humanities",
-    country: "Canada",
-    degree: "Bachelors",
-    studyLevel: "bachelors",
-    location: "British Columbia, Canada",
-    applicationFee: "25$",
-    ielts: 6.5,
-    pte: 58,
-    duolingo: 105
-  },
-];
+interface ApiResponse {
+  success: boolean;
+  data: Course[];
+}
 
-type SortField = keyof Program | "";
+type SortField = keyof Course | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
@@ -142,6 +82,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
   countries,
   states,
 }) => {
+    
+  
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>("");
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
@@ -183,7 +125,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const handleApply = () => {
     const filters: FilterOptions = {
       university: selectedUniversities,
-      course: [], // You can add course selection if needed
+      course: [],
       studyLevel: selectedStudyLevel ? [selectedStudyLevel] : [],
       discipline: selectedDisciplines,
       country: selectedCountries,
@@ -192,14 +134,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
     onApply(filters);
     onClose();
   };
-
-  // const handleReset = () => {
-  //   setSelectedStudyLevel("");
-  //   setSelectedDisciplines([]);
-  //   setSelectedCountries([]);
-  //   setSelectedStates([]);
-  //   setSelectedUniversities([]);
-  // };
 
   if (!isOpen) return null;
 
@@ -387,7 +321,28 @@ const FilterModal: React.FC<FilterModalProps> = ({
   );
 };
 
-const ProgramCard: React.FC<{ program: Program }> = ({ program }) => {
+const CourseCard: React.FC<{ course: Course }> = ({ course }) => {
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 3);
+  };
+
+  const formatDuration = () => {
+    if (course.duration_min === course.duration_max) {
+      return `${course.duration_min} ${course.duration_unit}`;
+    }
+    return `${course.duration_min} - ${course.duration_max} ${course.duration_unit}`;
+  };
+
+  const formatFee = (fee: string, currency: string) => {
+    if (!fee || fee === "0.00") return "N/A";
+    return `${currency} ${parseFloat(fee).toLocaleString()}`;
+  };
+
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
       {/* Top Section */}
@@ -395,14 +350,14 @@ const ProgramCard: React.FC<{ program: Program }> = ({ program }) => {
         {/* University Info */}
         <div className="flex items-start gap-3">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center text-white font-bold text-sm">
-            {program.university.split(' ').map(word => word[0]).join('')}
+            {getInitials(course.university_name)}
           </div>
           <div>
             <h2 className="text-base font-semibold text-gray-800 dark:text-white leading-snug">
-              {program.course}
+              {course.course_name}
             </h2>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              {program.university}
+              {course.university_name}
             </p>
           </div>
         </div>
@@ -413,32 +368,42 @@ const ProgramCard: React.FC<{ program: Program }> = ({ program }) => {
         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <GraduationCap size={18}/>
           <div>
-            <span className="block">Degree</span>
-            <strong className="block font-semibold text-gray-800 dark:text-white">{program.degree}</strong>
+            <span className="block">Study Level</span>
+            <strong className="block font-semibold text-gray-800 dark:text-white">{course.study_level_name}</strong>
           </div>
         </div>
 
-        {/* Location */}
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <MapPin size={18}/>
-          <div>
-            <span className="block">Location</span>
-            <strong className="block font-semibold text-gray-800 dark:text-white">{program.location}</strong>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <DollarSign size={18}/>
-          <div>
-            <span className="block">Fee</span>
-            <strong className="block font-semibold text-gray-800 dark:text-white">Application Fee - {program.applicationFee}</strong>
-          </div>
-        </div>
+        {/* Duration */}
         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <DockIcon size={18}/>
           <div>
+            <span className="block">Duration</span>
+            <strong className="block font-semibold text-gray-800 dark:text-white">{formatDuration()}</strong>
+          </div>
+        </div>
+
+        {/* Fees */}
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <DollarSign size={18}/>
+          <div>
+            <span className="block">Fees</span>
+            <div className="space-y-1">
+              <strong className="block font-semibold text-gray-800 dark:text-white">
+                Tuition: {formatFee(course.tuition_fee, course.currency_code)}
+              </strong>
+              <strong className="block font-semibold text-gray-800 dark:text-white">
+                Application: {formatFee(course.application_fee, course.currency_code)}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Discipline */}
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <MapPin size={18}/>
+          <div>
             <span className="block">Discipline</span>
-            <strong className="block font-semibold text-gray-800 dark:text-white">{program.discipline}</strong>
+            <strong className="block font-semibold text-gray-800 dark:text-white">{course.discipline_name}</strong>
           </div>
         </div>
       </div>
@@ -449,19 +414,34 @@ const ProgramCard: React.FC<{ program: Program }> = ({ program }) => {
           ENTRY REQUIREMENTS
         </h3>
         <div className="flex gap-2 flex-wrap">
-          {program.ielts && (
+          {course.ielts_score && (
             <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              IELTS: <span className="text-gray-900 dark:text-white">{program.ielts}</span>
+              IELTS: <span className="text-gray-900 dark:text-white">{course.ielts_score}</span>
             </span>
           )}
-          {program.pte && (
+          {course.pte_score && (
             <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              PTE: <span className="text-gray-900 dark:text-white">{program.pte}</span>
+              PTE: <span className="text-gray-900 dark:text-white">{course.pte_score}</span>
             </span>
           )}
-          {program.duolingo && (
+          {course.duolingo_score && (
             <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              Duolingo: <span className="text-gray-900 dark:text-white">{program.duolingo}</span>
+              Duolingo: <span className="text-gray-900 dark:text-white">{course.duolingo_score}</span>
+            </span>
+          )}
+          {course.toefl_score && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
+              TOEFL: <span className="text-gray-900 dark:text-white">{course.toefl_score}</span>
+            </span>
+          )}
+          {course.gre_score && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
+              GRE: <span className="text-gray-900 dark:text-white">{course.gre_score}</span>
+            </span>
+          )}
+          {course.gmat_score && (
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
+              GMAT: <span className="text-gray-900 dark:text-white">{course.gmat_score}</span>
             </span>
           )}
         </div>
@@ -469,19 +449,25 @@ const ProgramCard: React.FC<{ program: Program }> = ({ program }) => {
 
       {/* Buttons */}
       <div className="mt-6 flex gap-3">
-        <Link href={`/student/programs/${program.id}`}
-        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
+        <Link 
+          href={`/agent/courses/${course.id}`}
+          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
-       
           VIEW COURSE DETAILS
-      
         </Link>
       </div>
     </div>
   );
 };
 
+        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+
 export default function ProgramCards() {
+  const {token, logout} = useAuth()
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortField] = useState<SortField>("");
   const [sortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
@@ -494,22 +480,60 @@ export default function ProgramCards() {
     state: [],
   });
 
-  // Get unique values for filters
+  // Fetch courses from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${BASE_URL}/agent/courses/list`, {
+          headers: {
+            'Authorization': `Bearer ${token}` // Adjust based on your auth setup
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+          logout(); // Handle 403 by logging out
+          return; // Exit early to prevent further processing
+        }
+          throw new Error('Failed to fetch courses');
+        }
+
+        const data: ApiResponse = await response.json();
+        
+        if (data.success) {
+          setCourses(data.data);
+        } else {
+          throw new Error('Failed to load courses');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  // Get unique values for filters from actual API data
   const universities = useMemo(() => {
-    return Array.from(new Set(tableData.map(app => app.university)));
-  }, []);
+    return Array.from(new Set(courses.map(course => course.university_name)));
+  }, [courses]);
 
-  const courses = useMemo(() => {
-    return Array.from(new Set(tableData.map(app => app.course)));
-  }, []);
+  const courseNames = useMemo(() => {
+    return Array.from(new Set(courses.map(course => course.course_name)));
+  }, [courses]);
 
-  const disciplines = useMemo(() => [
-    "aeronautics", "agriculture-studies", "applied-science", "architecture-planning",
-    "arts-humanities", "business-economics", "commerce", "communication-journalism",
-    "computer-science", "design", "education", "engineering", "engineering-technology", 
-    
-  ], []);
+  const disciplines = useMemo(() => {
+    return Array.from(new Set(courses.map(course => course.discipline_name)));
+  }, [courses]);
 
+  const studyLevels = useMemo(() => {
+    return Array.from(new Set(courses.map(course => course.study_level_name.toLowerCase())));
+  }, [courses]);
+
+  // Static filter options (you might want to make these dynamic too)
   const countries = useMemo(() => [
     "australia", "canada", "germany", "united-kingdom", "united-states-of-america"
   ], []);
@@ -525,17 +549,15 @@ export default function ProgramCards() {
     "tennessee", "texas", "victoria", "wales", "washington", "wisconsin", "wyoming"
   ], []);
 
-  const studyLevels = useMemo(() => ["bachelors", "masters", "phd"], []);
-
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((program) => {
-      const matchesUniversity = filters.university.length === 0 || filters.university.includes(program.university);
-      const matchesCourse = filters.course.length === 0 || filters.course.includes(program.course);
-      const matchesStudyLevel = filters.studyLevel.length === 0 || (program.studyLevel && filters.studyLevel.includes(program.studyLevel));
-      const matchesDiscipline = filters.discipline.length === 0 || (program.discipline && filters.discipline.some(d => program.discipline?.toLowerCase().includes(d.toLowerCase())));
-      const matchesCountry = filters.country.length === 0 || (program.country && filters.country.some(c => program.country?.toLowerCase().includes(c.toLowerCase())));
-      const matchesState = filters.state.length === 0 || (program.state && filters.state.includes(program.state));
+    const filtered = courses.filter((course) => {
+      const matchesUniversity = filters.university.length === 0 || filters.university.includes(course.university_name);
+      const matchesCourse = filters.course.length === 0 || filters.course.includes(course.course_name);
+      const matchesStudyLevel = filters.studyLevel.length === 0 || filters.studyLevel.includes(course.study_level_name.toLowerCase());
+      const matchesDiscipline = filters.discipline.length === 0 || filters.discipline.includes(course.discipline_name.toLowerCase());
+      const matchesCountry = filters.country.length === 0; // Country filtering not available in API
+      const matchesState = filters.state.length === 0; // State filtering not available in API
       
       return matchesUniversity && matchesCourse && matchesStudyLevel && matchesDiscipline && matchesCountry && matchesState;
     });
@@ -554,19 +576,23 @@ export default function ProgramCards() {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-        
-        if (aValue < bValue) {
+
+        if(aValue && bValue){
+          if (aValue < bValue) {
           return sortDirection === "asc" ? -1 : 1;
         }
         if (aValue > bValue) {
           return sortDirection === "asc" ? 1 : -1;
         }
+        }
+        
+        
         return 0;
       });
     }
 
     return filtered;
-  }, [filters, sortField, sortDirection]);
+  }, [courses, filters, sortField, sortDirection]);
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
@@ -588,6 +614,29 @@ export default function ProgramCards() {
   const getActiveFilterCount = () => {
     return Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <svg className="animate-spin h-8 w-8 text-brand-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading courses...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-500 text-lg mb-2">Error loading courses</div>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -649,13 +698,13 @@ export default function ProgramCards() {
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAndSortedData.length > 0 ? (
-          filteredAndSortedData.map((program) => (
-            <ProgramCard key={program.id} program={program} />
+          filteredAndSortedData.map((course) => (
+            <CourseCard key={course.id} course={course} />
           ))
         ) : (
           <div className="col-span-full text-center py-12">
             <div className="text-gray-500 dark:text-gray-400 text-lg mb-2">
-              No programs found matching your criteria.
+              No courses found matching your criteria.
             </div>
             <p className="text-sm text-gray-400 dark:text-gray-500">
               Try adjusting your filters
@@ -666,7 +715,7 @@ export default function ProgramCards() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} programs
+        Showing {filteredAndSortedData.length} of {courses.length} courses
       </div>
 
       {/* Filter Modal */}
@@ -675,7 +724,7 @@ export default function ProgramCards() {
         onClose={() => setIsFilterModalOpen(false)}
         onApply={handleApplyFilters}
         universities={universities}
-        courses={courses}
+        courses={courseNames}
         disciplines={disciplines}
         countries={countries}
         states={states}

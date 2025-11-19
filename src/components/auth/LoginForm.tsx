@@ -6,6 +6,7 @@ import { LogIn, ChevronLeftIcon,  } from "lucide-react";
 import { useRouter, useSearchParams  } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from 'react';
+import { useAuth } from "@/context/AuthContext";
 
 interface FormData {
   email: string;
@@ -118,6 +119,9 @@ function LoginContent() {
     rememberMe: false,
   });
 
+  const { login } = useAuth();
+  
+
    const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
 
@@ -137,9 +141,10 @@ function LoginContent() {
     if (!validateForm()) return;
 
     setLoading(true);
+    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(`${BASE_URL}/tenant/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -147,18 +152,24 @@ function LoginContent() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          userType: 'admin',
         }),
       });
-
+      
       const data = await response.json();
+      if (data.status == "success") {
+        const { user, token } = data.data;
+        login(user, token);
+        
+        router.push(callbackUrl);
+      }
+
 
       if (!response.ok) {
         throw new Error(data.error || "Login failed");
       }
 
       // Redirect to intended page or admin dashboard
-      router.push(callbackUrl);
+      
     } catch (error) {
       setErrors({ submit: error instanceof Error ? error.message : "Login failed" });
     } finally {
@@ -197,7 +208,7 @@ function LoginContent() {
           <div>
             <div className="mb-5 sm:mb-8">
               <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
-                Sign In
+                Tenant Sign In
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Enter your email and password to sign in!
@@ -295,7 +306,7 @@ function LoginContent() {
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
                 Don&apos;t have an account? {""}
                 <Link
-                  href="/signup"
+                  href="/register"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
                 >
                   Sign Up

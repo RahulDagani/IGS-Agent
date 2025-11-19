@@ -6,8 +6,9 @@ import AppSidebar from "./AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
 
-import { withAuth } from '@/components/auth/with-auth';
 import { SessionPayload } from '@/lib/auth';
+
+import RoleGuard from "@/components/RoleGuard";
 
 interface PartnerLayoutProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ function PartnerLayout({ children, user }: PartnerLayoutProps) {
     : "lg:ml-[90px]";
 
   return (
+    <RoleGuard allowedRoles={["agent"]}>
     <div className="min-h-screen xl:flex">
       {/* Sidebar and Backdrop */}
       <AppSidebar />
@@ -39,9 +41,10 @@ function PartnerLayout({ children, user }: PartnerLayoutProps) {
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
       </div>
     </div>
+    </RoleGuard>
   );
 }
 
 
-export default withAuth(PartnerLayout, ['agent'], ['user']);
+export default PartnerLayout;
 // export default PartnerLayout;

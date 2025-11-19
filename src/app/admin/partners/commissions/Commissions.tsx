@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -10,91 +10,82 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
 import { Edit, Trash } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Commission {
   id: number;
-  country: string;
-  universityName: string;
-  studyLevel: string;
-  agentCommission: string;
+  tenant_id: number;
+  country_code: string;
+  university_id: number;
+  study_level_id: number;
+  agent_commission: string;
+  commission_type: string;
   remark: string;
+  created_at: string;
+  updated_at: string;
+  university_name: string;
+  study_level_name: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: Commission[];
 }
 
 // Define the table data using the interface
 const tableData: Commission[] = [
   {
     id: 1,
-    country: "USA",
-    universityName: "Harvard University",
-    studyLevel: "Undergraduate",
-    agentCommission: "15%",
-    remark: "Standard commission rate",
+    tenant_id: 1,
+    country_code: "US",
+    university_id: 5,
+    study_level_id: 2,
+    agent_commission: "15.00",
+    commission_type: "percentage",
+    remark: "Adding 15% commission",
+    created_at: "2025-11-19T12:22:07.000Z",
+    updated_at: "2025-11-19T12:22:07.000Z",
+    university_name: "Harvard",
+    study_level_name: "Master"
   },
   {
     id: 2,
-    country: "USA",
-    universityName: "Stanford University",
-    studyLevel: "Postgraduate",
-    agentCommission: "12%",
-    remark: "Reduced rate for MBA programs",
+    tenant_id: 1,
+    country_code: "UK",
+    university_id: 6,
+    study_level_id: 1,
+    agent_commission: "12.00",
+    commission_type: "percentage",
+    remark: "Standard UK commission",
+    created_at: "2025-11-19T12:22:07.000Z",
+    updated_at: "2025-11-19T12:22:07.000Z",
+    university_name: "Oxford University",
+    study_level_name: "Bachelor"
   },
   {
     id: 3,
-    country: "UK",
-    universityName: "University of Oxford",
-    studyLevel: "Undergraduate",
-    agentCommission: "10%",
-    remark: "Fixed commission for all courses",
-  },
-  {
-    id: 4,
-    country: "Canada",
-    universityName: "University of Toronto",
-    studyLevel: "Postgraduate",
-    agentCommission: "18%",
-    remark: "Premium commission for research programs",
-  },
-  {
-    id: 5,
-    country: "Australia",
-    universityName: "University of Sydney",
-    studyLevel: "Undergraduate",
-    agentCommission: "14%",
-    remark: "Standard Australian rate",
-  },
-  {
-    id: 6,
-    country: "USA",
-    universityName: "MIT",
-    studyLevel: "PhD",
-    agentCommission: "8%",
-    remark: "Limited commission for doctoral programs",
-  },
-  {
-    id: 7,
-    country: "UK",
-    universityName: "Imperial College London",
-    studyLevel: "Postgraduate",
-    agentCommission: "11%",
-    remark: "Engineering programs only",
-  },
-  {
-    id: 8,
-    country: "Canada",
-    universityName: "UBC",
-    studyLevel: "Undergraduate",
-    agentCommission: "16%",
-    remark: "All undergraduate courses",
-  },
+    tenant_id: 1,
+    country_code: "CA",
+    university_id: 7,
+    study_level_id: 3,
+    agent_commission: "500.00",
+    commission_type: "fixed",
+    remark: "Fixed amount for PhD",
+    created_at: "2025-11-19T12:22:07.000Z",
+    updated_at: "2025-11-19T12:22:07.000Z",
+    university_name: "University of Toronto",
+    study_level_name: "PhD"
+  }
 ];
 
 type SortField = keyof Commission | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
-  studyLevel: string;
-  universityName: string;
-  country: string;
+  study_level_name: string;
+  university_name: string;
+  country_code: string;
+  commission_type: string;
 }
 
 interface FilterModalProps {
@@ -104,6 +95,7 @@ interface FilterModalProps {
   studyLevels: string[];
   universityNames: string[];
   countries: string[];
+  commissionTypes: string[];
 }
 
 const FilterModal: React.FC<FilterModalProps> = ({
@@ -113,16 +105,19 @@ const FilterModal: React.FC<FilterModalProps> = ({
   studyLevels,
   universityNames,
   countries,
+  commissionTypes,
 }) => {
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>("all");
   const [selectedUniversityName, setSelectedUniversityName] = useState<string>("all");
   const [selectedCountry, setSelectedCountry] = useState<string>("all");
+  const [selectedCommissionType, setSelectedCommissionType] = useState<string>("all");
 
   const handleApply = () => {
     const filters: FilterOptions = {
-      studyLevel: selectedStudyLevel,
-      universityName: selectedUniversityName,
-      country: selectedCountry,
+      study_level_name: selectedStudyLevel,
+      university_name: selectedUniversityName,
+      country_code: selectedCountry,
+      commission_type: selectedCommissionType,
     };
     onApply(filters);
     onClose();
@@ -132,13 +127,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
     setSelectedStudyLevel("all");
     setSelectedUniversityName("all");
     setSelectedCountry("all");
+    setSelectedCommissionType("all");
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex z-999999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Commissions
@@ -210,6 +206,25 @@ const FilterModal: React.FC<FilterModalProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Commission Type Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Commission Type
+            </label>
+            <select
+              value={selectedCommissionType}
+              onChange={(e) => setSelectedCommissionType(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="all">All Types</option>
+              {commissionTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex gap-3 mt-6">
@@ -232,44 +247,89 @@ const FilterModal: React.FC<FilterModalProps> = ({
 };
 
 export default function CommissionsTable() {
+  const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [filters, setFilters] = useState<FilterOptions>({
-    studyLevel: "all",
-    universityName: "all",
-    country: "all",
+    study_level_name: "all",
+    university_name: "all",
+    country_code: "all",
+    commission_type: "all",
   });
+
+  const {token} = useAuth();
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  // Fetch commissions from API
+  useEffect(() => {
+    const fetchCommissions = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // For now, using mock data. Replace with actual API call:
+        const response = await fetch(`${BASE_URL}/tenant/agent/commissions`,{
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        const data: ApiResponse = await response.json();
+
+        
+        // Use mock data for demonstration
+        setCommissions(data.data);
+        
+      } catch (err) {
+        console.error('Error fetching commissions:', err);
+        setError('Failed to load commissions. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCommissions();
+  }, []);
 
   // Get unique values for filters
   const studyLevels = useMemo(() => {
-    return Array.from(new Set(tableData.map(commission => commission.studyLevel)));
-  }, []);
+    return Array.from(new Set(commissions.map(commission => commission.study_level_name)));
+  }, [commissions]);
 
   const universityNames = useMemo(() => {
-    return Array.from(new Set(tableData.map(commission => commission.universityName)));
-  }, []);
+    return Array.from(new Set(commissions.map(commission => commission.university_name)));
+  }, [commissions]);
 
   const countries = useMemo(() => {
-    return Array.from(new Set(tableData.map(commission => commission.country)));
-  }, []);
+    return Array.from(new Set(commissions.map(commission => commission.country_code)));
+  }, [commissions]);
+
+  const commissionTypes = useMemo(() => {
+    return Array.from(new Set(commissions.map(commission => commission.commission_type)));
+  }, [commissions]);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((commission) => {
+    const filtered = commissions.filter((commission) => {
       const matchesSearch = 
-        commission.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commission.universityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commission.studyLevel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commission.agentCommission.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commission.remark.toLowerCase().includes(searchTerm.toLowerCase());
+        commission.country_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commission.university_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commission.study_level_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commission.agent_commission.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commission.remark.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commission.commission_type.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStudyLevel = filters.studyLevel === "all" || commission.studyLevel === filters.studyLevel;
-      const matchesUniversityName = filters.universityName === "all" || commission.universityName === filters.universityName;
-      const matchesCountry = filters.country === "all" || commission.country === filters.country;
+      const matchesStudyLevel = filters.study_level_name === "all" || commission.study_level_name === filters.study_level_name;
+      const matchesUniversityName = filters.university_name === "all" || commission.university_name === filters.university_name;
+      const matchesCountry = filters.country_code === "all" || commission.country_code === filters.country_code;
+      const matchesCommissionType = filters.commission_type === "all" || commission.commission_type === filters.commission_type;
       
-      return matchesSearch && matchesStudyLevel && matchesUniversityName && matchesCountry;
+      return matchesSearch && matchesStudyLevel && matchesUniversityName && matchesCountry && matchesCommissionType;
     });
 
     // Sorting
@@ -294,7 +354,7 @@ export default function CommissionsTable() {
     }
 
     return filtered;
-  }, [searchTerm, filters, sortField, sortDirection]);
+  }, [commissions, searchTerm, filters, sortField, sortDirection]);
 
   const handleSort = (field: keyof Commission) => {
     if (sortField === field) {
@@ -310,62 +370,119 @@ export default function CommissionsTable() {
     return sortDirection === "asc" ? "↑" : "↓";
   };
 
-  const getCommissionColor = (commission: string) => {
-    const percentage = parseInt(commission);
-    if (percentage >= 15) return "success";
-    if (percentage >= 10) return "warning";
-    return "error";
+  const getCommissionDisplay = (commission: Commission) => {
+    if (commission.commission_type === "percentage") {
+      return `${commission.agent_commission}%`;
+    } else {
+      return `$${commission.agent_commission}`;
+    }
+  };
+
+  const getCommissionColor = (commission: Commission) => {
+    if (commission.commission_type === "percentage") {
+      const percentage = parseFloat(commission.agent_commission);
+      if (percentage >= 15) return "success";
+      if (percentage >= 10) return "warning";
+      return "error";
+    } else {
+      const amount = parseFloat(commission.agent_commission);
+      if (amount >= 1000) return "success";
+      if (amount >= 500) return "warning";
+      return "error";
+    }
+  };
+
+  const getCommissionTypeColor = (type: string) => {
+    return type === "percentage" ? "info" : "primary";
   };
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
   };
 
-  const hasActiveFilters = filters.studyLevel !== "all" || filters.universityName !== "all" || 
-                          filters.country !== "all";
+  const hasActiveFilters = filters.study_level_name !== "all" || 
+                          filters.university_name !== "all" || 
+                          filters.country_code !== "all" ||
+                          filters.commission_type !== "all";
 
   const clearAllFilters = () => {
     setFilters({
-      studyLevel: "all",
-      universityName: "all",
-      country: "all",
+      study_level_name: "all",
+      university_name: "all",
+      country_code: "all",
+      commission_type: "all",
     });
   };
 
-  const handleDelete = (id: number) => {
-    // Handle delete action
-    console.log("Delete commission:", id);
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this commission?")) {
+      return;
+    }
+
+    try {
+      // Simulate API delete call
+      // await fetch(`https://api.applystore.org/api/tenant/agent/commissions/${id}`, {
+      //   method: 'DELETE'
+      // });
+      
+      // Remove from local state
+      setCommissions(prev => prev.filter(commission => commission.id !== id));
+      
+      console.log("Commission deleted:", id);
+    } catch (err) {
+      console.error('Error deleting commission:', err);
+      alert('Failed to delete commission. Please try again.');
+    }
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <svg className="animate-spin h-8 w-8 text-brand-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading commissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+            <p className="text-sm text-red-700 dark:text-red-300 mt-1">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-2 text-sm text-red-800 dark:text-red-200 underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-         {/* Summary Stats */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Commissions</div>
-          <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {filteredAndSortedData.length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Countries</div>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Array.from(new Set(filteredAndSortedData.map(c => c.country))).length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Universities</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {Array.from(new Set(filteredAndSortedData.map(c => c.universityName))).length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Study Levels</div>
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {Array.from(new Set(filteredAndSortedData.map(c => c.studyLevel))).length}
-          </div>
-        </div>
-      </div> */}
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         {/* Search Input */}
@@ -416,27 +533,12 @@ export default function CommissionsTable() {
             Apply Filters
           </button>
           <Link href={"/admin/partners/commissions/add"}>
-           <button
-           
-            className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2"
-          >
-            <svg
-  className="w-4 h-4"
-  fill="none"
-  stroke="currentColor"
-  viewBox="0 0 24 24"
->
-  <path
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    strokeWidth={2}
-    d="M12 4v16m8-8H4"
-  />
-</svg>
-
-            
-            Add
-          </button>
+            <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </button>
           </Link>
         </div>
       </div>
@@ -444,19 +546,24 @@ export default function CommissionsTable() {
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2">
-          {filters.country !== "all" && (
+          {filters.country_code !== "all" && (
             <Badge size="sm" color="primary">
-              Country: {filters.country}
+              Country: {filters.country_code}
             </Badge>
           )}
-          {filters.universityName !== "all" && (
+          {filters.university_name !== "all" && (
             <Badge size="sm" color="primary">
-              University: {filters.universityName}
+              University: {filters.university_name}
             </Badge>
           )}
-          {filters.studyLevel !== "all" && (
+          {filters.study_level_name !== "all" && (
             <Badge size="sm" color="primary">
-              Study Level: {filters.studyLevel}
+              Study Level: {filters.study_level_name}
+            </Badge>
+          )}
+          {filters.commission_type !== "all" && (
+            <Badge size="sm" color="primary">
+              Type: {filters.commission_type}
             </Badge>
           )}
         </div>
@@ -472,11 +579,13 @@ export default function CommissionsTable() {
                 <TableRow>
                   {[
                     { key: "id", label: "ID" },
-                    { key: "country", label: "Country" },
-                    { key: "universityName", label: "University Name" },
-                    { key: "studyLevel", label: "Study Level" },
-                    { key: "agentCommission", label: "Agent Commission" },
+                    { key: "country_code", label: "Country" },
+                    { key: "university_name", label: "University Name" },
+                    { key: "study_level_name", label: "Study Level" },
+                    { key: "commission_type", label: "Type" },
+                    { key: "agent_commission", label: "Agent Commission" },
                     { key: "remark", label: "Remark" },
+                    { key: "created_at", label: "Created" },
                     { key: "action", label: "Action" },
                   ].map(({ key, label }) => (
                     <TableCell
@@ -508,25 +617,30 @@ export default function CommissionsTable() {
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge size="sm" color="primary">
-                          {commission.country}
+                          {commission.country_code}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {commission.universityName}
+                          {commission.university_name}
                         </span>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge size="sm" color="info">
-                          {commission.studyLevel}
+                          {commission.study_level_name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start">
+                        <Badge size="sm" color={getCommissionTypeColor(commission.commission_type)}>
+                          {commission.commission_type}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getCommissionColor(commission.agentCommission)}
+                          color={getCommissionColor(commission)}
                         >
-                          {commission.agentCommission}
+                          {getCommissionDisplay(commission)}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
@@ -535,13 +649,17 @@ export default function CommissionsTable() {
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
+                        <div className="text-gray-500 text-theme-sm dark:text-gray-400">
+                          {formatDate(commission.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
                           <Link
                             href={'/admin/partners/commissions/edit/'+commission.id}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                           >
-                                                        <Edit size={18}/>
-
+                            <Edit size={18}/>
                           </Link>
                           <button
                             onClick={() => handleDelete(commission.id)}
@@ -556,7 +674,6 @@ export default function CommissionsTable() {
                 ) : (
                   <TableRow>
                     <TableCell
-                     
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       No commissions found matching your criteria.
@@ -571,10 +688,8 @@ export default function CommissionsTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} commissions
+        Showing {filteredAndSortedData.length} of {commissions.length} commissions
       </div>
-
-     
 
       {/* Filter Modal */}
       <FilterModal
@@ -584,6 +699,7 @@ export default function CommissionsTable() {
         studyLevels={studyLevels}
         universityNames={universityNames}
         countries={countries}
+        commissionTypes={commissionTypes}
       />
     </div>
   );

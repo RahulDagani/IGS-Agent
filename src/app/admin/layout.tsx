@@ -5,8 +5,9 @@ import AppHeader from "./layout/AppHeader";
 import AppSidebar from "./layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
-import { withAuth } from '@/components/auth/with-auth';
 import { SessionPayload } from '@/lib/auth';
+import RoleGuard from "@/components/RoleGuard";
+
 
 // Define the props interface for the layout
 interface AdminLayoutProps {
@@ -26,6 +27,8 @@ function AdminLayout({ children, user }: AdminLayoutProps) {
     : "lg:ml-[90px]";
 
   return (
+        <RoleGuard allowedRoles={["tenant"]}>
+    
     <div className="min-h-screen xl:flex">
       {/* Sidebar and Backdrop */}
       <AppSidebar />
@@ -40,7 +43,9 @@ function AdminLayout({ children, user }: AdminLayoutProps) {
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
       </div>
     </div>
+        </RoleGuard>
+    
   );
 }
 
-export default withAuth(AdminLayout, ['admin'], ['admin']);
+export default AdminLayout;

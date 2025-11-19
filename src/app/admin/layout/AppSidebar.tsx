@@ -60,6 +60,11 @@ const partnerItems: NavItem[] = [
         icon: <Handshake size={18} />,
       },
       {
+        name: "Agent Students",
+        path: "/partners/agents/students",
+        icon: <User size={18} />,
+      },
+      {
         name: "Students",
         path: "/partners/students",
         icon: <User size={18} />,
@@ -161,6 +166,21 @@ const universityAndCoursesItems: NavItem[] = [
     icon: <Filter size={18} />,
     subItems: [
       {
+        name: "Partners",
+        path: "/universities/partners",
+        icon: <GraduationCap size={18} />,
+      },
+      {
+        name: "University Types",
+        path: "/universities/types",
+        icon: <GraduationCap size={18} />,
+      },
+      {
+        name: "Collaborations",
+        path: "/universities/collaborations",
+        icon: <GraduationCap size={18} />,
+      },
+      {
         name: "Study Levels",
         path: "/universities/study-levels",
         icon: <GraduationCap size={18} />,
@@ -171,15 +191,6 @@ const universityAndCoursesItems: NavItem[] = [
         icon: <GraduationCap size={18} />,
       },
       {
-        name: "Countries",
-        path: "/universities/countries",
-        icon: <GraduationCap size={18} />,
-      },
-      {
-        name: "States",
-        path: "/universities/states",
-        icon: <GraduationCap size={18} />,
-      },{
         name: "Intakes",
         path: "/universities/intakes",
         icon: <GraduationCap size={18} />,

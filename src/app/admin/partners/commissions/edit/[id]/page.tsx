@@ -2,64 +2,188 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Globe, GraduationCap, Pencil, Percent, University } from "lucide-react";
+import { Country } from "country-state-city";
+import { useAuth } from "@/context/AuthContext";
 
 interface CommissionFormData {
-  country: string;
-  universityName: string;
-  studyLevel: string;
-  agentCommission: string;
+  country_code: string;
+  university_id: string;
+  study_level_id: string;
+  agent_commission: string;
+  commission_type: string;
   remark: string;
 }
 
-// Mock function to fetch commission data - replace with actual API call
-const fetchCommission = async (id: string): Promise<CommissionFormData> => {
-  // Simulate API call
-  console.log(id);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Mock data - replace with actual API call
-  const mockData: CommissionFormData = {
-    country: "USA",
-    universityName: "Harvard University",
-    studyLevel: "Undergraduate",
-    agentCommission: "15%",
-    remark: "Standard commission rate for all undergraduate programs"
-  };
-  
-  return mockData;
-};
+interface University {
+  id: number;
+  uuid: string;
+  tenant_id: number;
+  university: string;
+  university_slug: string;
+  description: string;
+  country_code: string;
+  state_code: string;
+  city_code: string;
+  address: string | null;
+  map_url: string | null;
+  location_url: string | null;
+  kind_of_partner_id: number;
+  type_of_university_id: number;
+  collaboration_type_id: number;
+  logo: string | null;
+  image: string | null;
+  brochure: string | null;
+  video_link: string | null;
+  tuition_url: string | null;
+  email: string;
+  is_deleted: number;
+  created_at: string;
+  updated_at: string;
+  kind_of_partner_name: string;
+  collaboration_type_name: string;
+  university_type_name: string;
+}
+
+interface StudyLevel {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+interface CountryType {
+  code: string;
+  name: string;
+}
+
+interface CommissionData {
+  id: number;
+  tenant_id: number;
+  country_code: string;
+  university_id: number;
+  study_level_id: number;
+  agent_commission: string;
+  commission_type: string;
+  remark: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function EditCommission() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
+  const { token } = useAuth();
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
   
   const [formData, setFormData] = useState<CommissionFormData>({
-    country: "",
-    universityName: "",
-    studyLevel: "",
-    agentCommission: "",
+    country_code: "",
+    university_id: "",
+    study_level_id: "",
+    agent_commission: "",
+    commission_type: "percentage",
     remark: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [countries, setCountries] = useState<CountryType[]>([]);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
 
+  // Fetch commission data and initial form data
   useEffect(() => {
-    const loadCommission = async () => {
+    const fetchData = async () => {
       try {
-        const data = await fetchCommission(id);
-        setFormData(data);
-      } catch (error) {
-        console.error('Error loading commission:', error);
+        setIsLoading(true);
+        setError(null);
+
+        // Fetch commission data
+        const commissionResponse = await fetch(`${BASE_URL}/tenant/agent/commissions/${id}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!commissionResponse.ok) {
+          throw new Error(`Failed to fetch commission: ${commissionResponse.status}`);
+        }
+
+        const commissionResult = await commissionResponse.json();
+        
+        if (!commissionResult.success) {
+          throw new Error("Failed to load commission data");
+        }
+
+        const commissionData: CommissionData = commissionResult.data;
+
+        // Fetch countries
+        const allCountries = Country.getAllCountries();
+        const countriesData: CountryType[] = allCountries.map(country => ({
+          code: country.isoCode,
+          name: country.name
+        }));
+
+        // Fetch universities
+        const universitiesResponse = await fetch(`${BASE_URL}/tenant/university/list`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!universitiesResponse.ok) {
+          throw new Error(`Failed to fetch universities: ${universitiesResponse.status}`);
+        }
+
+        const universitiesResult = await universitiesResponse.json();
+        const universitiesData: University[] = universitiesResult.data.universities;
+
+        // Fetch study levels
+        const studyLevelsResponse = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!studyLevelsResponse.ok) {
+          throw new Error(`Failed to fetch study levels: ${studyLevelsResponse.status}`);
+        }
+
+        const studyLevelsResult = await studyLevelsResponse.json();
+        const studyLevelsData: StudyLevel[] = studyLevelsResult.data;
+
+        // Set all data
+        setCountries(countriesData);
+        setUniversities(universitiesData);
+        setStudyLevels(studyLevelsData);
+
+        // Set form data with commission data
+        setFormData({
+          country_code: commissionData.country_code,
+          university_id: commissionData.university_id.toString(),
+          study_level_id: commissionData.study_level_id.toString(),
+          agent_commission: commissionData.agent_commission,
+          commission_type: commissionData.commission_type,
+          remark: commissionData.remark,
+        });
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (id) {
-      loadCommission();
+    if (id && token) {
+      fetchData();
     }
-  }, [id]);
+  }, [id, token, BASE_URL]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -69,49 +193,87 @@ export default function EditCommission() {
     }));
   };
 
+  const handleCommissionTypeChange = (value: string) => {
+    // Extract numeric value from commission input
+    const numericValue = formData.agent_commission.replace(/[^0-9.]/g, '');
+    setFormData(prev => ({
+      ...prev,
+      commission_type: value,
+      agent_commission: numericValue
+    }));
+  };
+
+  const handleCommissionValueChange = (value: string) => {
+    // Remove any existing percentage or dollar signs
+    const cleanValue = value.replace(/[%$]/g, '');
+    
+    setFormData(prev => ({
+      ...prev,
+      agent_commission: cleanValue
+    }));
+  };
+
+  const getCommissionDisplayValue = () => {
+    if (!formData.agent_commission) return "";
+    
+    const numericValue = formData.agent_commission.replace(/[^0-9.]/g, '');
+    if (formData.commission_type === "percentage") {
+      return `${numericValue}%`;
+    } else {
+      return `$${numericValue}`;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Updated commission data:", formData);
-      // Here you would typically make an API call to update the commission
-      // await fetch(`/api/commissions/${id}`, { method: 'PUT', body: JSON.stringify(formData) });
+      // Validate form data
+      if (!formData.country_code || !formData.university_id || !formData.study_level_id || !formData.agent_commission) {
+        setError("Please fill in all required fields");
+        return;
+      }
+
+      // Prepare data for API
+      const apiData = {
+        country_code: formData.country_code,
+        university_id: parseInt(formData.university_id),
+        study_level_id: parseInt(formData.study_level_id),
+        agent_commission: parseFloat(formData.agent_commission),
+        commission_type: formData.commission_type,
+        remark: formData.remark || "Standard commission"
+      };
+
+      // Make API call to update commission
+      const response = await fetch(`${BASE_URL}/tenant/agent/commissions/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(apiData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Commission updated successfully:", result);
       
       // Redirect back to commissions list
-      router.push('/commissions');
+      router.push('/admin/partners/commissions');
       router.refresh();
+      
     } catch (error) {
       console.error('Error updating commission:', error);
+      setError(error instanceof Error ? error.message : "Failed to update commission");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const studyLevels = [
-    "Undergraduate",
-    "Postgraduate", 
-    "PhD",
-    "Diploma",
-    "Certificate",
-    "Foundation"
-  ];
-
-  const countries = [
-    "USA",
-    "UK", 
-    "Canada",
-    "Australia",
-    "Germany",
-    "France",
-    "Netherlands",
-    "Ireland",
-    "New Zealand",
-    "Singapore"
-  ];
 
   if (isLoading) {
     return (
@@ -141,29 +303,46 @@ export default function EditCommission() {
       </div>
       
       <div className="space-y-6 border-t border-gray-100 p-5 sm:p-6 dark:border-gray-800">
+        {error && (
+          <div className="rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="-mx-2.5 flex flex-wrap gap-y-5">
             {/* Country Field */}
             <div className="w-full px-2.5">
-              <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              <label htmlFor="country_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 Country
               </label>
               <div className="relative">
                 <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                                    <Globe size={18} />
-
+                  <Globe size={18} />
                 </span>
                 <select
-                  id="country"
-                  name="country"
-                  value={formData.country}
+                  id="country_code"
+                  name="country_code"
+                  value={formData.country_code}
                   onChange={handleChange}
                   required
                   className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
                 >
                   <option value="">Select Country</option>
                   {countries.map(country => (
-                    <option key={country} value={country}>{country}</option>
+                    <option key={country.code} value={country.code}>
+                      {country.name}
+                    </option>
                   ))}
                 </select>
                 <span className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
@@ -176,49 +355,26 @@ export default function EditCommission() {
 
             {/* University Name Field */}
             <div className="w-full px-2.5">
-              <label htmlFor="universityName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              <label htmlFor="university_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 University Name
               </label>
               <div className="relative">
                 <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                 <University size={18} />
+                  <University size={18} />
                 </span>
-               <select
-                  id="university"
-                  name="university"
-                  value={formData.country}
+                <select
+                  id="university_id"
+                  name="university_id"
+                  value={formData.university_id}
                   onChange={handleChange}
                   required
                   className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
                 >
                   <option value="">Select University</option>
-                  {countries.map(country => (
-                    <option key={country} value={country}>University of {country}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Study Level Field */}
-            <div className="w-full px-2.5">
-              <label htmlFor="studyLevel" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Study Level
-              </label>
-              <div className="relative">
-                <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                  <GraduationCap size={18} />
-                </span>
-                <select
-                  id="studyLevel"
-                  name="studyLevel"
-                  value={formData.studyLevel}
-                  onChange={handleChange}
-                  required
-                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
-                >
-                  <option value="">Select Study Level</option>
-                  {studyLevels.map(level => (
-                    <option key={level} value={level}>{level}</option>
+                  {universities.map(university => (
+                    <option key={university.id} value={university.id}>
+                      {university.university}
+                    </option>
                   ))}
                 </select>
                 <span className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
@@ -229,25 +385,82 @@ export default function EditCommission() {
               </div>
             </div>
 
-            {/* Agent Commission Field */}
+            {/* Study Level Field */}
             <div className="w-full px-2.5">
-              <label htmlFor="agentCommission" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Agent Commission
+              <label htmlFor="study_level_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                Study Level
               </label>
               <div className="relative">
                 <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                  <Percent size={18} />
+                  <GraduationCap size={18} />
                 </span>
-                <input
-                  type="text"
-                  id="agentCommission"
-                  name="agentCommission"
-                  value={formData.agentCommission}
+                <select
+                  id="study_level_id"
+                  name="study_level_id"
+                  value={formData.study_level_id}
                   onChange={handleChange}
-                  placeholder="e.g., 15% or $500"
                   required
-                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                />
+                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+                >
+                  <option value="">Select Study Level</option>
+                  {studyLevels.map(level => (
+                    <option key={level.id} value={level.id}>
+                      {level.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
+                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+
+            {/* Commission Type and Value Fields */}
+            <div className="w-full px-2.5">
+              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                Agent Commission
+              </label>
+              <div className="flex gap-3">
+                {/* Commission Type */}
+                <div className="flex-1">
+                  <div className="relative">
+                    <select
+                      name="commission_type"
+                      value={formData.commission_type}
+                      onChange={(e) => handleCommissionTypeChange(e.target.value)}
+                      required
+                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+                    >
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Fixed Amount ($)</option>
+                    </select>
+                    <span className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
+                      <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Commission Value */}
+                <div className="flex-1">
+                  <div className="relative">
+                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                      <Percent size={18} />
+                    </span>
+                    <input
+                      type="text"
+                      name="agent_commission"
+                      value={getCommissionDisplayValue()}
+                      onChange={(e) => handleCommissionValueChange(e.target.value)}
+                      placeholder={formData.commission_type === "percentage" ? "e.g., 15%" : "e.g., 500"}
+                      required
+                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -259,7 +472,6 @@ export default function EditCommission() {
               <div className="relative">
                 <span className="absolute top-4 left-4 text-gray-500 dark:text-gray-400">
                   <Pencil size={18} />
-                  
                 </span>
                 <textarea
                   id="remark"

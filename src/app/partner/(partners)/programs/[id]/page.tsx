@@ -142,8 +142,9 @@ const CourseDetailsPage: React.FC = () => {
   };
 
   const handleApply = () => {
-    // Handle apply with IGS logic
-    console.log("Apply with IGS clicked for course:", courseData.id);
+    // Handle apply logic
+    
+    console.log("Apply clicked for course:", courseData.id);
   };
 
   return (
@@ -156,6 +157,8 @@ const CourseDetailsPage: React.FC = () => {
               {/* University Logo */}
               <div className="lg:col-span-1 flex justify-center items-center p-6 bg-white rounded-xl border border-gray-200 dark:border-gray-700">
                 <Image
+                  width={500}
+                  height={500}
                   src={courseData.universityLogo}
                   alt={courseData.university}
                   className="max-w-full h-auto max-h-32 object-contain"
@@ -237,7 +240,7 @@ const CourseDetailsPage: React.FC = () => {
                     onClick={handleApply}
                     className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
                   >
-                    Apply with IGS
+                    Apply
                   </button>
                 </div>
               </div>
@@ -266,6 +269,8 @@ const CourseDetailsPage: React.FC = () => {
                 {courseData.galleryImages.map((image, index) => (
                   <div key={index} className="rounded-lg overflow-hidden">
                     <Image
+                    width={500}
+                    height={500}
                       src={image}
                       alt={`Gallery ${index + 1}`}
                       className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"

@@ -1,64 +1,139 @@
 "use client"
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle } from "lucide-react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { Country, State, City } from "country-state-city";
+import { useAuth } from "@/context/AuthContext";
+
+
 
 interface StudentFormData {
   // Personal Info
   salutation: string;
-  firstName: string;
-  dateOfBirth: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  passport_number: string;
+  dob: Date | null;
   gender: string;
-  phoneNumber: string;
-  hasAlternateEmail: boolean;
-  alternateEmail: string;
-  
-  // Current Address
-  address: string;
-  city: string;
-  state: string;
-  countryOfResidence: string;
   citizenship: string;
-  postalCode: string;
+  
+  // Address
+  country_code: string;
+  state_code: string;
+  city_code: string;
+  address: string;
+  postal_code: string;
   
   // Emergency Contact
-  emergencyContactName: string;
-  emergencyContactRelationship: string;
-  emergencyContactPhone: string;
-  emergencyContactEmail: string;
+  emergency_c_name: string;
+  emergency_c_relation: string;
+  emergency_c_email: string;
+  emergency_c_phone: string;
 }
 
 type Tab = "personal" | "address" | "emergency";
 
+
 export default function StudentApplicationForm() {
+  const { id : studentId } = useParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("personal");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const {token} = useAuth();
   const [formData, setFormData] = useState<StudentFormData>({
     // Personal Info
     salutation: "",
-    firstName: "",
-    dateOfBirth: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    passport_number: "",
+    dob: null,
     gender: "",
-    phoneNumber: "",
-    hasAlternateEmail: false,
-    alternateEmail: "",
-    
-    // Current Address
-    address: "",
-    city: "",
-    state: "",
-    countryOfResidence: "",
     citizenship: "",
-    postalCode: "",
+    
+    // Address
+    country_code: "",
+    state_code: "",
+    city_code: "",
+    address: "",
+    postal_code: "",
     
     // Emergency Contact
-    emergencyContactName: "",
-    emergencyContactRelationship: "",
-    emergencyContactPhone: "",
-    emergencyContactEmail: "",
+    emergency_c_name: "",
+    emergency_c_relation: "",
+    emergency_c_email: "",
+    emergency_c_phone: "",
   });
+
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [selectedState, setSelectedState] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [validationMessage, setValidationMessage] = useState<string>("");
+
+
+        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+
+  // Fetch student data on component mount
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${BASE_URL}/tenant/student/${studentId}`,{
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+        
+        if (response.ok) {
+          const {data} = await response.json();
+         
+          // Transform API data to match form structure
+          if (data) {
+            setFormData(prev => ({
+              ...prev,
+              salutation: data.salutation || "",
+              first_name: data.first_name || "",
+              middle_name: data.middle_name || "",
+              last_name: data.last_name || "",
+              email: data.email || "",
+              phone: data.phone || "",
+              passport_number: data.passport_number || "",
+              dob: data.dob ? new Date(data.dob) : null,
+              gender: data.gender || "",
+              citizenship: data.citizenship || "",
+              country_code: data.country_code || "",
+              state_code: data.state_code || "",
+              city_code: data.city_code || "",
+              address: data.address || "",
+              postal_code: data.postal_code || "",
+              emergency_c_name: data.emergency_c_name || "",
+              emergency_c_relation: data.emergency_c_relation || "",
+              emergency_c_email: data.emergency_c_email || "",
+              emergency_c_phone: data.emergency_c_phone || "",
+            }));
+          }
+        } else {
+          setError('Failed to fetch student data');
+          console.error('Failed to fetch student data');
+        }
+      } catch (error) {
+        console.error('Error fetching student data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStudentData();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -75,6 +150,30 @@ export default function StudentApplicationForm() {
         [name]: value
       }));
     }
+
+    // Update country and state selections for dependent dropdowns
+    if (name === 'country_code') {
+      setSelectedCountry(value);
+      setSelectedState("");
+      setFormData(prev => ({
+        ...prev,
+        state_code: "",
+        city_code: ""
+      }));
+    } else if (name === 'state_code') {
+      setSelectedState(value);
+      setFormData(prev => ({
+        ...prev,
+        city_code: ""
+      }));
+    }
+  };
+
+  const handleDateChange = (date: Date | null) => {
+    setFormData(prev => ({
+      ...prev,
+      dob: date
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,44 +181,64 @@ export default function StudentApplicationForm() {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Student application form data:", formData);
-      // Here you would typically make an API call to save the application
-      // await fetch('/api/student-applications', { method: 'POST', body: JSON.stringify(formData) });
+      // Transform data for API
+      const apiData = {
+        salutation: formData.salutation,
+        first_name: formData.first_name,
+        middle_name: formData.middle_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone: formData.phone,
+        passport_number: formData.passport_number,
+        country_code: formData.country_code,
+        state_code: formData.state_code,
+        city_code: formData.city_code,
+        dob: formData.dob ? formData.dob.toISOString().split('T')[0] : null,
+        gender: formData.gender,
+        citizenship: formData.citizenship,
+        address: formData.address,
+        postal_code: formData.postal_code,
+        emergency_c_name: formData.emergency_c_name,
+        emergency_c_relation: formData.emergency_c_relation,
+        emergency_c_email: formData.emergency_c_email,
+        emergency_c_phone: formData.emergency_c_phone,
+      };
+
+      const response = await fetch(`${BASE_URL}/tenant/student/${studentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(apiData),
+      });
+
+      const result = await response.json();
+     
+      if(!result.success){
+        setValidationMessage(result.message);
+      }
       
       // Redirect back to applications list or show success message
-      router.push('/student/applications');
+      // router.push('/student/applications');
       router.refresh();
     } catch (error) {
-      console.error('Error saving application form:', error);
+      console.error('Error saving student data:', error);
+      
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Get countries, states, and cities
+    const countries = Country.getAllCountries();
+    const states = selectedCountry ? State.getStatesOfCountry(selectedCountry) : [];
+    const cities = selectedState ? City.getCitiesOfState(selectedCountry, selectedState) : [];
+
   const salutations = ["Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
   
   const genders = ["Male", "Female", "Other", "Prefer not to say"];
   
-  const countries = [
-    "USA",
-    "UK", 
-    "Canada",
-    "Australia",
-    "Germany",
-    "France",
-    "Netherlands",
-    "Ireland",
-    "New Zealand",
-    "Singapore",
-    "India",
-    "China",
-    "Japan",
-    "Brazil",
-    "Mexico"
-  ];
 
   const relationships = [
     "Parent",
@@ -136,8 +255,37 @@ export default function StudentApplicationForm() {
     { id: "emergency", label: "Emergency Contact", icon: Users },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading student data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="text-center">
+          <div className="flex justify-center text-red-500">
+
+          <AlertTriangle />
+          </div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Failed to Fetch Saved data</p>
+        </div>
+      </div>
+    );
+  }
+
   const renderPersonalInfoTab = () => (
     <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Salutation */}
         <div>
@@ -161,7 +309,7 @@ export default function StudentApplicationForm() {
 
         {/* First Name */}
         <div>
-          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+          <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             First Name *
           </label>
           <div className="relative">
@@ -170,9 +318,9 @@ export default function StudentApplicationForm() {
             </span>
             <input
               type="text"
-              id="firstName"
-              name="firstName"
-              value={formData.firstName}
+              id="first_name"
+              name="first_name"
+              value={formData.first_name}
               onChange={handleInputChange}
               placeholder="Enter your first name"
               required
@@ -180,26 +328,79 @@ export default function StudentApplicationForm() {
             />
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Date of Birth */}
+        {/* Middle Name */}
         <div>
-          <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Date of Birth *
+          <label htmlFor="middle_name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Middle Name
+          </label>
+          <input
+            type="text"
+            id="middle_name"
+            name="middle_name"
+            value={formData.middle_name}
+            onChange={handleInputChange}
+            placeholder="Enter your middle name"
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+          />
+        </div>
+        {/* Last Name */}
+        <div>
+          <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Last Name *
+          </label>
+          <input
+            type="text"
+            id="last_name"
+            name="last_name"
+            value={formData.last_name}
+            onChange={handleInputChange}
+            placeholder="Enter your last name"
+            required
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Email *
           </label>
           <div className="relative">
             <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Calendar size={18} />
+              <Mail size={18} />
             </span>
             <input
-              type="date"
-              id="dateOfBirth"
-              name="dateOfBirth"
-              value={formData.dateOfBirth}
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
               onChange={handleInputChange}
+              placeholder="Enter your email"
               required
               className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+          </div>
+        </div>
+        {/* Date of Birth */}
+        <div>
+          <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Date of Birth *
+          </label>
+          <div className="relative">
+            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 z-10">
+              <Calendar size={18} />
+            </span>
+            <DatePicker
+              selected={formData.dob}
+              onChange={handleDateChange}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Select date of birth"
+              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+              required
+              showYearDropdown
+              dropdownMode="select"
+              maxDate={new Date()}
             />
           </div>
         </div>
@@ -223,67 +424,47 @@ export default function StudentApplicationForm() {
             ))}
           </select>
         </div>
-      </div>
-
-      {/* Phone Number */}
-      <div>
-        <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Phone Number *
-        </label>
-        <div className="relative">
-          <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Phone size={18} />
-          </span>
-          <input
-            type="tel"
-            id="phoneNumber"
-            name="phoneNumber"
-            value={formData.phoneNumber}
-            onChange={handleInputChange}
-            placeholder="Enter your phone number"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-      </div>
-
-      {/* Alternate Email Checkbox */}
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="hasAlternateEmail"
-          name="hasAlternateEmail"
-          checked={formData.hasAlternateEmail}
-          onChange={handleInputChange}
-          className="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-        />
-        <label htmlFor="hasAlternateEmail" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Do you have an alternate email?
-        </label>
-      </div>
-
-      {/* Alternate Email (Conditional) */}
-      {formData.hasAlternateEmail && (
+        {/* Phone Number */}
         <div>
-          <label htmlFor="alternateEmail" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Alternate Email
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Phone Number *
           </label>
           <div className="relative">
             <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Mail size={18} />
+              <Phone size={18} />
             </span>
             <input
-              type="email"
-              id="alternateEmail"
-              name="alternateEmail"
-              value={formData.alternateEmail}
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
               onChange={handleInputChange}
-              placeholder="Enter alternate email address"
+              placeholder="Enter your phone number"
+              required
               className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
             />
           </div>
         </div>
-      )}
+
+        {/* Passport Number */}
+        <div>
+          <label htmlFor="passport_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Passport Number
+          </label>
+          <input
+            type="text"
+            id="passport_number"
+            name="passport_number"
+            value={formData.passport_number}
+            onChange={handleInputChange}
+            placeholder="Enter your passport number"
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+          />
+        </div>
+      </div>
+
+
+      
     </div>
   );
 
@@ -311,66 +492,89 @@ export default function StudentApplicationForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* City */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Country */}
         <div>
-          <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            City *
-          </label>
-          <input
-            type="text"
-            id="city"
-            name="city"
-            value={formData.city}
-            onChange={handleInputChange}
-            placeholder="Enter your city"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-
-        {/* State */}
-        <div>
-          <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            State/Province *
-          </label>
-          <input
-            type="text"
-            id="state"
-            name="state"
-            value={formData.state}
-            onChange={handleInputChange}
-            placeholder="Enter your state or province"
-            required
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Country of Residence */}
-        <div>
-          <label htmlFor="countryOfResidence" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Country of Residence *
+          <label htmlFor="country_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Country *
           </label>
           <div className="relative">
             <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
               <Globe size={18} />
             </span>
             <select
-              id="countryOfResidence"
-              name="countryOfResidence"
-              value={formData.countryOfResidence}
+              id="country_code"
+              name="country_code"
+              value={formData.country_code}
               onChange={handleInputChange}
               required
               className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
             >
               <option value="">Select Country</option>
               {countries.map(country => (
-                <option key={country} value={country}>{country}</option>
+                <option key={country.isoCode} value={country.isoCode}>{country.name}</option>
               ))}
             </select>
           </div>
+        </div>
+
+        {/* State */}
+        <div>
+          <label htmlFor="state_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            State/Province *
+          </label>
+          <select
+            id="state_code"
+            name="state_code"
+            value={formData.state_code}
+            onChange={handleInputChange}
+            required
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+          >
+            <option value="">Select State</option>
+            {states.map(state => (
+              <option key={state.isoCode} value={state.isoCode}>{state.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* City */}
+        <div>
+          <label htmlFor="city_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            City *
+          </label>
+          <select
+            id="city_code"
+            name="city_code"
+            value={formData.city_code}
+            onChange={handleInputChange}
+            required
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+          >
+            <option value="">Select City</option>
+            {cities.map(city => (
+              <option key={city.name} value={city.name}>{city.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Postal Code */}
+        <div>
+          <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Postal Code *
+          </label>
+          <input
+            type="text"
+            id="postal_code"
+            name="postal_code"
+            value={formData.postal_code}
+            onChange={handleInputChange}
+            placeholder="Enter your postal code"
+            required
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+          />
         </div>
 
         {/* Citizenship */}
@@ -392,37 +596,23 @@ export default function StudentApplicationForm() {
             >
               <option value="">Select Citizenship</option>
               {countries.map(country => (
-                <option key={country} value={country}>{country}</option>
+                <option key={country.isoCode} value={country.name}>{country.name}</option>
               ))}
             </select>
           </div>
         </div>
-      </div>
-
-      {/* Postal Code */}
-      <div>
-        <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Postal Code *
-        </label>
-        <input
-          type="text"
-          id="postalCode"
-          name="postalCode"
-          value={formData.postalCode}
-          onChange={handleInputChange}
-          placeholder="Enter your postal code"
-          required
-          className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-        />
       </div>
     </div>
   );
 
   const renderEmergencyContactTab = () => (
     <div className="space-y-5">
-      {/* Emergency Contact Name */}
+      
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Emergency Contact Name */}
       <div>
-        <label htmlFor="emergencyContactName" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+        <label htmlFor="emergency_c_name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
           Emergency Contact Name *
         </label>
         <div className="relative">
@@ -431,9 +621,9 @@ export default function StudentApplicationForm() {
           </span>
           <input
             type="text"
-            id="emergencyContactName"
-            name="emergencyContactName"
-            value={formData.emergencyContactName}
+            id="emergency_c_name"
+            name="emergency_c_name"
+            value={formData.emergency_c_name}
             onChange={handleInputChange}
             placeholder="Enter emergency contact full name"
             required
@@ -441,17 +631,15 @@ export default function StudentApplicationForm() {
           />
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Relationship */}
         <div>
-          <label htmlFor="emergencyContactRelationship" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+          <label htmlFor="emergency_c_relation" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Relationship *
           </label>
           <select
-            id="emergencyContactRelationship"
-            name="emergencyContactRelationship"
-            value={formData.emergencyContactRelationship}
+            id="emergency_c_relation"
+            name="emergency_c_relation"
+            value={formData.emergency_c_relation}
             onChange={handleInputChange}
             required
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
@@ -465,7 +653,7 @@ export default function StudentApplicationForm() {
 
         {/* Emergency Contact Phone */}
         <div>
-          <label htmlFor="emergencyContactPhone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+          <label htmlFor="emergency_c_phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Phone Number *
           </label>
           <div className="relative">
@@ -474,9 +662,9 @@ export default function StudentApplicationForm() {
             </span>
             <input
               type="tel"
-              id="emergencyContactPhone"
-              name="emergencyContactPhone"
-              value={formData.emergencyContactPhone}
+              id="emergency_c_phone"
+              name="emergency_c_phone"
+              value={formData.emergency_c_phone}
               onChange={handleInputChange}
               placeholder="Enter emergency contact phone"
               required
@@ -484,11 +672,10 @@ export default function StudentApplicationForm() {
             />
           </div>
         </div>
-      </div>
 
-      {/* Emergency Contact Email */}
+        {/* Emergency Contact Email */}
       <div>
-        <label htmlFor="emergencyContactEmail" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+        <label htmlFor="emergency_c_email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
           Email Address
         </label>
         <div className="relative">
@@ -497,15 +684,18 @@ export default function StudentApplicationForm() {
           </span>
           <input
             type="email"
-            id="emergencyContactEmail"
-            name="emergencyContactEmail"
-            value={formData.emergencyContactEmail}
+            id="emergency_c_email"
+            name="emergency_c_email"
+            value={formData.emergency_c_email}
             onChange={handleInputChange}
             placeholder="Enter emergency contact email"
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
           />
         </div>
       </div>
+      </div>
+
+      
     </div>
   );
 
@@ -518,6 +708,10 @@ export default function StudentApplicationForm() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Complete your application form by filling out all the required information.
         </p>
+
+        {validationMessage && <p className="mt-1 text-sm text-red-500 dark:text-red-400">
+          {validationMessage}
+        </p>}
       </div>
       
       {/* Tab Navigation */}

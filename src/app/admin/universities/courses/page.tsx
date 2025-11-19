@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -10,8 +10,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
 import { Edit, Trash, Book, Building2, GraduationCap, Star, DollarSign } from "lucide-react";
-// import { Eye } from "lucide-react";
-
+import { useAuth } from "@/context/AuthContext";
 
 interface Course {
   id: number;
@@ -19,7 +18,6 @@ interface Course {
   universityName: string;
   discipline: string;
   studyLevel: string;
-  // intake: string;
   applicationFee: string;
   externalEvaluation: "yes" | "no";
   popular: "yes" | "no";
@@ -27,113 +25,50 @@ interface Course {
   createdAt: string;
 }
 
-// Define the table data using the interface
-const tableData: Course[] = [
-  {
-    id: 1,
-    courseName: "Master of Computer Science",
-    universityName: "Stanford University",
-    discipline: "Computer Science",
-    studyLevel: "Postgraduate",
-    // intake: "Fall 2024",
-    applicationFee: "$100",
-    externalEvaluation: "yes",
-    popular: "yes",
-    status: "active",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: 2,
-    courseName: "MBA",
-    universityName: "Harvard University",
-    discipline: "Business Administration",
-    studyLevel: "Postgraduate",
-    // intake: "Fall 2024",
-    applicationFee: "$250",
-    externalEvaluation: "yes",
-    popular: "yes",
-    status: "active",
-    createdAt: "2024-02-20",
-  },
-  {
-    id: 3,
-    courseName: "Bachelor of Engineering",
-    universityName: "MIT",
-    discipline: "Engineering",
-    studyLevel: "Undergraduate",
-    // intake: "Spring 2025",
-    applicationFee: "$75",
-    externalEvaluation: "no",
-    popular: "no",
-    status: "active",
-    createdAt: "2024-01-28",
-  },
-  {
-    id: 4,
-    courseName: "PhD in Physics",
-    universityName: "University of Oxford",
-    discipline: "Physics",
-    studyLevel: "PhD",
-    // intake: "Fall 2024",
-    applicationFee: "$120",
-    externalEvaluation: "yes",
-    popular: "no",
-    status: "inactive",
-    createdAt: "2024-03-10",
-  },
-  {
-    id: 5,
-    courseName: "Diploma in Data Science",
-    universityName: "University of Toronto",
-    discipline: "Data Science",
-    studyLevel: "Diploma",
-    // intake: "Summer 2025",
-    applicationFee: "$80",
-    externalEvaluation: "no",
-    popular: "yes",
-    status: "active",
-    createdAt: "2024-02-05",
-  },
-  {
-    id: 6,
-    courseName: "Bachelor of Arts",
-    universityName: "University of Cambridge",
-    discipline: "Arts & Humanities",
-    studyLevel: "Undergraduate",
-    // intake: "Fall 2024",
-    applicationFee: "$90",
-    externalEvaluation: "no",
-    popular: "no",
-    status: "active",
-    createdAt: "2024-01-20",
-  },
-  {
-    id: 7,
-    courseName: "Master of Public Health",
-    universityName: "Johns Hopkins University",
-    discipline: "Medicine",
-    studyLevel: "Postgraduate",
-    // intake: "Spring 2025",
-    applicationFee: "$150",
-    externalEvaluation: "yes",
-    popular: "yes",
-    status: "active",
-    createdAt: "2024-03-15",
-  },
-  {
-    id: 8,
-    courseName: "Certificate in Digital Marketing",
-    universityName: "University of Sydney",
-    discipline: "Marketing",
-    studyLevel: "Certificate",
-    // intake: "Rolling",
-    applicationFee: "$60",
-    externalEvaluation: "no",
-    popular: "yes",
-    status: "inactive",
-    createdAt: "2024-02-28",
-  },
-];
+// API Response Interface
+interface ApiCourse {
+  id: number;
+  tenant_id: number;
+  university_id: number;
+  study_level_id: number;
+  discipline_id: number;
+  partner_type_id: number;
+  collaboration_type_id: number;
+  university_type_id: number;
+  course_name: string;
+  course_slug: string;
+  is_popular: number;
+  duration_min: number;
+  duration_max: number;
+  duration_unit: string;
+  tuition_fee: string;
+  currency_code: string;
+  application_fee: string;
+  gre_score: string | null;
+  gmat_score: string | null;
+  ielts_score: string | null;
+  toefl_score: string | null;
+  pte_score: string | null;
+  sat_score: string | null;
+  act_score: string | null;
+  duolingo_score: string | null;
+  gpa_score: string | null;
+  about_course: string;
+  admission_requirements: string;
+  created_at: string;
+  updated_at: string;
+  university_name: string;
+  study_level_name: string;
+  discipline_name: string;
+  partner_type_name: string;
+  university_type_name: string;
+  collaboration_type_name: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: ApiCourse[];
+}
 
 type SortField = keyof Course | "";
 type SortDirection = "asc" | "desc";
@@ -344,6 +279,10 @@ const FilterModal: React.FC<FilterModalProps> = ({
 };
 
 export default function CoursesTable() {
+  const { token } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -357,32 +296,89 @@ export default function CoursesTable() {
     externalEvaluation: "all",
   });
 
-  // Get unique values for filters
+  // Fetch courses from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!token) {
+        setError("Authentication token not found");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+        
+        const response = await fetch(`${BASE_URL}/tenant/course/list`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result: ApiResponse = await response.json();
+        
+        if (result.success && result.data) {
+          // Transform API data to match Course interface
+          const transformedCourses: Course[] = result.data.map((apiCourse: ApiCourse) => ({
+            id: apiCourse.id,
+            courseName: apiCourse.course_name,
+            universityName: apiCourse.university_name,
+            discipline: apiCourse.discipline_name,
+            studyLevel: apiCourse.study_level_name,
+            applicationFee: `${apiCourse.currency_code} ${apiCourse.application_fee}`,
+            externalEvaluation: "no", // Default value since not in API
+            popular: apiCourse.is_popular === 1 ? "yes" : "no",
+            status: "active", // Default value since not in API
+            createdAt: apiCourse.created_at,
+          }));
+
+          setCourses(transformedCourses);
+        } else {
+          setCourses([]);
+        }
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+        setError('Failed to load courses. Please try again.');
+        setCourses([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, [token]);
+
+  // Get unique values for filters from actual data
   const universities = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.universityName)));
-  }, []);
+    return Array.from(new Set(courses.map(course => course.universityName)));
+  }, [courses]);
 
   const disciplines = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.discipline)));
-  }, []);
+    return Array.from(new Set(courses.map(course => course.discipline)));
+  }, [courses]);
 
   const studyLevels = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.studyLevel)));
-  }, []);
+    return Array.from(new Set(courses.map(course => course.studyLevel)));
+  }, [courses]);
 
   const statuses = useMemo(() => {
-    return Array.from(new Set(tableData.map(course => course.status)));
-  }, []);
+    return Array.from(new Set(courses.map(course => course.status)));
+  }, [courses]);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((course) => {
+    const filtered = courses.filter((course) => {
       const matchesSearch = 
         course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.universityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.discipline.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.studyLevel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        // course.intake.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.applicationFee.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesUniversity = filters.universityName === "all" || course.universityName === filters.universityName;
@@ -418,7 +414,7 @@ export default function CoursesTable() {
     }
 
     return filtered;
-  }, [searchTerm, filters, sortField, sortDirection]);
+  }, [courses, searchTerm, filters, sortField, sortDirection]);
 
   const handleSort = (field: keyof Course) => {
     if (sortField === field) {
@@ -480,12 +476,56 @@ export default function CoursesTable() {
     });
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this course?")) {
-      console.log("Delete course:", id);
-      // Perform delete operation
+      try {
+        // TODO: Implement delete API call
+        // const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+        // const response = await fetch(`${BASE_URL}/tenant/course/delete/${id}`, {
+        //   method: 'DELETE',
+        //   headers: {
+        //     'Authorization': `Bearer ${token}`,
+        //   },
+        // });
+        
+        // if (response.ok) {
+        //   // Remove course from local state
+        //   setCourses(prev => prev.filter(course => course.id !== id));
+        // } else {
+        //   throw new Error('Failed to delete course');
+        // }
+        
+        console.log("Delete course:", id);
+        // For now, just remove from local state
+        setCourses(prev => prev.filter(course => course.id !== id));
+      } catch (err) {
+        console.error('Error deleting course:', err);
+        alert('Failed to delete course. Please try again.');
+      }
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 dark:text-red-400 mb-4">{error}</div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -566,7 +606,7 @@ export default function CoursesTable() {
             </svg>
             Apply Filters
           </button>
-          <Link href="/admin/courses/add">
+          <Link href="/admin/universities/courses/add">
             <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -627,7 +667,6 @@ export default function CoursesTable() {
                     { key: "universityName", label: "University" },
                     { key: "discipline", label: "Discipline" },
                     { key: "studyLevel", label: "Study Level" },
-                    // { key: "intake", label: "Intake" },
                     { key: "applicationFee", label: "Application Fee" },
                     { key: "externalEvaluation", label: "Ext. Evaluation" },
                     { key: "popular", label: "Popular" },
@@ -693,14 +732,6 @@ export default function CoursesTable() {
                           </Badge>
                         </div>
                       </TableCell>
-                      {/* <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <span className="text-gray-600 text-theme-sm dark:text-gray-400">
-                            {course.intake}
-                          </span>
-                        </div>
-                      </TableCell> */}
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
                           <DollarSign size={14} className="text-gray-400" />
@@ -747,13 +778,6 @@ export default function CoursesTable() {
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
-                          {/* <Link
-                            href={`/admin/courses/view/${course.id}`}
-                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                            title="View Course"
-                          >
-                            <Eye size={18} />
-                          </Link> */}
                           <Link
                             href={`/admin/universities/courses/edit/${course.id}`}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
@@ -775,7 +799,6 @@ export default function CoursesTable() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       No courses found matching your criteria.
@@ -790,7 +813,7 @@ export default function CoursesTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} courses
+        Showing {filteredAndSortedData.length} of {courses.length} courses
       </div>
 
       {/* Filter Modal */}

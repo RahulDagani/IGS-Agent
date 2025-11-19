@@ -4,6 +4,9 @@ import { useState } from "react";
 import { LogIn, ChevronLeftIcon, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+
+
 
 interface FormData {
   name: string;
@@ -141,6 +144,8 @@ export default function AgentRegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const { login } = useAuth();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -148,9 +153,10 @@ export default function AgentRegisterPage() {
     if (!validateForm()) return;
 
     setLoading(true);
-
+    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+    
     try {
-      const response = await fetch("/api/auth/register/agent", {
+      const response = await fetch(`${BASE_URL}/agent/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -159,19 +165,33 @@ export default function AgentRegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          phoneNumber: formData.phoneNumber,
+          phone_number: formData.phoneNumber,
         }),
       });
 
       const data = await response.json();
+      
+      if (data.success) {
 
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed");
+        const { user, token } = data.data;
+
+        if(user && token){
+          login(user, token);
+            // Redirect to intended page or partner dashboard
+            router.push('/register/agent/onboarding/business');
+          
+        }else{  
+          throw new Error(data.message || "Registration failed");
+        }
+        
+      }else{
+        throw new Error(data.message || "Registration failed");
       }
 
       // Redirect to success page or login
-      router.push("/partner");
+      // router.push("/partner");
     } catch (error) {
+      
       setErrors({ submit: error instanceof Error ? error.message : "Registration failed" });
     } finally {
       setLoading(false);

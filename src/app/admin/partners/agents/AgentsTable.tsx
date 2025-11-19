@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -9,6 +9,17 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+
+interface ApiAgent {
+  user_id: number;
+  name: string;
+  business_name: string | null;
+  email: string;
+  phone: string | null;
+  is_agent_verified: number;
+  is_payment_verified: number;
+}
 
 interface Agent {
   id: number;
@@ -19,62 +30,79 @@ interface Agent {
   status: "approved" | "pending approval" | "payment verification pending";
 }
 
-// Define the table data using the interface
-const tableData: Agent[] = [
-  {
-    id: 1,
-    name: "John Smith",
-    businessName: "Smith Realty",
-    email: "john.smith@example.com",
-    phoneNumber: "+1 (555) 123-4567",
-    status: "approved",
-  },
-  {
-    id: 2,
-    name: "Sarah Johnson",
-    businessName: "Johnson Properties",
-    email: "sarah.j@example.com",
-    phoneNumber: "+1 (555) 987-6543",
-    status: "pending approval",
-  },
-  {
-    id: 3,
-    name: "Mike Chen",
-    businessName: "Urban Living Realty",
-    email: "mike.chen@example.com",
-    phoneNumber: "+1 (555) 456-7890",
-    status: "payment verification pending",
-  },
-  {
-    id: 4,
-    name: "Emily Davis",
-    businessName: "Davis & Co Real Estate",
-    email: "emily.davis@example.com",
-    phoneNumber: "+1 (555) 234-5678",
-    status: "approved",
-  },
-  {
-    id: 5,
-    name: "Robert Wilson",
-    businessName: "Wilson Properties Group",
-    email: "r.wilson@example.com",
-    phoneNumber: "+1 (555) 876-5432",
-    status: "pending approval",
-  },
-];
-
 type SortField = keyof Agent | "";
 type SortDirection = "asc" | "desc";
 
 export default function AgentTable() {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  const {token} = useAuth();
+
+  // Fetch agents from API
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${BASE_URL}/tenant/agent/list`,{
+          headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.data)) {
+          // Transform API data to match our component's interface
+          const transformedAgents: Agent[] = data.data.map((apiAgent: ApiAgent) => ({
+            id: apiAgent.user_id,
+            name: apiAgent.name || "N/A",
+            businessName: apiAgent.business_name || "N/A",
+            email: apiAgent.email,
+            phoneNumber: apiAgent.phone || "N/A",
+            status: getAgentStatus(apiAgent.is_agent_verified, apiAgent.is_payment_verified)
+          }));
+          
+          setAgents(transformedAgents);
+        } else {
+          throw new Error("Invalid API response format");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred while fetching agents");
+        console.error("Error fetching agents:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAgents();
+  }, []);
+
+  // Helper function to determine status based on verification flags
+  const getAgentStatus = (isAgentVerified: number, isPaymentVerified: number): Agent["status"] => {
+    if (isAgentVerified === 1) {
+      return "approved";
+    } else if (isPaymentVerified === 0) {
+      return "payment verification pending";
+    } else {
+      return "pending approval";
+    }
+  };
+
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((agent) => {
+    const filtered = agents.filter((agent) => {
       const matchesSearch = 
         agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,7 +135,7 @@ export default function AgentTable() {
     }
 
     return filtered;
-  }, [searchTerm, statusFilter, sortField, sortDirection]);
+  }, [agents, searchTerm, statusFilter, sortField, sortDirection]);
 
   const handleSort = (field: keyof Agent) => {
     if (sortField === field) {
@@ -142,6 +170,22 @@ export default function AgentTable() {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="text-lg">Loading agents...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="text-lg text-red-500">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -206,6 +250,7 @@ export default function AgentTable() {
                     { key: "email", label: "Email" },
                     { key: "phoneNumber", label: "Phone Number" },
                     { key: "status", label: "Status" },
+                    { key: "students", label: "Students" },
                   ].map(({ key, label }) => (
                     <TableCell
                       key={key}
@@ -233,7 +278,6 @@ export default function AgentTable() {
                             {agent.name}
                           </span>
                         </Link>
-
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-800 text-start text-theme-sm dark:text-white/90">
                         {agent.businessName}
@@ -251,6 +295,15 @@ export default function AgentTable() {
                         >
                           {formatStatus(agent.status)}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-blue-500 text-start text-theme-sm dark:text-blue-400">
+                        <Link 
+                        href={`/admin/partners/agents/${agent.id}/students`}
+                        className="cursor-pointer"
+                        >
+                          View 
+                        </Link>
+                        
                       </TableCell>
                     </TableRow>
                   ))
@@ -272,7 +325,7 @@ export default function AgentTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} agents
+        Showing {filteredAndSortedData.length} of {agents.length} agents
       </div>
     </div>
   );

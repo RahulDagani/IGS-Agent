@@ -62,7 +62,7 @@ export function withAuth<
 
         setUser(userData);
       } catch (error) {
-        const loginPath = pathname.startsWith('/partner') ? '/agent-login' : '/login';
+        const loginPath = pathname.startsWith('/partner') ? '/agent-login' : '/signin';
         router.push(`${loginPath}?callbackUrl=${encodeURIComponent(pathname)}`);
       } finally {
         setLoading(false);
