@@ -12,7 +12,7 @@ import RoleGuard from "@/components/RoleGuard";
 // Define the props interface for the layout
 interface AdminLayoutProps {
   children: React.ReactNode;
-  user: SessionPayload;
+  user?: SessionPayload;
 }
 
 

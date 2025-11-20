@@ -12,7 +12,7 @@ import RoleGuard from "@/components/RoleGuard";
 
 interface PartnerLayoutProps {
   children: React.ReactNode;
-  user: SessionPayload;
+  user?: SessionPayload;
 }
 
 function PartnerLayout({ children, user }: PartnerLayoutProps) {
