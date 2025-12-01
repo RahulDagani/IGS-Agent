@@ -5,18 +5,16 @@ import AppHeader from "./layout/AppHeader";
 import AppSidebar from "./layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
-import { SessionPayload } from '@/lib/auth';
 import RoleGuard from "@/components/RoleGuard";
 
 
 // Define the props interface for the layout
 interface AdminLayoutProps {
   children: React.ReactNode;
-  user?: SessionPayload;
 }
 
 
-function AdminLayout({ children, user }: AdminLayoutProps) {
+function AdminLayout({ children }: AdminLayoutProps) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   // Dynamic class for main content margin based on sidebar state

@@ -6,16 +6,14 @@ import AppSidebar from "./AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
 
-import { SessionPayload } from '@/lib/auth';
 
 import RoleGuard from "@/components/RoleGuard";
 
 interface PartnerLayoutProps {
   children: React.ReactNode;
-  user?: SessionPayload;
 }
 
-export default function StudentLayout({ children, user }: PartnerLayoutProps) {
+export default function StudentLayout({ children }: PartnerLayoutProps) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   // Dynamic class for main content margin based on sidebar state
