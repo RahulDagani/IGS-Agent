@@ -10,6 +10,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
 
 interface ApiStudent {
   user_id: number;
@@ -383,11 +384,13 @@ export default function StudentTable() {
                 ) : filteredAndSortedData.length > 0 ? (
                   filteredAndSortedData.map((student) => (
                     <TableRow key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <Link href={`/admin/partners/agents/students/${student.id}`}>
                       <TableCell className="px-5 py-4 text-start">
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {student.fullName}
                         </span>
                       </TableCell>
+                      </Link>
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {student.email}
                       </TableCell>

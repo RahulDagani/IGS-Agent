@@ -100,7 +100,7 @@ export default function ResourcesPage() {
     title: "",
     description: "",
     resource_type: "guide" as Resource['resource_type'],
-    audience_type: "agent" as Resource['audience_type'],
+    audience_type: "student" as Resource['audience_type'],
     url: "",
     thumbnail: null as File | null
   })
@@ -109,7 +109,7 @@ export default function ResourcesPage() {
     title: "",
     description: "",
     resource_type: "guide" as Resource['resource_type'],
-    audience_type: "agent" as Resource['audience_type'],
+    audience_type: "student" as Resource['audience_type'],
     url: "",
     thumbnail: null as File | null | string
   })
@@ -211,7 +211,7 @@ export default function ResourcesPage() {
       title: "",
       description: "",
       resource_type: "guide",
-      audience_type: "agent",
+      audience_type: "student",
       url: "",
       thumbnail: null
     })
@@ -224,7 +224,7 @@ export default function ResourcesPage() {
       title: "",
       description: "",
       resource_type: "guide",
-      audience_type: "agent",
+      audience_type: "student",
       url: "",
       thumbnail: null
     })
@@ -905,7 +905,7 @@ export default function ResourcesPage() {
                               className="h-10 w-10 rounded-lg object-cover"
                             />
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-900 dark:text-white bg-blue-100 dark:bg-blue-900/30">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
                               {getResourceTypeIcon(resource.resource_type)}
                             </div>
                           )}

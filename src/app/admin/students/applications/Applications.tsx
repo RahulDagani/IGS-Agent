@@ -43,8 +43,6 @@ interface Application {
   assignedTo: string;
   studentName: string;
   studentEmail: string;
-  // agentName: string;
-  // agentEmail: string;
   country?: string;
   degree?: string;
   location?: string;
@@ -55,16 +53,12 @@ interface Application {
   profileStatus: string;
   commonDocumentsStatus: string;
   specificDocumentsStatus: string;
-  // New fields for update status functionality
   current_status_id?: number;
   student_user_id?: number;
   created_by?: number;
-  // Store document lists
   commonDocuments?: CommonDocument[];
   specificDocuments?: SpecificDocument[];
 }
-
-
 
 interface Student {
   user_id: number;
@@ -117,6 +111,23 @@ interface DocumentsModalProps {
   title: string;
   documents: CommonDocument[] | SpecificDocument[] | undefined;
   loading: boolean;
+  onRequestDocument?: (documentData: DocumentRequestData) => Promise<void>;
+  showRequestButton?: boolean;
+  applicationId?: number;
+}
+
+interface DocumentRequestData {
+  document_name: string;
+  is_mandatory: number;
+  remarks: string;
+}
+
+interface DocumentRequestModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: DocumentRequestData) => Promise<void>;
+  loading: boolean;
+  applicationId: number;
 }
 
 interface ApiApplicationResponse {
@@ -222,11 +233,10 @@ const FilterModal: React.FC<FilterModalProps> = ({
     setSelectedStudent("all");
   };
 
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
       <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -243,8 +253,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
 
         <div className="space-y-4">
-          
-
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Student
@@ -302,7 +310,6 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({
 
   useEffect(() => {
     if (application && statuses.length > 0) {
-      // Set the current status of the application as default
       const currentStatus = statuses.find(status => status.id === application.current_status_id);
       setSelectedStatus(currentStatus ? currentStatus.id.toString() : "");
     }
@@ -324,7 +331,7 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({
   if (!isOpen || !application) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
       <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -394,14 +401,170 @@ const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({
   );
 };
 
+const DocumentRequestModal: React.FC<DocumentRequestModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  loading,
+  // applicationId,
+}) => {
+  const [documentName, setDocumentName] = useState<string>("");
+  const [isMandatory, setIsMandatory] = useState<number>(1);
+  const [remarks, setRemarks] = useState<string>("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!documentName.trim()) {
+      alert("Please enter a document name");
+      return;
+    }
+
+    const documentData: DocumentRequestData = {
+      document_name: documentName,
+      is_mandatory: isMandatory,
+      remarks: remarks.trim() || "Please upload the requested document",
+    };
+
+    await onSubmit(documentData);
+    
+    // Reset form
+    setDocumentName("");
+    setIsMandatory(1);
+    setRemarks("");
+  };
+
+  const handleClose = () => {
+    setDocumentName("");
+    setIsMandatory(1);
+    setRemarks("");
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Request Additional Document
+          </h3>
+          <button
+            onClick={handleClose}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            disabled={loading}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Document Name *
+              </label>
+              <input
+                type="text"
+                value={documentName}
+                onChange={(e) => setDocumentName(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                placeholder="e.g., IELTS Certificate, Work Experience Letter"
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Document Requirement
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="1"
+                    checked={isMandatory === 1}
+                    onChange={() => setIsMandatory(1)}
+                    className="mr-2"
+                    disabled={loading}
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Mandatory</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="0"
+                    checked={isMandatory === 0}
+                    onChange={() => setIsMandatory(0)}
+                    className="mr-2"
+                    disabled={loading}
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Optional</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Remarks / Instructions
+              </label>
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                placeholder="Please provide clear instructions for the document..."
+                rows={3}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Sending Request..." : "Send Request"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const DocumentsModal: React.FC<DocumentsModalProps> = ({
   isOpen,
   onClose,
   title,
   documents,
-  loading
+  loading,
+  onRequestDocument,
+  showRequestButton = false,
+  applicationId,
 }) => {
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  
   if (!isOpen) return null;
+  const handleRequestDocument = async (documentData: DocumentRequestData) => {
+    if (onRequestDocument) {
+      await onRequestDocument(documentData);
+      setShowRequestModal(false);
+    }
+  };
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -426,101 +589,123 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            {title}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-gray-500">Loading documents...</div>
-            </div>
-          ) : !documents || documents.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              No documents found
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {documents.map((doc) => (
-                <div 
-                  key={doc.id} 
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+    <>
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+              {title}
+            </h3>
+            <div className="flex items-center gap-3">
+              {showRequestButton && onRequestDocument && (
+                <button
+                  onClick={() => setShowRequestModal(true)}
+                  className="px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 transition-colors"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-medium text-gray-800 dark:text-white">
-                        {doc.document_name}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Type: {getDocumentType(doc)} | 
-                        {doc.is_mandatory ? ' Required' : ' Optional'}
-                      </p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                      {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                    </span>
-                  </div>
-                  
-                  {doc.uploaded_at && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                      Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}
-                    </p>
-                  )}
-                  
-                  {doc.remarks && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                      <strong>Remarks:</strong> {doc.remarks}
-                    </p>
-                  )}
-                  
-                  {doc.file_url ? (
-                    <div className="mt-3">
-                      <a
-                        href={`https://api.applystore.org/${doc.file_url}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        View Document
-                      </a>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                      No file uploaded
-                    </p>
-                  )}
-                </div>
-              ))}
+                  + Request Document
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Close
-          </button>
+          <div className="flex-1 overflow-y-auto p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-gray-500">Loading documents...</div>
+              </div>
+            ) : !documents || documents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No documents found
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {documents.map((doc) => (
+                  <div 
+                    key={doc.id} 
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-medium text-gray-800 dark:text-white">
+                          {doc.document_name}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Type: {getDocumentType(doc)} | 
+                          {doc.is_mandatory ? ' Required' : ' Optional'}
+                        </p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
+                        {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                      </span>
+                    </div>
+                    
+                    {doc.uploaded_at && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}
+                      </p>
+                    )}
+                    
+                    {doc.remarks && (
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                        <strong>Remarks:</strong> {doc.remarks}
+                      </p>
+                    )}
+                    
+                    {doc.file_url ? (
+                      <div className="mt-3">
+                        <a
+                          href={`https://api.applystore.org/${doc.file_url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View Document
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        No file uploaded
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {showRequestModal && applicationId && (
+        <DocumentRequestModal
+          isOpen={showRequestModal}
+          onClose={() => setShowRequestModal(false)}
+          onSubmit={handleRequestDocument}
+          loading={loading}
+          applicationId={applicationId}
+        />
+      )}
+    </>
   );
 };
 
@@ -550,13 +735,15 @@ interface ApplicationCardProps {
   onUpdateStatus: (application: Application) => void;
   onViewCommonDocs: (application: Application) => void;
   onViewSpecificDocs: (application: Application) => void;
+  onRequestAdditionalDoc: (application: Application) => void;
 }
 
 const ApplicationCard: React.FC<ApplicationCardProps> = ({ 
   application, 
   onUpdateStatus,
   onViewCommonDocs,
-  onViewSpecificDocs 
+  onViewSpecificDocs,
+  onRequestAdditionalDoc
 }) => {
   const getStatusColor = (status: Application["status"]) => {
     switch (status) {
@@ -665,20 +852,18 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({
         <p className="text-sm font-semibold text-red-500 mb-3">Pending</p>
         <div className="flex justify-between items-center text-center">
           <Link href={"/admin/students/" + application.student_user_id + "/details"}>
-
-          <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-              application.profileStatus === "complete" ? "bg-green-100" : "bg-red-100"
-            }`}>
-              <span className={`text-lg font-bold ${
-                application.profileStatus === "complete" ? "text-green-500" : "text-red-500"
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
+                application.profileStatus === "complete" ? "bg-green-100" : "bg-red-100"
               }`}>
-                {getDocumentStatusIcon(application.profileStatus)}
-              </span>
+                <span className={`text-lg font-bold ${
+                  application.profileStatus === "complete" ? "text-green-500" : "text-red-500"
+                }`}>
+                  {getDocumentStatusIcon(application.profileStatus)}
+                </span>
+              </div>
+              <p className="text-xs dark:text-white">Common Form</p>
             </div>
-            <p className="text-xs dark:text-white">Common Form</p>
-          </div>
-
           </Link>
           
           <div 
@@ -725,6 +910,16 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({
         >
           Update Status
         </button>
+        
+      </div>
+      <div className="mt-6 flex gap-3">
+        
+        <button 
+          onClick={() => onRequestAdditionalDoc(application)}
+          className="flex-1 border border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
+        >
+          Request Doc
+        </button>
       </div>
     </div>
   );
@@ -749,7 +944,8 @@ export default function ApplicationsTable() {
     students: false,
     applications: false,
     statuses: false,
-    updatingStatus: false
+    updatingStatus: false,
+    requestingDocument: false
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -844,19 +1040,15 @@ export default function ApplicationsTable() {
             assignedTo: app.application.assigned_to || "Not Assigned",
             studentName: `${app.student_profile.first_name} ${app.student_profile.last_name}`,
             studentEmail: "student@example.com", // You might want to get this from student data
-            // agentName: "Agent Name", // You might want to get this from agent data
-            // agentEmail: "agent@example.com", // You might want to get this from agent data
             country: app.application.university_country,
             degree: app.application.study_level_name,
             location: `${app.application.university_city}, ${app.application.university_state}`,
-            externalEvaluation: "Not Provided", // You might want to get this from the API if available
+            externalEvaluation: "Not Provided",
             profileStatus: app.profile_status,
             commonDocumentsStatus: app.common_documents.status,
             specificDocumentsStatus: app.specific_documents.status,
-            // Store document lists
             commonDocuments: app.common_documents.list,
             specificDocuments: app.specific_documents.list,
-            // New fields for update status functionality
             current_status_id: app.application.current_status_id,
             student_user_id: app.application.student_user_id,
             created_by: app.application.created_by
@@ -901,6 +1093,88 @@ export default function ApplicationsTable() {
     setIsSpecificDocsModalOpen(true);
   };
 
+  const handleRequestAdditionalDoc = (application: Application) => {
+    setSelectedApplication(application);
+    handleViewSpecificDocs(application);
+  };
+
+  const handleRequestDocument = async (documentData: DocumentRequestData) => {
+    if (!selectedApplication) return;
+
+    setLoading(prev => ({ ...prev, requestingDocument: true }));
+    try {
+      const response = await fetch(
+        `${BASE_URL}/tenant/application/document/request/${selectedApplication.id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(documentData)
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Show success message
+        alert('Document request sent successfully!');
+        
+        // Refresh the applications to show the new document request
+        // You might want to implement a more efficient way to update the specific documents list
+        const url = filters.student !== "all" 
+          ? `${BASE_URL}/tenant/student/application/list/${filters.student}`
+          : `${BASE_URL}/tenant/student/application/list`;
+
+        const refreshResponse = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const refreshData: ApiResponse = await refreshResponse.json();
+        
+        if (refreshData.success) {
+          const updatedApplications: Application[] = refreshData.data.map((app: ApiApplicationResponse) => ({
+            id: app.application.id,
+            university: app.application.university_name,
+            course: app.application.course_name,
+            intake: "Fall 2024",
+            status: app.application.status_label,
+            assignedTo: app.application.assigned_to || "Not Assigned",
+            studentName: `${app.student_profile.first_name} ${app.student_profile.last_name}`,
+            studentEmail: "student@example.com",
+            country: app.application.university_country,
+            degree: app.application.study_level_name,
+            location: `${app.application.university_city}, ${app.application.university_state}`,
+            externalEvaluation: "Not Provided",
+            profileStatus: app.profile_status,
+            commonDocumentsStatus: app.common_documents.status,
+            specificDocumentsStatus: app.specific_documents.status,
+            commonDocuments: app.common_documents.list,
+            specificDocuments: app.specific_documents.list,
+            current_status_id: app.application.current_status_id,
+            student_user_id: app.application.student_user_id,
+            created_by: app.application.created_by
+          }));
+          
+          setApplications(updatedApplications);
+        }
+      } else {
+        throw new Error(data.message || 'Failed to request document');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send document request';
+      setError(errorMessage);
+      console.error('Error requesting document:', err);
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setLoading(prev => ({ ...prev, requestingDocument: false }));
+    }
+  };
+
   const handleUpdateStatus = async (applicationId: number, statusId: number) => {
     if (!selectedApplication) return;
 
@@ -925,7 +1199,6 @@ export default function ApplicationsTable() {
       const data = await response.json();
 
       if (data.success) {
-        // Update the application in the local state
         setApplications(prev => prev.map(app => {
           if (app.id === applicationId) {
             const newStatus = applicationStatuses.find(status => status.id === statusId);
@@ -1024,6 +1297,7 @@ export default function ApplicationsTable() {
                 onUpdateStatus={handleUpdateStatusClick}
                 onViewCommonDocs={handleViewCommonDocs}
                 onViewSpecificDocs={handleViewSpecificDocs}
+                onRequestAdditionalDoc={handleRequestAdditionalDoc}
               />
             ))
           ) : (
@@ -1076,6 +1350,9 @@ export default function ApplicationsTable() {
         title={selectedModalTitle}
         documents={selectedDocuments}
         loading={false}
+        onRequestDocument={handleRequestDocument}
+        showRequestButton={true}
+        applicationId={selectedApplication?.id || 0}
       />
     </div>
   );

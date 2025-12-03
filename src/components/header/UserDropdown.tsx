@@ -47,7 +47,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         try {
           setLoading(true);
           
-          const response = await fetch(`${BASE_URL}/superadmin/profile`, {
+          const response = await fetch(`${BASE_URL}/tenant/profile`, {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`

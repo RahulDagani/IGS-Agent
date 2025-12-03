@@ -7,6 +7,7 @@ interface ProfileData {
   email: string;
   name: string;
   phone_number: string;
+  company_name: string;
   profile: string;
   created_at: string;
   updated_at: string;
@@ -31,6 +32,7 @@ export default function SuperAdminProfilePage() {
     email: "",
     name: "",
     phone_number: "",
+    company_name: "",
     profile: "",
     created_at: "",
     updated_at: ""
@@ -146,6 +148,7 @@ export default function SuperAdminProfilePage() {
       formData.append('name', profileData.name.trim());
       formData.append('email', profileData.email);
       formData.append('phone_number', profileData.phone_number);
+      formData.append('company_name', profileData.company_name);
       
       // Only append profile image if a new one is selected
       if (profileImage) {
@@ -367,6 +370,22 @@ export default function SuperAdminProfilePage() {
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:border-white/[0.05] dark:bg-white/[0.03] dark:border-gray-600 dark:text-white"
                 placeholder="Enter your full name"
+              />
+            </div>
+
+            {/* company_name */}
+            <div>
+              <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Company Name
+              </label>
+              <input
+                type="text"
+                id="company_name"
+                name="company_name"
+                value={profileData.company_name}
+                onChange={handleProfileChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:border-white/[0.05] dark:bg-white/[0.03] dark:border-gray-600 dark:text-white"
+                placeholder="Enter your company name"
               />
             </div>
 

@@ -5,7 +5,7 @@ import React from "react";
 import Applications from "./Applications";
 
 export const metadata: Metadata = {
-  title: "Applications",
+  title: "Student Applications",
   description:
     "List of All Applications on your Student Platform",
   // other metadata
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function Application() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="Applications" />
+      <PageBreadcrumb pageTitle="Student Applications" />
       <div className="space-y-6">
         
           <Applications />
