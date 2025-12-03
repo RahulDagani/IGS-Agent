@@ -379,7 +379,7 @@ export default function TenantDashboard() {
     const colors = ['#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6'];
     
     return applicationsData.status_distribution.map((item, index) => ({
-      name: item.status.charAt(0).toUpperCase() + item.status.slice(1),
+      name: item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : "",
       value: item.count,
       color: colors[index % colors.length],
     }));
@@ -736,7 +736,7 @@ export default function TenantDashboard() {
                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                             : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                         }`}>
-                          {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                          {payment.status ? payment.status.charAt(0).toUpperCase() + payment.status.slice(1) : ""}
                         </span>
                       </td>
                     </tr>
