@@ -161,7 +161,7 @@ export default function StudyLevelsTable() {
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const token = useAuth();
+  const {token} = useAuth();
   
 
   // Fetch study levels from API

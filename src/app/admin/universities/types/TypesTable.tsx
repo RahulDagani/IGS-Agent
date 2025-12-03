@@ -162,7 +162,7 @@ export default function UniversityTypesTable() {
   const [universityTypes, setUniversityTypes] = useState<UniversityType[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-      const token = useAuth();
+      const {token} = useAuth();
 
 
   // Fetch university types from API
@@ -173,14 +173,9 @@ export default function UniversityTypesTable() {
       
       // Replace with your actual token
 
-      
-      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_university_types`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_partner_types`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
 
       if (!response.ok) {
         throw new Error(`Failed to fetch university types: ${response.status}`);

@@ -195,7 +195,7 @@ export default function DisciplinesTable() {
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const token = useAuth();
+  const {token} = useAuth();
 
   // Fetch disciplines from API
   const fetchDisciplines = async () => {

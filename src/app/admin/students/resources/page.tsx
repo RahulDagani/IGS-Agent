@@ -27,7 +27,7 @@ interface Resource {
   title: string
   description: string
   resource_type: 'video' | 'news' | 'guide' | 'link'
-  audience_type: 'student' | 'agent' | 'university' | 'all'
+  // audience_type: 'student' | 'agent' | 'university' | 'all'
   url: string
   thumbnail: string | null
   created_at: string
@@ -100,7 +100,7 @@ export default function ResourcesPage() {
     title: "",
     description: "",
     resource_type: "guide" as Resource['resource_type'],
-    audience_type: "student" as Resource['audience_type'],
+    // audience_type: "agent" as Resource['audience_type'],
     url: "",
     thumbnail: null as File | null
   })
@@ -109,7 +109,7 @@ export default function ResourcesPage() {
     title: "",
     description: "",
     resource_type: "guide" as Resource['resource_type'],
-    audience_type: "student" as Resource['audience_type'],
+    // audience_type: "agent" as Resource['audience_type'],
     url: "",
     thumbnail: null as File | null | string
   })
@@ -126,19 +126,19 @@ export default function ResourcesPage() {
   ]
 
   // Audience type options
-  const audienceTypes = [
-    { value: "student", label: "Student", icon: User },
-    { value: "agent", label: "Agent", icon: Users },
-    { value: "university", label: "University", icon: Building2 },
-    { value: "all", label: "All", icon: Globe }
-  ]
+  // const audienceTypes = [
+  //   { value: "student", label: "Student", icon: User },
+  //   { value: "agent", label: "Agent", icon: Users },
+  //   { value: "university", label: "University", icon: Building2 },
+  //   { value: "all", label: "All", icon: Globe }
+  // ]
 
   // Fetch resources with useCallback to prevent unnecessary re-renders
   const fetchResources = useCallback(async (page = 1, search = "") => {
     try {
       setLoading(true)
       const response = await fetch(
-        `${BASE_URL}/tenant/resources?page=${page}&limit=20${search ? `&search=${search}` : ''}`,
+        `${BASE_URL}/tenant/resources?audience=${"student"}&page=${page}&limit=20${search ? `&search=${search}` : ''}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -211,7 +211,7 @@ export default function ResourcesPage() {
       title: "",
       description: "",
       resource_type: "guide",
-      audience_type: "student",
+      // audience_type: "agent",
       url: "",
       thumbnail: null
     })
@@ -224,7 +224,7 @@ export default function ResourcesPage() {
       title: "",
       description: "",
       resource_type: "guide",
-      audience_type: "student",
+      // audience_type: "agent",
       url: "",
       thumbnail: null
     })
@@ -244,7 +244,7 @@ export default function ResourcesPage() {
       title: resource.title,
       description: resource.description,
       resource_type: resource.resource_type,
-      audience_type: resource.audience_type,
+      // audience_type: resource.audience_type,
       url: resource.url,
       thumbnail: resource.thumbnail
     })
@@ -331,7 +331,7 @@ export default function ResourcesPage() {
       formDataToSend.append('title', addFormData.title)
       formDataToSend.append('description', addFormData.description)
       formDataToSend.append('resource_type', addFormData.resource_type)
-      formDataToSend.append('audience_type', addFormData.audience_type)
+      formDataToSend.append('audience_type', "student")
       formDataToSend.append('url', addFormData.url)
       
       if (addFormData.thumbnail instanceof File) {
@@ -377,7 +377,7 @@ export default function ResourcesPage() {
       formDataToSend.append('title', editFormData.title)
       formDataToSend.append('description', editFormData.description)
       formDataToSend.append('resource_type', editFormData.resource_type)
-      formDataToSend.append('audience_type', editFormData.audience_type)
+      formDataToSend.append('audience_type', "student")
       formDataToSend.append('url', editFormData.url)
       
       if (editFormData.thumbnail instanceof File) {
@@ -449,10 +449,10 @@ export default function ResourcesPage() {
   }
 
   // Get audience type icon
-  const getAudienceTypeIcon = (type: Resource['audience_type']) => {
-    const typeConfig = audienceTypes.find(t => t.value === type)
-    return typeConfig ? React.createElement(typeConfig.icon, { size: 20 }) : <Users size={20} />
-  }
+  // const getAudienceTypeIcon = (type: Resource['audience_type']) => {
+  //   const typeConfig = audienceTypes.find(t => t.value === type)
+  //   return typeConfig ? React.createElement(typeConfig.icon, { size: 20 }) : <Users size={20} />
+  // }
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -569,7 +569,7 @@ export default function ResourcesPage() {
       </div>
 
       {/* Audience Type */}
-      <div>
+      {/* <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Audience Type *
         </label>
@@ -586,7 +586,7 @@ export default function ResourcesPage() {
             </option>
           ))}
         </select>
-      </div>
+      </div> */}
 
       {/* URL */}
       <div>
@@ -719,7 +719,7 @@ export default function ResourcesPage() {
       </div>
 
       {/* Audience Type */}
-      <div>
+      {/* <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Audience Type *
         </label>
@@ -736,7 +736,7 @@ export default function ResourcesPage() {
             </option>
           ))}
         </select>
-      </div>
+      </div> */}
 
       {/* URL */}
       <div>
@@ -882,9 +882,9 @@ export default function ResourcesPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Type
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Audience
-                    </th>
+                    </th> */}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Created
                     </th>
@@ -905,7 +905,7 @@ export default function ResourcesPage() {
                               className="h-10 w-10 rounded-lg object-cover"
                             />
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-900 dark:text-white bg-blue-100 dark:bg-blue-900/30">
                               {getResourceTypeIcon(resource.resource_type)}
                             </div>
                           )}
@@ -927,14 +927,14 @@ export default function ResourcesPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      {/* <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-gray-900 dark:text-white">
                           {getAudienceTypeIcon(resource.audience_type)}
                           <span className="text-sm text-gray-900 dark:text-white capitalize">
                             {resource.audience_type}
                           </span>
                         </div>
-                      </td>
+                      </td> */}
                       <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                         {formatDate(resource.created_at)}
                       </td>
@@ -1058,7 +1058,7 @@ export default function ResourcesPage() {
                   </span>
                 </div>
               </div>
-              <div>
+              {/* <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Audience</p>
                 <div className="flex items-center gap-2 mt-1">
                   {getAudienceTypeIcon(selectedResource.audience_type)}
@@ -1066,7 +1066,7 @@ export default function ResourcesPage() {
                     {selectedResource.audience_type}
                   </span>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div>

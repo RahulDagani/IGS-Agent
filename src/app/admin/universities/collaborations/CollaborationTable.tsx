@@ -161,7 +161,7 @@ export default function CollaborationTypesTable() {
   const [collaborationTypes, setCollaborationTypes] = useState<CollaborationType[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const token = useAuth();
+  const {token} = useAuth();
 
   // Fetch collaboration types from API
   const fetchCollaborationTypes = async () => {

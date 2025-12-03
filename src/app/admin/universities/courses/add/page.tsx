@@ -1001,6 +1001,17 @@ const renderIntakesTab = () => (
           {/* Navigation and Submit Buttons */}
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex gap-3">
+                <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              
               {activeTab !== "basics" && (
                 <button
                   type="button"
@@ -1032,16 +1043,7 @@ const renderIntakesTab = () => (
                   </svg>
                 </button>
               )}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
-              >
-                Cancel
-              </button>
+              {activeTab === "intakes" && (
               <button
                 type="submit"
                 disabled={isSubmitting || !token || isLoadingOptions}
@@ -1064,6 +1066,7 @@ const renderIntakesTab = () => (
                   </>
                 )}
               </button>
+              )}
             </div>
           </div>
         </form>

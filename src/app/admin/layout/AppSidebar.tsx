@@ -90,11 +90,11 @@ const partnerItems: NavItem[] = [
     name: "Setup ",
     icon: <Settings size={18} />,
     subItems: [
-      {
-        name: "Pages",
-        path: "/partners/commissions",
-        icon: <Book size={18} />,
-      },
+      // {
+      //   name: "Pages",
+      //   path: "/partners/commissions",
+      //   icon: <Book size={18} />,
+      // },
       {
         name: "Resources",
         path: "/partners/resources",
@@ -130,11 +130,11 @@ const studentItems: NavItem[] = [
     name: "Setup ",
     icon: <Settings size={18} />,
     subItems: [
-      {
-        name: "Pages",
-        path: "/students",
-        icon: <Book size={18} />,
-      },
+      // {
+      //   name: "Pages",
+      //   path: "/students",
+      //   icon: <Book size={18} />,
+      // },
       {
         name: "Resources",
         path: "/students/resources",
@@ -185,11 +185,11 @@ const universityAndCoursesItems: NavItem[] = [
         path: "/universities/disciplines",
         icon: <GraduationCap size={18} />,
       },
-      {
-        name: "Intakes",
-        path: "/universities/intakes",
-        icon: <GraduationCap size={18} />,
-      },
+      // {
+      //   name: "Intakes",
+      //   path: "/universities/intakes",
+      //   icon: <GraduationCap size={18} />,
+      // },
       
     ],
   },

@@ -449,12 +449,12 @@ export default function UniversitiesTable() {
             {Array.from(new Set(filteredAndSortedData.map(u => u.country_code))).length}
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+        {/* <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Partner Types</div>
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
             {Array.from(new Set(filteredAndSortedData.map(u => u.kind_of_partner_name))).length}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Search and Filter Controls */}
