@@ -192,8 +192,10 @@ export default function TenantDashboard() {
         ]);
 
         // Check all responses
-        if (!overviewRes.ok || !usageRes.ok || !applicationsRes.ok || !performanceRes.ok || !chartsRes.ok) {
-          throw new Error('Failed to fetch dashboard data');
+        const responses = [overviewRes, usageRes, applicationsRes, performanceRes, chartsRes];
+        const failedResponse = responses.find(res => !res.ok);
+        if (failedResponse) {
+          throw new Error(`Failed to fetch dashboard data: ${failedResponse.status}`);
         }
 
         // Parse all responses
@@ -204,6 +206,9 @@ export default function TenantDashboard() {
           performanceRes.json(),
           chartsRes.json(),
         ]);
+
+        // Debug logging
+        console.log('Charts data:', charts);
 
         // Set data if successful
         if (overview.success) setOverviewData(overview.data);
@@ -359,41 +364,88 @@ export default function TenantDashboard() {
     ];
   };
 
-  // Format data for charts
+  // Format data for charts - FIXED
   const getTrendChartData = () => {
-    if (!chartsData || !chartsData.trend_chart) return [];
+    if (!chartsData?.trend_chart || !chartsData.trend_chart.labels || !chartsData.trend_chart.data) {
+      // Return default empty data if no charts data
+      return [{ month: 'No Data', applications: 0 }];
+    }
     
-    return chartsData.trend_chart.labels.map((label, index) => ({
-      month: label,
-      applications: chartsData.trend_chart.data[index] || 0,
-    }));
+    try {
+      return chartsData.trend_chart.labels.map((label, index) => ({
+        month: label,
+        applications: chartsData.trend_chart.data[index] || 0,
+      }));
+    } catch (err) {
+      console.error('Error processing trend chart data:', err);
+      return [{ month: 'Error', applications: 0 }];
+    }
   };
 
   const getStatusChartData = () => {
-    if (!applicationsData || !applicationsData.status_distribution.length) {
-      return [
-        { name: 'No Data', value: 100, color: '#9CA3AF' }
-      ];
+    // First check if we have applicationsData with status_distribution
+    if (applicationsData?.status_distribution && applicationsData.status_distribution.length > 0) {
+      const colors = ['#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#8B5CF6'];
+      
+      return applicationsData.status_distribution.map((item, index) => ({
+        name: item.status && typeof item.status === 'string' && item.status.length > 0 
+          ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()
+          : `Status ${index + 1}`,
+        value: item.count || 0,
+        color: colors[index % colors.length],
+      }));
     }
     
-    const colors = ['#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6'];
+    // If no applicationsData, check chartsData
+    if (chartsData?.status_chart && chartsData.status_chart.labels && chartsData.status_chart.data) {
+      const colors = ['#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#8B5CF6'];
+      
+      try {
+        return chartsData.status_chart.labels.map((label, index) => {
+          // FIX: Check if label is defined and is a string before using charAt
+          const name = label && typeof label === 'string' && label.length > 0
+            ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase()
+            : `Status ${index + 1}`;
+            
+          return {
+            name,
+            value: chartsData.status_chart.data[index] || 0,
+            color: colors[index % colors.length],
+          };
+        }).filter(item => item.value > 0); // Only show items with value > 0
+      } catch (err) {
+        console.error('Error processing status chart data:', err);
+        return [{ name: 'Error', value: 100, color: '#9CA3AF' }];
+      }
+    }
     
-    return applicationsData.status_distribution.map((item, index) => ({
-      name: item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : "",
-      value: item.count,
-      color: colors[index % colors.length],
-    }));
+    // Default fallback
+    return [{ name: 'No Data', value: 100, color: '#9CA3AF' }];
   };
 
   const getUniversityChartData = () => {
-    if (!applicationsData || !applicationsData.popular_universities.length) {
-      return [];
+    // First check applicationsData
+    if (applicationsData?.popular_universities && applicationsData.popular_universities.length > 0) {
+      return applicationsData.popular_universities.slice(0, 5).map((uni) => ({
+        name: uni.university_name || 'Unknown University',
+        applications: uni.applications || 0,
+      }));
     }
     
-    return applicationsData.popular_universities.slice(0, 5).map((uni) => ({
-      name: uni.university_name,
-      applications: uni.applications,
-    }));
+    // Then check chartsData
+    if (chartsData?.university_chart && chartsData.university_chart.labels && chartsData.university_chart.data) {
+      try {
+        return chartsData.university_chart.labels.map((label, index) => ({
+          name: label || `University ${index + 1}`,
+          applications: chartsData.university_chart.data[index] || 0,
+        })).filter(uni => uni.applications > 0); // Only show universities with applications
+      } catch (err) {
+        console.error('Error processing university chart data:', err);
+        return [];
+      }
+    }
+    
+    return [];
   };
 
   if (loading) {
@@ -451,10 +503,9 @@ export default function TenantDashboard() {
               </div>
 
               {/* Value */}
-              {card.title == "Active Plan" 
-              ? <p className="font-bold text-gray-800 text-lg mb-3 dark:text-white/90">{card.value}</p>
-              : <p className="font-bold text-gray-800 text-title-sm dark:text-white/90">{card.value}</p>}
-              
+              <p className={`font-bold text-gray-800 ${card.title === "Active Plan" ? "text-lg mb-3" : "text-title-sm"} dark:text-white/90`}>
+                {card.value}
+              </p>
 
               {/* Note */}
               <p className={`text-xs ${card.noteColor}`}>{card.note}</p>
@@ -492,8 +543,11 @@ export default function TenantDashboard() {
                     contentStyle={{
                       backgroundColor: "#1F2937",
                       border: "none",
+                      borderRadius: "8px",
                       color: "#fff",
                     }}
+                    formatter={(value) => [`${value} applications`, 'Count']}
+                    labelFormatter={(label) => `Month: ${label}`}
                   />
                   <Line
                     type="monotone"
@@ -524,9 +578,10 @@ export default function TenantDashboard() {
                     data={statusChartData}
                     cx="50%"
                     cy="50%"
+                    labelLine={true}
                     outerRadius={90}
                     dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
+                    label={(entry) => `${entry.name}: ${entry.value}`}
                   >
                     {statusChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -536,8 +591,13 @@ export default function TenantDashboard() {
                     contentStyle={{
                       backgroundColor: "#1F2937",
                       border: "none",
+                      borderRadius: "8px",
                       color: "#fff",
                     }}
+                    formatter={(value, name, props) => [
+                      `${value} applications`,
+                      props.payload.name,
+                    ]}
                   />
                   <Legend />
                 </PieChart>
@@ -547,10 +607,10 @@ export default function TenantDashboard() {
         </div>
 
         {/* Performance Metrics */}
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Performance Metrics</h2>
-            
-            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Performance Metrics</h2>
+          
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
             {performanceCardsData.map((card, index) => (
               <div
                 key={index}
@@ -579,8 +639,8 @@ export default function TenantDashboard() {
                 </div>
               </div>
             ))}
-            </div>
           </div>
+        </div>
 
         {/* Usage and Performance Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -621,7 +681,7 @@ export default function TenantDashboard() {
             ))}
 
             {/* Next Billing */}
-            {usageData?.next_billing && (
+            {/* {usageData?.next_billing && (
               <div className="md:col-span-2 bg-white dark:bg-white/[0.03] rounded-xl border border-gray-200 dark:border-white/10 shadow-md p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="bg-yellow-600 p-2 rounded-lg">
@@ -650,16 +710,14 @@ export default function TenantDashboard() {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
           </div>
 
-          
+          {/* Popular Universities Card (Moved to separate section) */}
         </div>
 
-        
-
         {/* Popular Universities */}
-        {universityChartData.length > 0 && (
+        {/* {universityChartData.length > 0 && (
           <div className="bg-white dark:bg-white/[0.03] rounded-xl border border-gray-200 dark:border-white/10 shadow-md p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="bg-indigo-600 p-2 rounded-lg">
@@ -674,12 +732,9 @@ export default function TenantDashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: "#6B7280" }}
+                    tick={{ fill: "#6B7280", fontSize: 12 }}
                     axisLine={{ stroke: "#6B7280" }}
                     tickLine={{ stroke: "#6B7280" }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
                   />
                   <YAxis
                     tick={{ fill: "#6B7280" }}
@@ -690,18 +745,21 @@ export default function TenantDashboard() {
                     contentStyle={{
                       backgroundColor: "#1F2937",
                       border: "none",
+                      borderRadius: "8px",
                       color: "#fff",
                     }}
+                    formatter={(value) => [`${value} applications`, 'Count']}
+                    labelFormatter={(label) => `University: ${label}`}
                   />
                   <Bar dataKey="applications" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Recent Payments */}
-        {usageData?.payment_history && usageData.payment_history.length > 0 && (
+        {/* {usageData?.payment_history && usageData.payment_history.length > 0 && (
           <div className="bg-white dark:bg-white/[0.03] rounded-xl border border-gray-200 dark:border-white/10 shadow-md p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="bg-green-600 p-2 rounded-lg">
@@ -736,7 +794,9 @@ export default function TenantDashboard() {
                             ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                             : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                         }`}>
-                          {payment.status ? payment.status.charAt(0).toUpperCase() + payment.status.slice(1) : ""}
+                          {payment.status && typeof payment.status === 'string' && payment.status.length > 0
+                            ? payment.status.charAt(0).toUpperCase() + payment.status.slice(1)
+                            : 'Unknown'}
                         </span>
                       </td>
                     </tr>
@@ -745,7 +805,7 @@ export default function TenantDashboard() {
               </table>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </>
   );
