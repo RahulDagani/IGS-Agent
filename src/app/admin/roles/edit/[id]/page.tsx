@@ -252,7 +252,7 @@ export default function UpdateRolePage() {
             if (response.ok && data.success) {
                 showToast("Role updated successfully!", "success");
                 setTimeout(() => {
-                    router.push("/admin/setup/roles");
+                    router.push("/admin/roles");
                 }, 1500);
             } else {
                 showToast(data.message || "Failed to update role", "error");
