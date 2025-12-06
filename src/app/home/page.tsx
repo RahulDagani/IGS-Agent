@@ -76,14 +76,13 @@ export default function HomePage() {
 
        <body>
         <main className="min-h-screen bg-white">
-          <p>Page Not found</p>
-        {/* <Header />
+        <Header />
         <Hero />
         <Brands />
         <CTA />
         <StudentPromo />
         <AgentPromo />
-        <Footer /> */}
+        <Footer />
        
       </main>
       </body>

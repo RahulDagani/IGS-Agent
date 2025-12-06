@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Printer, Edit, Trash2, X, Users } from "lucide-react";
+import { Plus, Edit, Trash2, X, Users, Shield, Key, Calendar, Eye, MoreVertical, CheckCircle, XCircle, Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 interface Permission {
-    id: string;
-    name: string;
-    category: string;
-    description?: string;
+    permission_id: number;
+    permission_key: string;
+    permission_name: string;
+}
+
+interface Module {
+    module_id: number;
+    module_name: string;
+    module_key: string;
+    permissions: Permission[];
 }
 
 interface Role {
@@ -17,14 +23,11 @@ interface Role {
     tenant_id: number;
     role_name: string;
     role_key: string;
+    data_access: string;
+    is_active: number;
     created_at: string;
     permissions_count: number;
-    modules: {
-        module_id: number;
-        module_name: string;
-        module_key: string;
-        permissions: string[];
-    }[];
+    modules: Module[];
 }
 
 interface ApiResponse {
@@ -37,20 +40,19 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 export default function RolesAndPermissionsPage() {
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
-    const [perPage, setPerPage] = useState<number>(10);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [success, setSuccess] = useState<string>("");
     const [error, setError] = useState<string>("");
+    const [filter, setFilter] = useState<string>("all"); // "all", "active", "inactive"
+    const [searchTerm, setSearchTerm] = useState<string>("");
+    
     const {token} = useAuth();
-
     const router = useRouter();
 
-    // Fetch roles
     useEffect(() => {
         fetchRoles();
     }, []);
 
-    // Auto-hide toasts
     useEffect(() => {
         if (success || error) {
             const timer = setTimeout(() => {
@@ -63,8 +65,8 @@ export default function RolesAndPermissionsPage() {
 
     const fetchRoles = async () => {
         try {
-            const response = await fetch(`${BASE_URL}/tenant/roles`,{
-                headers:{
+            const response = await fetch(`${BASE_URL}/tenant/roles`, {
+                headers: {
                     "Authorization": `Bearer ${token}`
                 }
             });
@@ -102,9 +104,11 @@ export default function RolesAndPermissionsPage() {
         setDeletingId(id);
 
         try {
-            // Note: You'll need to replace this with your actual DELETE endpoint
-            const response = await fetch(`/api/tenant/roles/${id}`, {
+            const response = await fetch(`${BASE_URL}/tenant/roles/${id}`, {
                 method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
             });
 
             if (response.ok) {
@@ -112,7 +116,7 @@ export default function RolesAndPermissionsPage() {
                 await fetchRoles(); // Refresh the list
             } else {
                 const errorData = await response.json();
-                showToast(errorData.error || "Failed to delete role", "error");
+                showToast(errorData.message || "Failed to delete role", "error");
             }
         } catch (error) {
             console.error("Error deleting role:", error);
@@ -122,7 +126,6 @@ export default function RolesAndPermissionsPage() {
         }
     };
 
-    // Format date
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -132,46 +135,71 @@ export default function RolesAndPermissionsPage() {
         });
     };
 
-    // Get permissions summary for display
-    const getPermissionsSummary = (role: Role) => {
-        let totalPermissions = 0;
-        const moduleNames: string[] = [];
-        
-        role.modules.forEach(module => {
-            totalPermissions += module.permissions.length;
-            moduleNames.push(module.module_name);
+    const formatDateTime = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
-        
-        return {
-            totalPermissions,
-            moduleNames: moduleNames.slice(0, 3) // Show first 3 modules
-        };
     };
 
-    // Check if role is system role (you can customize this logic)
-    const isSystemRole = (role: Role) => {
-        const systemRoles = ['admin', 'super_admin', 'user'];
-        return systemRoles.includes(role.role_key.toLowerCase());
+    const getTopModules = (role: Role) => {
+        return role.modules.slice(0, 3).map(module => module.module_name);
     };
+
+    const getDataAccessLabel = (dataAccess: string) => {
+        const labels: Record<string, string> = {
+            'all': 'All Data',
+            'own': 'Own Data Only',
+            'team': 'Team Data',
+            'none': 'No Data Access'
+        };
+        return labels[dataAccess] || dataAccess;
+    };
+
+    // Filter roles based on search term and filter
+    const filteredRoles = roles.filter(role => {
+        // Apply status filter
+        if (filter === "active" && role.is_active !== 1) return false;
+        if (filter === "inactive" && role.is_active !== 0) return false;
+        
+        // Apply search term filter
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            return (
+                role.role_name.toLowerCase().includes(term) ||
+                role.role_key.toLowerCase().includes(term) ||
+                role.data_access.toLowerCase().includes(term)
+            );
+        }
+        
+        return true;
+    });
 
     if (loading) {
         return (
-            <div className="flex min-h-screen bg-[#0f172a]">
-                <div className="flex-1 flex items-center justify-center">
-                    <div className="text-white">Loading roles...</div>
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-2 border-gray-600 border-t-indigo-500 mb-4"></div>
+                    <div className="text-gray-400 text-lg">Loading roles...</div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col lg:flex-row min-h-screen bg-[#0f172a]">
-            {/* Main Content */}
-            <div className="flex-1 mt-6  lg:mt-0 mb-6 ">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950 ">
+            <div className="max-w-7xl mx-auto">
                 {/* Toast Notifications */}
                 {success && (
-                    <div className="mb-6 p-4 bg-green-500/10 border border-green-500 rounded-lg flex justify-between items-center">
-                        <p className="text-green-400 text-sm">{success}</p>
+                    <div className="mb-6 bg-gradient-to-r from-green-900/20 to-green-800/20 backdrop-blur-sm border border-green-700/50 rounded-lg p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <p className="text-green-300">{success}</p>
+                        </div>
                         <button
                             onClick={() => setSuccess("")}
                             className="text-green-400 hover:text-green-300"
@@ -182,8 +210,11 @@ export default function RolesAndPermissionsPage() {
                 )}
 
                 {error && (
-                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500 rounded-lg flex justify-between items-center">
-                        <p className="text-red-400 text-sm">{error}</p>
+                    <div className="mb-6 bg-gradient-to-r from-red-900/20 to-red-800/20 backdrop-blur-sm border border-red-700/50 rounded-lg p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <XCircle className="w-5 h-5 text-red-400" />
+                            <p className="text-red-300">{error}</p>
+                        </div>
                         <button
                             onClick={() => setError("")}
                             className="text-red-400 hover:text-red-300"
@@ -193,259 +224,360 @@ export default function RolesAndPermissionsPage() {
                     </div>
                 )}
 
-                {/* Summary Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-[#111827] rounded-xl border border-white/10 p-4">
-                        <h3 className="text-sm text-gray-400 mb-2">Total Roles</h3>
-                        <p className="text-2xl font-bold text-white">{roles.length}</p>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white">Roles Management</h1>
+                        <p className="text-gray-400 mt-2">Manage and configure user roles and permissions</p>
                     </div>
-                    <div className="bg-[#111827] rounded-xl border border-white/10 p-4">
-                        <h3 className="text-sm text-gray-400 mb-2">System Roles</h3>
-                        <p className="text-2xl font-bold text-blue-400">
-                            {roles.filter(role => isSystemRole(role)).length}
-                        </p>
+                    
+                    <button
+                        onClick={() => router.push("/admin/roles/create")}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-lg transition"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Create New Role
+                    </button>
+                </div>
+
+                {/* Stats Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-400">Total Roles</p>
+                                <p className="text-2xl font-bold text-white mt-2">{roles.length}</p>
+                            </div>
+                            <Users className="w-8 h-8 text-blue-400" />
+                        </div>
                     </div>
-                    <div className="bg-[#111827] rounded-xl border border-white/10 p-4">
-                        <h3 className="text-sm text-gray-400 mb-2">Custom Roles</h3>
-                        <p className="text-2xl font-bold text-green-400">
-                            {roles.filter(role => !isSystemRole(role)).length}
-                        </p>
+
+                    <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-400">Active Roles</p>
+                                <p className="text-2xl font-bold text-white mt-2">
+                                    {roles.filter(role => role.is_active === 1).length}
+                                </p>
+                            </div>
+                            <CheckCircle className="w-8 h-8 text-green-400" />
+                        </div>
+                    </div>
+
+                    
+
+                   
+                </div>
+
+                {/* Filters and Search */}
+                <div className="mb-6 flex flex-col md:flex-row gap-4">
+                    <div className="flex-1">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Search roles by name or key..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full px-4 py-3 pl-11 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                            />
+                            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                <Filter className="w-5 h-5" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                        <div className="flex bg-gray-800/50 border border-gray-700 rounded-lg p-1">
+                            <button
+                                onClick={() => setFilter("all")}
+                                className={`px-4 py-2 text-sm rounded-md transition ${
+                                    filter === "all" 
+                                        ? "bg-gray-700 text-white" 
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                All Roles
+                            </button>
+                            <button
+                                onClick={() => setFilter("active")}
+                                className={`px-4 py-2 text-sm rounded-md transition ${
+                                    filter === "active" 
+                                        ? "bg-green-500/20 text-green-300" 
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                Active
+                            </button>
+                            <button
+                                onClick={() => setFilter("inactive")}
+                                className={`px-4 py-2 text-sm rounded-md transition ${
+                                    filter === "inactive" 
+                                        ? "bg-red-500/20 text-red-300" 
+                                        : "text-gray-400 hover:text-white"
+                                }`}
+                            >
+                                Inactive
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-[#111827] rounded-xl shadow-lg border border-white/10 p-6">
-                    {/* Header Section */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-                        <div>
-                            <h2 className="text-2xl font-bold text-white">
-                                Roles & Permissions
-                            </h2>
-                            <p className="text-gray-400 mt-1">
-                                Manage user roles and their permissions
-                            </p>
+                {/* Roles Grid/Table */}
+                <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-4 p-6 border-b border-gray-700 bg-gray-900/50">
+                        <div className="col-span-3">
+                            <span className="text-sm font-medium text-gray-300">Role Name</span>
                         </div>
-
-                        <div className="flex items-center gap-3">
-                            {/* Print Button */}
-                            <button 
-                                onClick={() => window.print()}
-                                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm rounded-lg transition"
-                            >
-                                <Printer className="w-4 h-4" />
-                                Print
-                            </button>
-
-                            {/* Create Button */}
-                            <button
-                                onClick={() =>
-                                    router.push("/admin/roles/create")
-                                }
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Create Role
-                            </button>
+                        <div className="col-span-2">
+                            <span className="text-sm font-medium text-gray-300">Status</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="text-sm font-medium text-gray-300">Permissions</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="text-sm font-medium text-gray-300">Data Access</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="text-sm font-medium text-gray-300">Created</span>
+                        </div>
+                        <div className="col-span-1">
+                            <span className="text-sm font-medium text-gray-300">Actions</span>
                         </div>
                     </div>
 
-                    {/* Table Section */}
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-700">
-                            <thead className="bg-[#1F2937]">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        #
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Role Name
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Role Key
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Permissions
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Modules
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Created Date
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Type
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700">
-                                {roles.slice(0, perPage).map((role, index) => {
-                                    const permissionsSummary = getPermissionsSummary(role);
-                                    const systemRole = isSystemRole(role);
-                                    
-                                    return (
-                                        <tr
-                                            key={role.id}
-                                            className="hover:bg-[#1F2937] transition-colors"
-                                        >
-                                            <td className="px-6 py-4 text-gray-300">
-                                                {index + 1}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="w-4 h-4 text-indigo-400" />
-                                                    <span className="text-white font-medium">
-                                                        {role.role_name}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-300">
-                                                <code className="px-2 py-1 text-xs bg-gray-800 rounded">
-                                                    {role.role_key}
-                                                </code>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-sm text-gray-300">
-                                                        {permissionsSummary.totalPermissions} permissions
-                                                    </span>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {role.modules.map((module, idx) => (
-                                                            module.permissions.map((perm, permIdx) => (
-                                                                <span
-                                                                    key={`${module.module_id}-${permIdx}`}
-                                                                    className="px-2 py-1 text-xs bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30"
-                                                                >
-                                                                    {module.module_key}.{perm}
-                                                                </span>
-                                                            ))
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-300">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {permissionsSummary.moduleNames.map((moduleName, idx) => (
-                                                        <span
-                                                            key={idx}
-                                                            className="px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded border border-purple-500/30"
-                                                        >
-                                                            {moduleName}
-                                                        </span>
-                                                    ))}
-                                                    {role.modules.length > 3 && (
-                                                        <span className="px-2 py-1 text-xs bg-gray-600 text-gray-300 rounded">
-                                                            +{role.modules.length - 3} more
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-300">
-                                                {formatDate(role.created_at)}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span
-                                                    className={`px-2 py-1 text-xs rounded-full ${
-                                                        systemRole
-                                                            ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                                            : "bg-green-500/20 text-green-300 border border-green-500/30"
-                                                    }`}
-                                                >
-                                                    {systemRole ? "System" : "Custom"}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() =>
-                                                            router.push(
-                                                                `/admin/roles/edit/${role.id}`
-                                                            )
-                                                        }
-                                                        className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition"
-                                                        title="Edit role"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-
-                                                    {!systemRole && (
-                                                        <button
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    role.id,
-                                                                    role.role_name
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                deletingId === role.id
-                                                            }
-                                                            className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition disabled:opacity-50"
-                                                            title="Delete role"
-                                                        >
-                                                            {deletingId === role.id ? (
-                                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                            ) : (
-                                                                <Trash2 className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-
-                        {roles.length === 0 && (
-                            <div className="text-center py-12">
-                                <Users className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    {/* Table Body */}
+                    <div className="divide-y divide-gray-700">
+                        {filteredRoles.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <Shield className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-gray-300 mb-2">
                                     No roles found
                                 </h3>
-                                <p className="text-gray-500 mb-4">
-                                    Get started by creating your first role
+                                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                                    {searchTerm 
+                                        ? `No roles match your search "${searchTerm}"` 
+                                        : "Get started by creating your first role"}
                                 </p>
-                                <button
-                                    onClick={() =>
-                                        router.push("/admin/roles/create")
-                                    }
-                                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition"
-                                >
-                                    Create Role
-                                </button>
+                                {searchTerm ? (
+                                    <button
+                                        onClick={() => setSearchTerm("")}
+                                        className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition"
+                                    >
+                                        Clear Search
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => router.push("/admin/roles/create")}
+                                        className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-lg transition"
+                                    >
+                                        Create Role
+                                    </button>
+                                )}
                             </div>
+                        ) : (
+                            filteredRoles.map((role) => (
+                                <div 
+                                    key={role.id} 
+                                    className="grid grid-cols-12 gap-4 p-6 hover:bg-gray-800/30 transition-colors"
+                                >
+                                    {/* Role Name and Key */}
+                                    <div className="col-span-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-2 bg-indigo-500/10 rounded-lg">
+                                                <Users className="w-5 h-5 text-indigo-400" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-semibold text-white">
+                                                        {role.role_name}
+                                                    </h3>
+                                                    {role.is_active === 0 && (
+                                                        <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-300 rounded-full">
+                                                            Inactive
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Key className="w-3 h-3 text-gray-400" />
+                                                    <code className="text-xs text-gray-400 font-mono">
+                                                        {role.role_key}
+                                                    </code>
+                                                </div>
+                                                {role.modules.length > 0 && (
+                                                    <div className="mt-2">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {getTopModules(role).map((moduleName, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className="px-2 py-1 text-xs bg-purple-500/10 text-purple-300 rounded border border-purple-500/20"
+                                                                >
+                                                                    {moduleName}
+                                                                </span>
+                                                            ))}
+                                                            {role.modules.length > 3 && (
+                                                                <span className="px-2 py-1 text-xs bg-gray-700/50 text-gray-400 rounded">
+                                                                    +{role.modules.length - 3} more
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div className="col-span-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${
+                                                role.is_active === 1 
+                                                    ? 'bg-green-500' 
+                                                    : 'bg-red-500'
+                                            }`} />
+                                            <span className={`text-sm ${
+                                                role.is_active === 1 
+                                                    ? 'text-green-300' 
+                                                    : 'text-red-300'
+                                            }`}>
+                                                {role.is_active === 1 ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Permissions Count */}
+                                    <div className="col-span-2">
+                                        <div className="flex items-center gap-2">
+                                            <Shield className="w-4 h-4 text-indigo-400" />
+                                            <span className="text-white font-medium">
+                                                {role.permissions_count}
+                                            </span>
+                                            <span className="text-sm text-gray-400">
+                                                permissions
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                            across {role.modules.length} modules
+                                        </div>
+                                    </div>
+
+                                    {/* Data Access */}
+                                    <div className="col-span-2">
+                                        <div className="px-3 py-1 bg-blue-500/10 text-blue-300 text-sm rounded-full inline-flex items-center gap-2">
+                                            <Eye className="w-3 h-3" />
+                                            {getDataAccessLabel(role.data_access)}
+                                        </div>
+                                    </div>
+
+                                    {/* Created Date */}
+                                    <div className="col-span-2">
+                                        <div className="flex items-center gap-2 text-gray-300">
+                                            <Calendar className="w-4 h-4 text-gray-400" />
+                                            <div>
+                                                <div className="text-sm">{formatDate(role.created_at)}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {formatDateTime(role.created_at).split(',')[1]}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="col-span-1">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => router.push(`/admin/roles/edit/${role.id}`)}
+                                                className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded-lg transition"
+                                                title="Edit role"
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            
+                                            {/* <button
+                                                onClick={() => router.push(`/admin/roles/view/${role.id}`)}
+                                                className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition"
+                                                title="View details"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </button> */}
+                                            
+                                            <button
+                                                onClick={() => handleDelete(role.id, role.role_name)}
+                                                disabled={deletingId === role.id}
+                                                className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg transition disabled:opacity-50"
+                                                title="Delete role"
+                                            >
+                                                {deletingId === role.id ? (
+                                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
                         )}
                     </div>
 
-                    {/* Footer Section */}
-                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between border-t border-gray-700 pt-4 gap-4">
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm text-gray-300">
-                                Rows per page
-                            </span>
-                            <select
-                                value={perPage}
-                                onChange={(e) =>
-                                    setPerPage(Number(e.target.value))
-                                }
-                                className="text-sm rounded-md bg-[#111827] border border-gray-700 text-white px-2 py-1 focus:ring-2 focus:ring-indigo-500"
-                            >
-                                <option value={5}>5</option>
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                                <option value={50}>50</option>
-                            </select>
+                    {/* Footer */}
+                    {filteredRoles.length > 0 && (
+                        <div className="p-4 border-t border-gray-700 bg-gray-900/50">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-gray-400">
+                                    Showing {filteredRoles.length} of {roles.length} role
+                                    {roles.length !== 1 ? 's' : ''}
+                                </div>
+                                <div className="text-sm text-gray-400">
+                                    {searchTerm && `Filtered by: "${searchTerm}"`}
+                                    {filter !== "all" && ` • ${filter.charAt(0).toUpperCase() + filter.slice(1)} roles`}
+                                </div>
+                            </div>
                         </div>
-                        <div className="text-sm text-gray-400">
-                            Showing {Math.min(perPage, roles.length)} of {roles.length} role
-                            {roles.length !== 1 ? "s" : ""}
-                        </div>
-                    </div>
+                    )}
                 </div>
 
-                
+                {/* Quick Tips */}
+                {/* <div className="mt-8 p-6 bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700">
+                    <h3 className="text-lg font-semibold text-white mb-4">Quick Tips</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-indigo-500/10 rounded-lg">
+                                    <Users className="w-5 h-5 text-indigo-400" />
+                                </div>
+                                <h4 className="font-medium text-white">Role Types</h4>
+                            </div>
+                            <p className="text-sm text-gray-400">
+                                System roles cannot be deleted but can be edited. Custom roles can be fully managed.
+                            </p>
+                        </div>
+                        
+                        <div className="p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-green-500/10 rounded-lg">
+                                    <CheckCircle className="w-5 h-5 text-green-400" />
+                                </div>
+                                <h4 className="font-medium text-white">Active Status</h4>
+                            </div>
+                            <p className="text-sm text-gray-400">
+                                Inactive roles won't be available for assignment to new users. Existing assignments remain.
+                            </p>
+                        </div>
+                        
+                        <div className="p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-500/10 rounded-lg">
+                                    <Eye className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <h4 className="font-medium text-white">Data Access</h4>
+                            </div>
+                            <p className="text-sm text-gray-400">
+                                Defines what data users with this role can access (All or Assigned).
+                            </p>
+                        </div>
+                    </div>
+                </div> */}
             </div>
         </div>
     );

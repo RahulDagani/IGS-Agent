@@ -5,8 +5,6 @@ import {
     ArrowLeft,
     Save,
     RotateCcw,
-    ChevronDown,
-    ChevronUp,
     X,
     Users,
     Key,
@@ -17,45 +15,36 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
-interface PermissionType {
+interface Permission {
     id: number;
+    module_id: number;
     permission_name: string;
+    permission_key: string;
 }
 
 interface Module {
     id: number;
-    tenant_id: number;
     module_name: string;
     module_key: string;
-    created_at: string;
+    permissions: Permission[];
 }
 
-interface ModulePermission {
-    module: Module;
-    permissions: PermissionType[];
-    selectedPermissionIds: number[];
+interface ModuleApiResponse {
+    success: boolean;
+    data: Module[];
 }
 
 interface PermissionPayload {
     module_id: number;
-    permission_type_id: number;
+    permission_id: number;
 }
 
 interface CreateRolePayload {
     role_name: string;
     role_key: string;
+    data_access: string;
     permissions: PermissionPayload[];
 }
-
-interface ModulesApiResponse {
-    success: boolean;
-    data: {
-        modules: Module[];
-        permission_types: PermissionType[];
-    };
-}
-
-
 
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -64,59 +53,62 @@ export default function CreateRolePage() {
         role_name: "",
         role_key: "",
         description: "",
+        data_access: "all"
     });
     const [modules, setModules] = useState<Module[]>([]);
-    const [permissionTypes, setPermissionTypes] = useState<PermissionType[]>([]);
     const [selectedPermissions, setSelectedPermissions] = useState<Record<number, number[]>>({});
     const [loading, setLoading] = useState(false);
     const [modulesLoading, setModulesLoading] = useState(true);
-    const [success, setSuccess] = useState<string>("");
-    const [error, setError] = useState<string>("");
+    const [success, setSuccess] = useState("");
+    const [error, setError] = useState("");
+    const [expandedModules, setExpandedModules] = useState<Record<number, boolean>>({});
 
     const router = useRouter();
     const { token } = useAuth();
 
-    // Fetch modules and permission types
-    const fetchModulesAndPermissions = useCallback(async () => {
+    // Fetch modules with their permissions
+    const fetchModules = useCallback(async () => {
         try {
             const response = await fetch(`${BASE_URL}/tenant/modules`, {
                 headers: {
                     "Authorization": `Bearer ${token}`
                 }
             });
-            const data: ModulesApiResponse = await response.json();
+            const data: ModuleApiResponse = await response.json();
 
             if (data.success) {
-                const { modules, permission_types } = data.data;
-                
                 // Sort modules alphabetically by module_name
-                const sortedModules = [...modules].sort((a, b) => 
+                const sortedModules = [...data.data].sort((a, b) => 
                     a.module_name.localeCompare(b.module_name)
                 );
                 
                 setModules(sortedModules);
-                setPermissionTypes(permission_types);
                 
                 // Initialize selected permissions object
                 const initialSelectedPermissions: Record<number, number[]> = {};
+                const initialExpandedModules: Record<number, boolean> = {};
+                
                 sortedModules.forEach(module => {
                     initialSelectedPermissions[module.id] = [];
+                    initialExpandedModules[module.id] = true; // Default all expanded
                 });
+                
                 setSelectedPermissions(initialSelectedPermissions);
+                setExpandedModules(initialExpandedModules);
             } else {
-                showToast("Failed to load modules and permissions", "error");
+                showToast("Failed to load modules", "error");
             }
         } catch (error) {
             console.error("Error fetching modules:", error);
-            showToast("Failed to load modules and permissions", "error");
+            showToast("Failed to load modules", "error");
         } finally {
             setModulesLoading(false);
         }
     }, [token]);
 
     useEffect(() => {
-        fetchModulesAndPermissions();
-    }, [fetchModulesAndPermissions]);
+        fetchModules();
+    }, [fetchModules]);
 
     const togglePermission = (moduleId: number, permissionId: number) => {
         setSelectedPermissions(prev => {
@@ -133,21 +125,26 @@ export default function CreateRolePage() {
     };
 
     const toggleAllPermissionsInModule = (moduleId: number) => {
+        const module = modules.find(m => m.id === moduleId);
+        if (!module) return;
+
         setSelectedPermissions(prev => {
             const currentPermissions = prev[moduleId] || [];
-            const allSelected = currentPermissions.length === permissionTypes.length;
+            const allPermissions = module.permissions.map(p => p.id);
+            const allSelected = currentPermissions.length === allPermissions.length;
             
             return {
                 ...prev,
-                [moduleId]: allSelected ? [] : permissionTypes.map(p => p.id)
+                [moduleId]: allSelected ? [] : allPermissions
             };
         });
     };
 
     const toggleAllPermissions = () => {
-        const allModulesHaveAllPermissions = modules.every(module => 
-            selectedPermissions[module.id]?.length === permissionTypes.length
-        );
+        const allModulesHaveAllPermissions = modules.every(module => {
+            const modulePermissions = module.permissions.map(p => p.id);
+            return selectedPermissions[module.id]?.length === modulePermissions.length;
+        });
 
         setSelectedPermissions(prev => {
             const newState: Record<number, number[]> = {};
@@ -155,25 +152,22 @@ export default function CreateRolePage() {
             modules.forEach(module => {
                 newState[module.id] = allModulesHaveAllPermissions 
                     ? [] 
-                    : permissionTypes.map(p => p.id);
+                    : module.permissions.map(p => p.id);
             });
             
             return newState;
         });
     };
 
-    const getReadPermissionId = () => {
-        const readPermission = permissionTypes.find(p => p.permission_name === 'read');
-        return readPermission?.id || 1;
-    };
-
-    const getWritePermissionId = () => {
-        const writePermission = permissionTypes.find(p => p.permission_name === 'write');
-        return writePermission?.id || 2;
+    const toggleModuleExpansion = (moduleId: number) => {
+        setExpandedModules(prev => ({
+            ...prev,
+            [moduleId]: !prev[moduleId]
+        }));
     };
 
     const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -185,8 +179,8 @@ export default function CreateRolePage() {
     const generateRoleKey = (roleName: string) => {
         return roleName
             .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-            .replace(/\s+/g, '_') // Replace spaces with underscores
+            .replace(/[^a-z0-9\s]/g, '')
+            .replace(/\s+/g, '_')
             .trim();
     };
 
@@ -202,7 +196,7 @@ export default function CreateRolePage() {
     const handleRoleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const roleKey = e.target.value
             .toLowerCase()
-            .replace(/[^a-z0-9_]/g, '') // Allow only lowercase, numbers, and underscores
+            .replace(/[^a-z0-9_]/g, '')
             .replace(/\s+/g, '_');
         
         setFormData(prev => ({
@@ -224,24 +218,23 @@ export default function CreateRolePage() {
             return;
         }
 
-        // Validate role key format
         if (!/^[a-z0-9_]+$/.test(formData.role_key)) {
             showToast("Role key can only contain lowercase letters, numbers, and underscores", "error");
             return;
         }
 
-        // Check if any permissions are selected
-        const selectedPermissionsArray: PermissionPayload[] = [];
+        // Prepare permissions array
+        const permissionsArray: PermissionPayload[] = [];
         Object.entries(selectedPermissions).forEach(([moduleId, permissionIds]) => {
             permissionIds.forEach(permissionId => {
-                selectedPermissionsArray.push({
+                permissionsArray.push({
                     module_id: parseInt(moduleId),
-                    permission_type_id: permissionId
+                    permission_id: permissionId
                 });
             });
         });
 
-        if (selectedPermissionsArray.length === 0) {
+        if (permissionsArray.length === 0) {
             showToast("Please select at least one permission", "error");
             return;
         }
@@ -252,7 +245,8 @@ export default function CreateRolePage() {
             const payload: CreateRolePayload = {
                 role_name: formData.role_name,
                 role_key: formData.role_key,
-                permissions: selectedPermissionsArray
+                data_access: formData.data_access,
+                permissions: permissionsArray
             };
 
             const response = await fetch(`${BASE_URL}/tenant/roles`, {
@@ -297,6 +291,7 @@ export default function CreateRolePage() {
             role_name: "",
             role_key: "",
             description: "",
+            data_access: "all"
         });
         
         const resetSelectedPermissions: Record<number, number[]> = {};
@@ -318,18 +313,42 @@ export default function CreateRolePage() {
     ).length;
 
     // Check if all permissions are selected for all modules
-    const isAllSelected = modules.length > 0 && modules.every(module => 
-        selectedPermissions[module.id]?.length === permissionTypes.length
-    );
+    const isAllSelected = modules.length > 0 && modules.every(module => {
+        const modulePermissions = module.permissions.map(p => p.id);
+        return selectedPermissions[module.id]?.length === modulePermissions.length;
+    });
 
     // Check if some permissions are selected (for indeterminate state)
     const isSomeSelected = modules.some(module => 
         selectedPermissions[module.id]?.length > 0
     ) && !isAllSelected;
 
+    // Get all unique permission names for summary
+    const getAllPermissionNames = () => {
+        const allPermissions: Permission[] = [];
+        modules.forEach(module => {
+            allPermissions.push(...module.permissions);
+        });
+        
+        // Group by permission_key prefix (e.g., 'view', 'create', 'update')
+        const groupedPermissions: Record<string, Permission[]> = {};
+        
+        allPermissions.forEach(permission => {
+            const prefix = permission.permission_key.split('_')[0];
+            if (!groupedPermissions[prefix]) {
+                groupedPermissions[prefix] = [];
+            }
+            groupedPermissions[prefix].push(permission);
+        });
+        
+        return groupedPermissions;
+    };
+
+    const permissionGroups = getAllPermissionNames();
+
     return (
-        <div className="flex flex-col lg:flex-row min-h-screen bg-[#0f172a]">
-            <div className="flex-1 mt-6 lg:mt-0">
+        <div className="flex flex-col min-h-screen bg-[#0f172a]">
+            <div className="flex-1 ">
                 {/* Toast Notifications */}
                 {success && (
                     <div className="mb-6 p-4 bg-green-500/10 border border-green-500 rounded-lg flex justify-between items-center">
@@ -355,7 +374,7 @@ export default function CreateRolePage() {
                     </div>
                 )}
 
-                <div className="bg-[#111827] rounded-xl shadow-lg border border-white/10 p-6">
+                <div className="bg-[#111827] rounded-xl shadow-lg border border-white/10 p-4 md:p-6">
                     {/* Header */}
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                         <div>
@@ -416,6 +435,24 @@ export default function CreateRolePage() {
                             </p>
                         </div>
 
+                        {/* Data Access Select */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Data Access{" "}
+                                <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="data_access"
+                                value={formData.data_access}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 bg-[#1F2937] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                required
+                            >
+                                <option value="all">Allowed Access to All data</option>
+                                <option value="assigned">Allowed Access to Assigned Data</option>
+                            </select>
+                        </div>
+
                         {/* Role Description */}
                         <div className="mb-8">
                             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -434,7 +471,7 @@ export default function CreateRolePage() {
                             </div>
                         </div>
 
-                        {/* Permissions Section - Table Design */}
+                        {/* Permissions Section - Card Design */}
                         <div className="mb-6">
                             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
                                 <div>
@@ -447,7 +484,7 @@ export default function CreateRolePage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-sm text-gray-300">
-                                        {totalSelectedPermissions} permission{totalSelectedPermissions !== 1 ? 's' : ''} selected
+                                        {totalSelectedPermissions} permission{totalSelectedPermissions !== 1 ? 's' : ''} selected across {modulesWithPermissions} module{modulesWithPermissions !== 1 ? 's' : ''}
                                     </div>
                                     <button
                                         type="button"
@@ -474,128 +511,112 @@ export default function CreateRolePage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-full divide-y divide-gray-700">
-                                        <thead className="bg-[#1F2937]">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                <div className="space-y-4">
+                                    {modules.map((module) => {
+                                        const modulePermissions = selectedPermissions[module.id] || [];
+                                        const allPermissionsSelected = modulePermissions.length === module.permissions.length;
+                                        const somePermissionsSelected = modulePermissions.length > 0 && !allPermissionsSelected;
+                                        const isExpanded = expandedModules[module.id] || false;
+                                        
+                                        return (
+                                            <div 
+                                                key={module.id} 
+                                                className="bg-[#1F2937] border border-gray-700 rounded-lg overflow-hidden"
+                                            >
+                                                {/* Module Header */}
+                                                <div 
+                                                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-800/50 transition"
+                                                    onClick={() => toggleModuleExpansion(module.id)}
+                                                >
                                                     <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isAllSelected}
-                                                            ref={input => {
-                                                                if (input) {
-                                                                    input.indeterminate = isSomeSelected;
-                                                                }
-                                                            }}
-                                                            onChange={toggleAllPermissions}
-                                                            className="w-4 h-4 accent-indigo-600"
-                                                        />
-                                                        <span>Module Name</span>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={allPermissionsSelected}
+                                                                ref={input => {
+                                                                    if (input) {
+                                                                        input.indeterminate = somePermissionsSelected;
+                                                                    }
+                                                                }}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleAllPermissionsInModule(module.id);
+                                                                }}
+                                                                className="w-5 h-5 accent-indigo-600 rounded"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-white font-medium">
+                                                                {module.module_name}
+                                                            </div>
+                                                            <div className="text-xs text-gray-400">
+                                                                Module Key: <code className="px-1 py-0.5 bg-gray-800 rounded">{module.module_key}</code>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                                    Module Key
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                                    <div className="text-center">Select All</div>
-                                                </th>
-                                                {permissionTypes.map(permission => (
-                                                    <th 
-                                                        key={permission.id} 
-                                                        className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
-                                                    >
-                                                        <div className="text-center capitalize">{permission.permission_name}</div>
-                                                    </th>
-                                                ))}
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                                    <div className="text-center">Selected</div>
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-700">
-                                            {modules.map((module) => {
-                                                const modulePermissions = selectedPermissions[module.id] || [];
-                                                const allPermissionsSelected = modulePermissions.length === permissionTypes.length;
-                                                const somePermissionsSelected = modulePermissions.length > 0 && !allPermissionsSelected;
-                                                
-                                                return (
-                                                    <tr 
-                                                        key={module.id} 
-                                                        className="hover:bg-[#1F2937]/50 transition-colors"
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={allPermissionsSelected}
-                                                                    ref={input => {
-                                                                        if (input) {
-                                                                            input.indeterminate = somePermissionsSelected;
-                                                                        }
-                                                                    }}
-                                                                    onChange={() => toggleAllPermissionsInModule(module.id)}
-                                                                    className="w-4 h-4 accent-indigo-600"
-                                                                />
-                                                                <div>
-                                                                    <div className="text-white font-medium">
-                                                                        {module.module_name}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <code className="px-2 py-1 text-xs bg-gray-800 text-gray-300 rounded">
-                                                                {module.module_key}
-                                                            </code>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex justify-center">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => toggleAllPermissionsInModule(module.id)}
-                                                                    className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition"
-                                                                >
-                                                                    {allPermissionsSelected ? 'Deselect All' : 'Select All'}
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                        {permissionTypes.map(permission => {
-                                                            const isSelected = modulePermissions.includes(permission.id);
-                                                            return (
-                                                                <td key={permission.id} className="px-6 py-4">
-                                                                    <div className="flex justify-center">
-                                                                        <label className="flex items-center cursor-pointer">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={isSelected}
-                                                                                onChange={() => togglePermission(module.id, permission.id)}
-                                                                                className="w-5 h-5 accent-indigo-600 rounded"
-                                                                            />
-                                                                            <span className="ml-2 text-sm text-gray-300 capitalize">
+                                                    <div className="flex items-center gap-4">
+                                                        <span className={`px-3 py-1 text-xs rounded-full ${
+                                                            modulePermissions.length > 0
+                                                                ? 'bg-indigo-500/20 text-indigo-300'
+                                                                : 'bg-gray-500/20 text-gray-400'
+                                                        }`}>
+                                                            {modulePermissions.length} / {module.permissions.length} selected
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleModuleExpansion(module.id);
+                                                            }}
+                                                            className="text-gray-400 hover:text-white"
+                                                        >
+                                                            {isExpanded ? (
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            ) : (
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Permissions Grid */}
+                                                {isExpanded && (
+                                                    <div className="border-t border-gray-700 p-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                            {module.permissions.map((permission) => {
+                                                                const isSelected = modulePermissions.includes(permission.id);
+                                                                return (
+                                                                    <label 
+                                                                        key={permission.id} 
+                                                                        className="flex items-center gap-3 p-3 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg cursor-pointer transition"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isSelected}
+                                                                            onChange={() => togglePermission(module.id, permission.id)}
+                                                                            className="w-4 h-4 accent-indigo-600 rounded"
+                                                                        />
+                                                                        <div className="flex-1">
+                                                                            <div className="text-sm text-white">
                                                                                 {permission.permission_name}
-                                                                            </span>
-                                                                        </label>
-                                                                    </div>
-                                                                </td>
-                                                            );
-                                                        })}
-                                                        <td className="px-6 py-4">
-                                                            <div className="text-center">
-                                                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                                                    modulePermissions.length > 0
-                                                                        ? 'bg-indigo-500/20 text-indigo-300'
-                                                                        : 'bg-gray-500/20 text-gray-400'
-                                                                }`}>
-                                                                    {modulePermissions.length} / {permissionTypes.length}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                                            </div>
+                                                                            <div className="text-xs text-gray-400 mt-1">
+                                                                                Key: <code className="px-1 py-0.5 bg-gray-900 rounded">{permission.permission_key}</code>
+                                                                            </div>
+                                                                        </div>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
 
                                     {/* Summary Section */}
                                     <div className="mt-6 p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
@@ -611,27 +632,29 @@ export default function CreateRolePage() {
                                             <Users className="w-5 h-5 text-indigo-400" />
                                         </div>
                                         
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-                                            {permissionTypes.map(permission => {
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+                                            {Object.entries(permissionGroups).map(([prefix, permissions]) => {
                                                 const count = modules.reduce((total, module) => {
-                                                    return total + ((selectedPermissions[module.id] || []).includes(permission.id) ? 1 : 0);
+                                                    const modulePermissions = selectedPermissions[module.id] || [];
+                                                    const matchingPermissions = permissions.filter(p => 
+                                                        p.permission_key.startsWith(prefix) && modulePermissions.includes(p.id)
+                                                    );
+                                                    return total + matchingPermissions.length;
                                                 }, 0);
                                                 
+                                                if (count === 0) return null;
+                                                
                                                 return (
-                                                    <div key={permission.id} className="bg-gray-800/30 p-3 rounded-lg">
+                                                    <div key={prefix} className="bg-gray-800/30 p-3 rounded-lg">
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-sm text-gray-300 capitalize">
-                                                                {permission.permission_name} Permissions
+                                                                {prefix} Permissions
                                                             </span>
-                                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                                                count > 0 
-                                                                    ? 'bg-green-500/20 text-green-300' 
-                                                                    : 'bg-gray-500/20 text-gray-400'
-                                                            }`}>
-                                                                {count} / {modules.length}
+                                                            <span className={`px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-300`}>
+                                                                {count} selected
                                                             </span>
                                                         </div>
-                                                        <div className="mt-2 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                                        <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                                                             <div 
                                                                 className="h-full bg-indigo-500 rounded-full transition-all duration-300"
                                                                 style={{ width: `${(count / modules.length) * 100}%` }}
@@ -693,7 +716,8 @@ export default function CreateRolePage() {
                                 <li>{`• Role key must be lowercase with underscores (e.g., admission_officer)`}</li>
                                 <li>{`• Select at least one permission to enable the Create Role button`}</li>
                                 <li>{`• Use "Select All" button to quickly toggle all permissions for all modules`}</li>
-                                <li>{`• Individual module permissions can be managed using the "Select All" button in each row`}</li>
+                                <li>{`• Click on module headers to expand/collapse permissions`}</li>
+                                <li>{`• Data access determines what data the role can access`}</li>
                             </ul>
                         </div>
                     </form>
