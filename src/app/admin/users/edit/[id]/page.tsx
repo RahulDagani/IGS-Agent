@@ -23,6 +23,7 @@ import { useAuth } from "@/context/AuthContext";
 interface UserData {
     id: number;
     tenant_id: number;
+    name: string;
     email: string;
     phone: string;
     role: string;
@@ -49,6 +50,7 @@ interface RolesApiResponse {
 }
 
 interface UpdateUserPayload {
+    name: string;
     role: string;
     status: string;
 }
@@ -82,6 +84,7 @@ export default function EditUserPage() {
     const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
     const [rolesLoading, setRolesLoading] = useState(true);
     const [formData, setFormData] = useState({
+        name: "",
         role: "",
         status: "",
     });
@@ -112,9 +115,6 @@ export default function EditUserPage() {
     const availableStatuses: StatusOption[] = [
         { value: "active", label: "Active" },
         { value: "inactive", label: "Inactive" },
-        { value: "pending_verification", label: "Pending Verification" },
-        { value: "pending_invite", label: "Pending Invite" },
-        { value: "suspended", label: "Suspended" },
     ];
 
     // Fetch user data and roles
@@ -139,6 +139,7 @@ export default function EditUserPage() {
             if (data.success) {
                 setUserData(data.data);
                 setFormData({
+                    name: data.data.name,
                     role: data.data.role,
                     status: data.data.status,
                 });
@@ -227,7 +228,7 @@ export default function EditUserPage() {
     };
 
     const handleUserChange = (
-        e: React.ChangeEvent<HTMLSelectElement>
+        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -276,6 +277,7 @@ export default function EditUserPage() {
 
         try {
             const payload: UpdateUserPayload = {
+                name: formData.name,
                 role: formData.role,
                 status: formData.status,
             };
@@ -376,6 +378,7 @@ export default function EditUserPage() {
     const resetUserForm = () => {
         if (userData) {
             setFormData({
+                name: userData.name,
                 role: userData.role,
                 status: userData.status,
             });
@@ -503,6 +506,15 @@ export default function EditUserPage() {
                     <div className="mb-8 p-4 bg-gray-800/30 border border-gray-700 rounded-lg">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
+                                <p className="text-sm text-gray-400">Full Name</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <User className="w-4 h-4 text-gray-400" />
+                                    <p className="text-white font-medium truncate">
+                                        {userData.name}
+                                    </p>
+                                </div>
+                            </div>
+                            <div>
                                 <p className="text-sm text-gray-400">Email</p>
                                 <div className="flex items-center gap-2 mt-1">
                                     <Mail className="w-4 h-4 text-gray-400" />
@@ -544,6 +556,32 @@ export default function EditUserPage() {
                             
                             <form onSubmit={handleUserSubmit}>
                                 <div className="space-y-4">
+
+                                     {/* Name Input */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-300">
+                                    Full Name{" "}
+                                    <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={formData.name}
+                                        onChange={handleUserChange}
+                                        placeholder="Enter Full Name"
+                                        className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.name ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-colors`}
+                                    />
+                                    
+                                </div>
+                                {formErrors.name && (
+                                    <p className="text-red-400 text-sm">
+                                        {formErrors.name}
+                                    </p>
+                                )}
+                            </div>
+
                                     {/* Role Selection */}
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-300">

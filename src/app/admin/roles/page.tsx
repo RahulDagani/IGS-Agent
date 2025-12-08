@@ -22,7 +22,7 @@ interface Role {
     id: number;
     tenant_id: number;
     role_name: string;
-    role_key: string;
+    // role_key: string;
     data_access: string;
     is_active: number;
     created_at: string;
@@ -152,10 +152,9 @@ export default function RolesAndPermissionsPage() {
 
     const getDataAccessLabel = (dataAccess: string) => {
         const labels: Record<string, string> = {
-            'all': 'All Data',
-            'own': 'Own Data Only',
-            'team': 'Team Data',
-            'none': 'No Data Access'
+            'all': 'Allowed Access to All data',
+            'assigned': 'Allowed Access to Assigned Data',
+           
         };
         return labels[dataAccess] || dataAccess;
     };
@@ -171,7 +170,7 @@ export default function RolesAndPermissionsPage() {
             const term = searchTerm.toLowerCase();
             return (
                 role.role_name.toLowerCase().includes(term) ||
-                role.role_key.toLowerCase().includes(term) ||
+                // role.role_key.toLowerCase().includes(term) ||
                 role.data_access.toLowerCase().includes(term)
             );
         }
@@ -275,7 +274,7 @@ export default function RolesAndPermissionsPage() {
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Search roles by name or key..."
+                                placeholder="Search roles by name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full px-4 py-3 pl-11 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
@@ -398,12 +397,12 @@ export default function RolesAndPermissionsPage() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2 mt-1">
+                                                {/* <div className="flex items-center gap-2 mt-1">
                                                     <Key className="w-3 h-3 text-gray-400" />
                                                     <code className="text-xs text-gray-400 font-mono">
                                                         {role.role_key}
                                                     </code>
-                                                </div>
+                                                </div> */}
                                                 {role.modules.length > 0 && (
                                                     <div className="mt-2">
                                                         <div className="flex flex-wrap gap-1">

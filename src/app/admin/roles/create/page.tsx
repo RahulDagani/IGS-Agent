@@ -52,7 +52,6 @@ export default function CreateRolePage() {
     const [formData, setFormData] = useState({
         role_name: "",
         role_key: "",
-        description: "",
         data_access: "all"
     });
     const [modules, setModules] = useState<Module[]>([]);
@@ -213,15 +212,15 @@ export default function CreateRolePage() {
             return;
         }
 
-        if (!formData.role_key.trim()) {
-            showToast("Role key is required", "error");
-            return;
-        }
+        // if (!formData.role_key.trim()) {
+        //     showToast("Role key is required", "error");
+        //     return;
+        // }
 
-        if (!/^[a-z0-9_]+$/.test(formData.role_key)) {
-            showToast("Role key can only contain lowercase letters, numbers, and underscores", "error");
-            return;
-        }
+        // if (!/^[a-z0-9_]+$/.test(formData.role_key)) {
+        //     showToast("Role key can only contain lowercase letters, numbers, and underscores", "error");
+        //     return;
+        // }
 
         // Prepare permissions array
         const permissionsArray: PermissionPayload[] = [];
@@ -290,7 +289,6 @@ export default function CreateRolePage() {
         setFormData({
             role_name: "",
             role_key: "",
-            description: "",
             data_access: "all"
         });
         
@@ -413,7 +411,7 @@ export default function CreateRolePage() {
                         </div>
 
                         {/* Role Key Input */}
-                        <div className="mb-6">
+                        {/* <div className="mb-6">
                             <label className="block text-sm font-medium text-gray-300 mb-2">
                                 Role Key{" "}
                                 <span className="text-red-500">*</span>
@@ -433,7 +431,7 @@ export default function CreateRolePage() {
                             <p className="text-xs text-gray-400 mt-1">
                                 Use lowercase letters, numbers, and underscores only (auto-generated from role name)
                             </p>
-                        </div>
+                        </div> */}
 
                         {/* Data Access Select */}
                         <div className="mb-6">
@@ -453,23 +451,7 @@ export default function CreateRolePage() {
                             </select>
                         </div>
 
-                        {/* Role Description */}
-                        <div className="mb-8">
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Description (Optional)
-                            </label>
-                            <div className="flex items-start gap-2">
-                                <FileText className="w-4 h-4 text-gray-400 mt-2" />
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    placeholder="Enter role description (optional)"
-                                    rows={3}
-                                    className="w-full px-4 py-2 bg-[#1F2937] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                                />
-                            </div>
-                        </div>
+                       
 
                         {/* Permissions Section - Card Design */}
                         <div className="mb-6">
@@ -604,9 +586,9 @@ export default function CreateRolePage() {
                                                                             <div className="text-sm text-white">
                                                                                 {permission.permission_name}
                                                                             </div>
-                                                                            <div className="text-xs text-gray-400 mt-1">
+                                                                            {/* <div className="text-xs text-gray-400 mt-1">
                                                                                 Key: <code className="px-1 py-0.5 bg-gray-900 rounded">{permission.permission_key}</code>
-                                                                            </div>
+                                                                            </div> */}
                                                                         </div>
                                                                     </label>
                                                                 );
@@ -712,8 +694,7 @@ export default function CreateRolePage() {
                         <div className="mt-6 p-4 bg-gray-800/30 border border-gray-700 rounded-lg">
                             <h4 className="text-sm font-medium text-gray-300 mb-2">Notes:</h4>
                             <ul className="text-xs text-gray-400 space-y-1">
-                                <li>{`• Role key will be auto-generated from role name but can be edited`}</li>
-                                <li>{`• Role key must be lowercase with underscores (e.g., admission_officer)`}</li>
+                                
                                 <li>{`• Select at least one permission to enable the Create Role button`}</li>
                                 <li>{`• Use "Select All" button to quickly toggle all permissions for all modules`}</li>
                                 <li>{`• Click on module headers to expand/collapse permissions`}</li>

@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 interface User {
   id: number;
   tenant_id: number;
+  name: string;
   email: string;
   phone: string;
   role: string;
@@ -316,6 +317,7 @@ export default function UsersTable() {
     if (searchTerm) {
       filtered = filtered.filter((user) => {
         return (
+          user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -547,7 +549,7 @@ export default function UsersTable() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by email, phone, role, or status..."
+              placeholder="Search by name, email, phone, role, or status..."
               value={searchTerm}
               onChange={handleSearchChange}
               onKeyPress={handleSearchKeyPress}
@@ -638,6 +640,7 @@ export default function UsersTable() {
                 <TableRow>
                   {[
                     { key: "id", label: "ID" },
+                    { key: "name", label: "Name" },
                     { key: "email", label: "Email" },
                     { key: "phone", label: "Phone" },
                     { key: "role", label: "Role" },
@@ -677,6 +680,14 @@ export default function UsersTable() {
                       <TableCell className="px-5 py-4 text-start">
                         <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           #{user.id}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start">
+                        <div className="flex items-center gap-2">
+                          <User size={14} className="text-gray-400" />
+                          <span className="text-gray-600 text-theme-sm dark:text-gray-400">
+                            {user.name}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">

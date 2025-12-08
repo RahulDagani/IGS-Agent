@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 interface CreateUserPayload {
+    name: string;
     email: string;
     phone: string;
     password: string;
@@ -30,6 +31,7 @@ interface CreateUserApiResponse {
     success: boolean;
     data?: {
         id: number;
+        name: string;
         email: string;
         phone: string;
         role: string;
@@ -68,6 +70,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function AddUserPage() {
     const [formData, setFormData] = useState({
+        name: "",
         email: "",
         phone: "",
         password: "",
@@ -91,9 +94,7 @@ export default function AddUserPage() {
     const availableStatuses: StatusOption[] = [
         { value: "active", label: "Active" },
         { value: "inactive", label: "Inactive" },
-        { value: "pending_verification", label: "Pending Verification" },
-        { value: "pending_invite", label: "Pending Invite" },
-        { value: "suspended", label: "Suspended" },
+        
     ];
 
     // Fetch available roles on component mount
@@ -172,6 +173,12 @@ export default function AddUserPage() {
     const validateForm = () => {
         const errors: Record<string, string> = {};
 
+        // Name validation
+      
+        if (!formData.name.trim()) {
+            errors.name = "Name is required";
+        }
+
         // Email validation
         if (!formData.email.trim()) {
             errors.email = "Email is required";
@@ -236,6 +243,7 @@ export default function AddUserPage() {
 
         try {
             const payload: CreateUserPayload = {
+                name: formData.name,
                 email: formData.email,
                 phone: formData.phone,
                 password: formData.password,
@@ -285,6 +293,7 @@ export default function AddUserPage() {
 
     const resetForm = () => {
         setFormData({
+            name: "",
             email: "",
             phone: "",
             password: "",
@@ -347,6 +356,30 @@ export default function AddUserPage() {
 
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Name Input */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-300">
+                                    Full Name{" "}
+                                    <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        placeholder="Enter Full Name"
+                                        className={`w-full pl-10 pr-12 py-2 bg-[#1F2937] border ${validationErrors.name ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors`}
+                                    />
+                                    
+                                </div>
+                                {validationErrors.name && (
+                                    <p className="text-red-400 text-sm">
+                                        {validationErrors.name}
+                                    </p>
+                                )}
+                            </div>
                             {/* Email Input */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-300">

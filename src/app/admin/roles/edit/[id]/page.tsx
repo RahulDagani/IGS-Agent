@@ -36,8 +36,7 @@ interface Role {
     id: number;
     tenant_id: number;
     role_name: string;
-    role_key: string;
-    description: string | null;
+    // role_key: string;
     data_access: string;
     created_at: string;
     updated_at: string;
@@ -75,7 +74,7 @@ interface PermissionPayload {
 
 interface UpdateRolePayload {
     role_name: string;
-    role_key: string;
+    // role_key: string;
     data_access: string;
     permissions: PermissionPayload[];
 }
@@ -88,8 +87,7 @@ export default function EditRolePage() {
     
     const [formData, setFormData] = useState({
         role_name: "",
-        role_key: "",
-        description: "",
+        // role_key: "",
         data_access: "all"
     });
     
@@ -161,8 +159,7 @@ export default function EditRolePage() {
                 // Set form data
                 setFormData({
                     role_name: role.role_name,
-                    role_key: role.role_key,
-                    description: role.description || "",
+                    // role_key: role.role_key,
                     data_access: role.data_access
                 });
                 
@@ -277,19 +274,19 @@ export default function EditRolePage() {
         setFormData(prev => ({
             ...prev,
             role_name: roleName,
-            role_key: generateRoleKey(roleName)
+            // role_key: generateRoleKey(roleName)
         }));
     };
 
     const handleRoleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const roleKey = e.target.value
-            .toLowerCase()
-            .replace(/[^a-z0-9_]/g, '')
-            .replace(/\s+/g, '_');
+        // const roleKey = e.target.value
+        //     .toLowerCase()
+        //     .replace(/[^a-z0-9_]/g, '')
+        //     .replace(/\s+/g, '_');
         
         setFormData(prev => ({
             ...prev,
-            role_key: roleKey
+            // role_key: roleKey
         }));
     };
 
@@ -301,15 +298,15 @@ export default function EditRolePage() {
             return;
         }
 
-        if (!formData.role_key.trim()) {
-            showToast("Role key is required", "error");
-            return;
-        }
+        // if (!formData.role_key.trim()) {
+        //     showToast("Role key is required", "error");
+        //     return;
+        // }
 
-        if (!/^[a-z0-9_]+$/.test(formData.role_key)) {
-            showToast("Role key can only contain lowercase letters, numbers, and underscores", "error");
-            return;
-        }
+        // if (!/^[a-z0-9_]+$/.test(formData.role_key)) {
+        //     showToast("Role key can only contain lowercase letters, numbers, and underscores", "error");
+        //     return;
+        // }
 
         // Prepare permissions array
         const permissionsArray: PermissionPayload[] = [];
@@ -332,7 +329,7 @@ export default function EditRolePage() {
         try {
             const payload: UpdateRolePayload = {
                 role_name: formData.role_name,
-                role_key: formData.role_key,
+                // role_key: formData.role_key,
                 data_access: formData.data_access,
                 permissions: permissionsArray
             };
@@ -378,8 +375,7 @@ export default function EditRolePage() {
         if (roleDetails) {
             setFormData({
                 role_name: roleDetails.role_name,
-                role_key: roleDetails.role_key,
-                description: roleDetails.description || "",
+                // role_key: roleDetails.role_key,
                 data_access: roleDetails.data_access
             });
             
@@ -482,7 +478,7 @@ export default function EditRolePage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
-            <div className="flex-1 p-4 md:p-6">
+            <div className="flex-1 ">
                 {/* Toast Notifications */}
                 {success && (
                     <div className="mb-6 p-4 bg-green-500/10 border border-green-500 rounded-lg flex justify-between items-center">
@@ -522,9 +518,9 @@ export default function EditRolePage() {
                                 <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
                                     ID: {roleDetails.id}
                                 </span>
-                                <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded">
+                                {/* <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded">
                                     {roleDetails.role_key}
-                                </span>
+                                </span> */}
                                 <span className="text-xs text-gray-500 dark:text-gray-500">
                                     Created: {new Date(roleDetails.created_at).toLocaleDateString()}
                                 </span>
@@ -558,7 +554,7 @@ export default function EditRolePage() {
                         </div>
 
                         {/* Role Key Input */}
-                        <div className="mb-6">
+                        {/* <div className="mb-6">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Role Key{" "}
                                 <span className="text-red-500">*</span>
@@ -578,7 +574,7 @@ export default function EditRolePage() {
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 Use lowercase letters, numbers, and underscores only (auto-generated from role name)
                             </p>
-                        </div>
+                        </div> */}
 
                         {/* Data Access Select */}
                         <div className="mb-6">
@@ -593,29 +589,13 @@ export default function EditRolePage() {
                                 className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
                                 required
                             >
-                                <option value="all">All Data</option>
-                                <option value="own">Own Data Only</option>
-                                <option value="team">Team Data</option>
+                                <option value="all">Allowed Access to All data</option>
+                                <option value="assigned">Allowed Access to Assigned Data</option>
+                                
                             </select>
                         </div>
 
-                        {/* Role Description */}
-                        <div className="mb-8">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Description (Optional)
-                            </label>
-                            <div className="flex items-start gap-2">
-                                <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400 mt-2" />
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleChange}
-                                    placeholder="Enter role description (optional)"
-                                    rows={3}
-                                    className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none transition"
-                                />
-                            </div>
-                        </div>
+                      
 
                         {/* Permissions Section - Card Design */}
                         <div className="mb-6">
@@ -746,9 +726,9 @@ export default function EditRolePage() {
                                                                             <div className="text-sm text-gray-800 dark:text-white">
                                                                                 {permission.permission_name}
                                                                             </div>
-                                                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                            {/* <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                                                 Key: <code className="px-1 py-0.5 bg-white dark:bg-gray-900 rounded">{permission.permission_key}</code>
-                                                                            </div>
+                                                                            </div> */}
                                                                         </div>
                                                                     </label>
                                                                 );
