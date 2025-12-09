@@ -18,7 +18,7 @@ interface User {
   name: string;
   email: string;
   phone: string;
-  role: string;
+  role_name: string;
   status: string;
   email_verified: number;
   created_by: string | null;
@@ -54,7 +54,7 @@ interface StatsApiResponse {
       unverified_users: string;
     };
     roles_distribution: {
-      role: string;
+      role_id: string;
       count: number;
     }[];
   };
@@ -70,7 +70,7 @@ interface StatsApiResponseData {
       unverified_users: string;
     };
     roles_distribution: {
-      role: string;
+      role_id: string;
       count: number;
     }[];
   
@@ -290,11 +290,11 @@ export default function UsersTable() {
   const roles = useMemo(() => {
     if (stats?.roles_distribution) {
       return stats.roles_distribution.map((item: {
-      role: string;
+      role_id: string;
       count: number;
-    }) => item.role);
+    }) => item.role_id);
     }
-    return Array.from(new Set(users.map(user => user.role)));
+    return Array.from(new Set(users.map(user => user.role_name)));
   }, [stats, users]);
 
   const statuses = useMemo(() => {
@@ -307,7 +307,7 @@ export default function UsersTable() {
 
     // Apply local filters for role and status (if not already filtered by API)
     if (filters.role !== "all") {
-      filtered = filtered.filter(user => user.role === filters.role);
+      filtered = filtered.filter(user => user.role_name === filters.role);
     }
     if (filters.status !== "all") {
       filtered = filtered.filter(user => user.status === filters.status);
@@ -320,7 +320,7 @@ export default function UsersTable() {
           user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.role_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.status.toLowerCase().includes(searchTerm.toLowerCase())
         );
       });
@@ -522,25 +522,25 @@ export default function UsersTable() {
       </div>
 
       {/* Role Distribution */}
-      {stats?.roles_distribution && (
+      {/* {stats?.roles_distribution && (
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Role Distribution</h3>
           <div className="flex flex-wrap gap-2">
             {stats.roles_distribution.map((item: {
-      role: string;
+      role_id: string;
       count: number;
     }) => (
               <Badge 
-                key={item.role} 
-                color={getRoleColor(item.role)}
+                key={item.role_id} 
+                color={getRoleColor(item.role_id)}
                 size="sm"
               >
-                {formatRole(item.role)}: {item.count}
+                {formatRole(item.role_id)}: {item.count}
               </Badge>
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
@@ -714,9 +714,9 @@ export default function UsersTable() {
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getRoleColor(user.role)}
+                          color={getRoleColor(user.role_name)}
                         >
-                          {formatRole(user.role)}
+                          {formatRole(user.role_name)}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">

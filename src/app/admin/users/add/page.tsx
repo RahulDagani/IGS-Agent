@@ -23,7 +23,7 @@ interface CreateUserPayload {
     email: string;
     phone: string;
     password: string;
-    role: string;
+    role_id: string;
     status: string;
 }
 
@@ -57,8 +57,9 @@ interface RolesApiResponse {
 }
 
 interface RoleOption {
-    value: string;
-    label: string;
+    value: string;  // role_key
+    label: string;  // role_name
+    role_id: number; // Add this field
 }
 
 interface StatusOption {
@@ -102,73 +103,49 @@ export default function AddUserPage() {
         fetchAvailableRoles();
     }, []);
 
-    const fetchAvailableRoles = async () => {
-        try {
-            setRolesLoading(true);
-            const response = await fetch(`${BASE_URL}/tenant/getroles`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            });
-            
-            const data: RolesApiResponse = await response.json();
-            
-            if (data.success) {
-                // Transform API data to RoleOption format
-                const roles: RoleOption[] = data.data.map(role => ({
-                    value: role.role_key, // Using role_key as value for API compatibility
-                    label: role.role_name
-                }));
-                
-                // Merge API roles with default roles, avoiding duplicates
-                const allRoles = [...roles];
-                
-                setAvailableRoles(allRoles);
-                
-                // Set default role if available
-                if (allRoles.length > 0 && !formData.role) {
-                    setFormData(prev => ({
-                        ...prev,
-                        role: allRoles[0].value
-                    }));
-                }
-            } else {
-                // Fallback to default roles if API fails
-                const defaultRoles = [
-                    { value: "student", label: "Student" },
-                    { value: "agent", label: "Agent" },
-                    { value: "admin", label: "Admin" },
-                    { value: "agent_student", label: "Agent Student" },
-                ];
-                setAvailableRoles(defaultRoles);
-                if (!formData.role) {
-                    setFormData(prev => ({
-                        ...prev,
-                        role: defaultRoles[0].value
-                    }));
-                }
-                console.error("Failed to fetch roles from API");
+const fetchAvailableRoles = async () => {
+    try {
+        setRolesLoading(true);
+        const response = await fetch(`${BASE_URL}/tenant/getroles`, {
+            headers: {
+                "Authorization": `Bearer ${token}`
             }
-        } catch (error) {
-            console.error("Error fetching roles:", error);
-            // Fallback to default roles
-            const defaultRoles = [
-                { value: "student", label: "Student" },
-                { value: "agent", label: "Agent" },
-                { value: "admin", label: "Admin" },
-                { value: "agent_student", label: "Agent Student" },
-            ];
-            setAvailableRoles(defaultRoles);
-            if (!formData.role) {
+        });
+        
+        const data: RolesApiResponse = await response.json();
+        
+        if (data.success) {
+            // Transform API data to RoleOption format with role_id
+            const roles: RoleOption[] = data.data.map(role => ({
+                value: role.role_key,      // Keep for display/selection
+                label: role.role_name,     // Keep for display
+                role_id: role.id           // Add role_id for API payload
+            }));
+            
+            setAvailableRoles(roles);
+            
+            // Set default role if available
+            if (roles.length > 0 && !formData.role) {
                 setFormData(prev => ({
                     ...prev,
-                    role: defaultRoles[0].value
+                    role: roles[0].role_id.toString() // Store role_id as string in form
                 }));
             }
-        } finally {
-            setRolesLoading(false);
+        } else {
+            console.error("Failed to fetch roles from API");
         }
-    };
+    } catch (error) {
+        console.error("Error fetching roles:", error);
+        if (!formData.role) {
+            setFormData(prev => ({
+                ...prev,
+                role: ""
+            }));
+        }
+    } finally {
+        setRolesLoading(false);
+    }
+};
 
     const validateForm = () => {
         const errors: Record<string, string> = {};
@@ -232,54 +209,65 @@ export default function AddUserPage() {
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    e.preventDefault();
 
-        if (!validateForm()) {
-            showToast("Please fix the errors in the form", "error");
+    if (!validateForm()) {
+        showToast("Please fix the errors in the form", "error");
+        return;
+    }
+
+    setLoading(true);
+
+    try {
+        // Find the selected role to get role_id
+        const selectedRole = availableRoles.find(role => role.role_id.toString() === formData.role);
+        
+        if (!selectedRole) {
+            showToast("Selected role not found", "error");
+            setLoading(false);
             return;
         }
 
-        setLoading(true);
+        const payload: CreateUserPayload = {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            password: formData.password,
+            role_id: selectedRole.role_id.toString(), // Send role_id instead of role_key
+            status: formData.status,
+        };
 
-        try {
-            const payload: CreateUserPayload = {
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                password: formData.password,
-                role: formData.role,
-                status: formData.status,
-            };
+        console.log("Sending payload:", payload); // For debugging
 
-            const response = await fetch(`${BASE_URL}/tenant/users`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(payload),
-            });
+        const response = await fetch(`${BASE_URL}/tenant/users`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(payload),
+        });
 
-            const data: CreateUserApiResponse = await response.json();
+        const data: CreateUserApiResponse = await response.json();
 
-            if (response.ok && data.success) {
-                showToast("User created successfully!", "success");
-                
-                // Reset form after successful creation
-                setTimeout(() => {
-                    resetForm();
-                    router.push("/admin/users");
-                }, 1500);
-            } else {
-                showToast(data.message || "Failed to create user", "error");
-            }
-        } catch (error) {
-            console.error("Error creating user:", error);
-            showToast("Failed to create user. Please try again.", "error");
-        } finally {
-            setLoading(false);
+        if (response.ok && data.success) {
+            showToast("User created successfully!", "success");
+            
+            // Reset form after successful creation
+            setTimeout(() => {
+                resetForm();
+                router.push("/admin/users");
+            }, 1500);
+        } else {
+            showToast(data.message || "Failed to create user", "error");
         }
-    };
+    } catch (error) {
+        console.error("Error creating user:", error);
+        showToast("Failed to create user. Please try again.", "error");
+    } finally {
+        setLoading(false);
+    }
+};
 
     const showToast = (message: string, type: "success" | "error") => {
         if (type === "success") {
@@ -292,19 +280,19 @@ export default function AddUserPage() {
     };
 
     const resetForm = () => {
-        setFormData({
-            name: "",
-            email: "",
-            phone: "",
-            password: "",
-            confirmPassword: "",
-            role: availableRoles.length > 0 ? availableRoles[0].value : "",
-            status: "active",
-        });
-        setValidationErrors({});
-        setShowPassword(false);
-        setShowConfirmPassword(false);
-    };
+    setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        password: "",
+        confirmPassword: "",
+        role: availableRoles.length > 0 ? availableRoles[0].role_id.toString() : "",
+        status: "active",
+    });
+    setValidationErrors({});
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+};
 
     return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-[#0f172a]">
@@ -512,10 +500,10 @@ export default function AddUserPage() {
                                         >
                                             <option value="">Select a role</option>
                                             {availableRoles.map((role) => (
-                                                <option key={role.value} value={role.value}>
-                                                    {role.label}
-                                                </option>
-                                            ))}
+    <option key={role.role_id} value={role.role_id.toString()}>
+        {role.label}
+    </option>
+))}
                                         </select>
                                     ) : (
                                         <div className="w-full pl-10 pr-4 py-2 bg-[#1F2937] border border-red-500 rounded-lg text-red-400">
@@ -568,26 +556,26 @@ export default function AddUserPage() {
                                 <div className="flex flex-wrap gap-2">
                                     {availableRoles.map((role) => (
                                         <button
-                                            key={role.value}
-                                            type="button"
-                                            onClick={() => {
-                                                setFormData(prev => ({ ...prev, role: role.value }));
-                                                if (validationErrors.role) {
-                                                    setValidationErrors(prev => {
-                                                        const newErrors = { ...prev };
-                                                        delete newErrors.role;
-                                                        return newErrors;
-                                                    });
-                                                }
-                                            }}
-                                            className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
-                                                formData.role === role.value
-                                                    ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50'
-                                                    : 'bg-gray-700/30 text-gray-400 border-gray-600 hover:bg-gray-600/30'
-                                            }`}
-                                        >
-                                            {role.label}
-                                        </button>
+    key={role.role_id}
+    type="button"
+    onClick={() => {
+        setFormData(prev => ({ ...prev, role: role.role_id.toString() }));
+        if (validationErrors.role) {
+            setValidationErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.role;
+                return newErrors;
+            });
+        }
+    }}
+    className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
+        formData.role === role.role_id.toString()
+            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50'
+            : 'bg-gray-700/30 text-gray-400 border-gray-600 hover:bg-gray-600/30'
+    }`}
+>
+    {role.label}
+</button>
                                     ))}
                                 </div>
                             </div>

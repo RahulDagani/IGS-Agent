@@ -26,7 +26,7 @@ interface UserData {
     name: string;
     email: string;
     phone: string;
-    role: string;
+    role_id: string; // Comes as string from API
     status: string;
     email_verified: number;
     created_by: string | null;
@@ -49,9 +49,10 @@ interface RolesApiResponse {
     data: RoleData[];
 }
 
+// FIXED: Change to role_id in the payload
 interface UpdateUserPayload {
     name: string;
-    role: string;
+    role_id: string; // Changed from role to role_id
     status: string;
 }
 
@@ -65,10 +66,9 @@ interface UserApiResponse {
     data: UserData;
 }
 
-
-
 interface RoleOption {
-    value: string;
+    role_id: number;
+    value: string; // This will store role_id as string
     label: string;
 }
 
@@ -85,7 +85,7 @@ export default function EditUserPage() {
     const [rolesLoading, setRolesLoading] = useState(true);
     const [formData, setFormData] = useState({
         name: "",
-        role: "",
+        role_id: "", // Changed from role to role_id
         status: "",
     });
     
@@ -138,9 +138,10 @@ export default function EditUserPage() {
             
             if (data.success) {
                 setUserData(data.data);
+                // Set the role_id directly from user data
                 setFormData({
                     name: data.data.name,
-                    role: data.data.role,
+                    role_id: data.data.role_id, // Set role_id directly
                     status: data.data.status,
                 });
             } else {
@@ -169,37 +170,45 @@ export default function EditUserPage() {
             
             if (data.success) {
                 // Transform API data to RoleOption format
+                // Store role_id as string in value field
                 const roles: RoleOption[] = data.data.map(role => ({
-                    value: role.role_key, // Using role_key as value for API compatibility
+                    role_id: role.id,
+                    value: role.id.toString(), // Store role_id as string in value
                     label: role.role_name
                 }));
                 
-                
-                
-                // Merge API roles with default roles, avoiding duplicates
-                const allRoles = [...roles];
-                
-                
-                setAvailableRoles(allRoles);
+                setAvailableRoles(roles);
             } else {
-                // Fallback to default roles if API fails
-                
                 console.error("Failed to fetch roles from API");
             }
         } catch (error) {
             console.error("Error fetching roles:", error);
-            // Fallback to default roles
-           
         } finally {
             setRolesLoading(false);
         }
     };
 
+    // Update form data when userData changes
+    useEffect(() => {
+        if (userData) {
+            setFormData(prev => ({
+                ...prev,
+                name: userData.name,
+                role_id: userData.role_id,
+                status: userData.status,
+            }));
+        }
+    }, [userData]);
+
     const validateUserForm = () => {
         const errors: Record<string, string> = {};
 
-        if (!formData.role) {
-            errors.role = "Role is required";
+        if (!formData.name.trim()) {
+            errors.name = "Name is required";
+        }
+
+        if (!formData.role_id) {
+            errors.role_id = "Role is required";
         }
 
         if (!formData.status) {
@@ -276,11 +285,14 @@ export default function EditUserPage() {
         setLoading(true);
 
         try {
+            // FIXED: Send role_id in the payload
             const payload: UpdateUserPayload = {
                 name: formData.name,
-                role: formData.role,
+                role_id: formData.role_id, // Send role_id
                 status: formData.status,
             };
+
+            console.log("Sending payload:", payload); // Debug log
 
             const response = await fetch(`${BASE_URL}/tenant/users/${userId}`, {
                 method: "PUT",
@@ -292,6 +304,7 @@ export default function EditUserPage() {
             });
 
             const data = await response.json();
+            console.log("Update response:", data); // Debug log
 
             if (response.ok && data.success) {
                 showToast("User updated successfully!", "success");
@@ -379,7 +392,7 @@ export default function EditUserPage() {
         if (userData) {
             setFormData({
                 name: userData.name,
-                role: userData.role,
+                role_id: userData.role_id,
                 status: userData.status,
             });
         }
@@ -406,16 +419,14 @@ export default function EditUserPage() {
         });
     };
 
-    const formatRole = (roleKey: string) => {
-        // Find the role name from availableRoles
-        const role = availableRoles.find(r => r.value === roleKey);
-        return role ? role.label : roleKey.split('_').map(word => 
-            word.charAt(0).toUpperCase() + word.slice(1)
-        ).join(' ');
+    const formatRole = (roleId: string) => {
+        // Find the role from availableRoles
+        const role = availableRoles.find(r => r.value === roleId);
+        return role ? role.label : `Role ${roleId}`;
     };
 
     const formatStatus = (status: string) => {
-        return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
     if (initialLoading || rolesLoading) {
@@ -450,7 +461,7 @@ export default function EditUserPage() {
 
     return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-[#0f172a]">
-            <div className="flex-1 mt-6 lg:mt-0">
+            <div className="flex-1 mt-6 lg:mt-0 ">
                 {/* Toast Notifications */}
                 {success && (
                     <div className="mb-6 p-4 bg-green-500/10 border border-green-500 rounded-lg flex justify-between items-center">
@@ -476,7 +487,7 @@ export default function EditUserPage() {
                     </div>
                 )}
 
-                <div className="bg-[#111827] rounded-xl shadow-lg border border-white/10 p-6">
+                <div className="bg-[#111827] rounded-xl shadow-lg border border-white/10 p-4 lg:p-6">
                     {/* Header */}
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                         <div>
@@ -556,31 +567,29 @@ export default function EditUserPage() {
                             
                             <form onSubmit={handleUserSubmit}>
                                 <div className="space-y-4">
-
-                                     {/* Name Input */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-300">
-                                    Full Name{" "}
-                                    <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleUserChange}
-                                        placeholder="Enter Full Name"
-                                        className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.name ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-colors`}
-                                    />
-                                    
-                                </div>
-                                {formErrors.name && (
-                                    <p className="text-red-400 text-sm">
-                                        {formErrors.name}
-                                    </p>
-                                )}
-                            </div>
+                                    {/* Name Input */}
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-300">
+                                            Full Name{" "}
+                                            <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                name="name"
+                                                value={formData.name}
+                                                onChange={handleUserChange}
+                                                placeholder="Enter Full Name"
+                                                className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.name ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-colors`}
+                                            />
+                                        </div>
+                                        {formErrors.name && (
+                                            <p className="text-red-400 text-sm">
+                                                {formErrors.name}
+                                            </p>
+                                        )}
+                                    </div>
 
                                     {/* Role Selection */}
                                     <div className="space-y-2">
@@ -592,14 +601,14 @@ export default function EditUserPage() {
                                             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                                             {availableRoles.length > 0 ? (
                                                 <select
-                                                    name="role"
-                                                    value={formData.role}
+                                                    name="role_id" // Changed from role to role_id
+                                                    value={formData.role_id}
                                                     onChange={handleUserChange}
-                                                    className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.role ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-colors`}
+                                                    className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.role_id ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none transition-colors`}
                                                 >
                                                     <option value="">Select a role</option>
                                                     {availableRoles.map((role) => (
-                                                        <option key={role.value} value={role.value}>
+                                                        <option key={role.role_id} value={role.value}>
                                                             {role.label}
                                                         </option>
                                                     ))}
@@ -611,9 +620,9 @@ export default function EditUserPage() {
                                                 </div>
                                             )}
                                         </div>
-                                        {formErrors.role && (
+                                        {formErrors.role_id && (
                                             <p className="text-red-400 text-sm">
-                                                {formErrors.role}
+                                                {formErrors.role_id}
                                             </p>
                                         )}
                                     </div>
@@ -650,20 +659,17 @@ export default function EditUserPage() {
 
                                 {/* Current Status Display */}
                                 <div className="mt-6 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                         <div>
                                             <p className="text-sm text-gray-400">Current Role</p>
                                             <p className="text-white font-medium">
-                                                {formatRole(userData.role)}
+                                                {formatRole(userData.role_id)}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-400">Current Status</p>
                                             <p className={`font-medium ${
-                                                userData.status === 'active' ? 'text-green-400' :
-                                                userData.status === 'inactive' ? 'text-red-400' :
-                                                userData.status === 'suspended' ? 'text-red-400' :
-                                                'text-yellow-400'
+                                                userData.status === 'active' ? 'text-green-400' : 'text-red-400'
                                             }`}>
                                                 {formatStatus(userData.status)}
                                             </p>
@@ -677,8 +683,8 @@ export default function EditUserPage() {
                                     <div className="flex flex-wrap gap-1">
                                         {availableRoles.slice(0, 5).map((role) => (
                                             <span 
-                                                key={role.value} 
-                                                className={`px-2 py-1 text-xs rounded ${formData.role === role.value ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50' : 'bg-gray-700/50 text-gray-400 border border-gray-600'}`}
+                                                key={role.role_id} 
+                                                className={`px-2 py-1 text-xs rounded ${formData.role_id === role.value ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50' : 'bg-gray-700/50 text-gray-400 border border-gray-600'}`}
                                             >
                                                 {role.label}
                                             </span>
@@ -692,10 +698,10 @@ export default function EditUserPage() {
                                 </div>
 
                                 {/* Form Actions */}
-                                <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-700">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-6 pt-4 border-t border-gray-700">
                                     <button
                                         type="submit"
-                                        disabled={loading || !formData.role || !formData.status}
+                                        disabled={loading || !formData.name || !formData.role_id || !formData.status}
                                         className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {loading ? (
@@ -714,7 +720,7 @@ export default function EditUserPage() {
                                         type="button"
                                         onClick={resetUserForm}
                                         disabled={!userData}
-                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
                                         <RotateCcw className="w-4 h-4" />
                                         Reset
@@ -817,7 +823,7 @@ export default function EditUserPage() {
                                 </div>
 
                                 {/* Form Actions */}
-                                <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-700">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-6 pt-4 border-t border-gray-700">
                                     <button
                                         type="submit"
                                         disabled={passwordLoading || !passwordForm.new_password || !passwordForm.confirm_password}
@@ -838,7 +844,7 @@ export default function EditUserPage() {
                                     <button
                                         type="button"
                                         onClick={resetPasswordForm}
-                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition flex items-center gap-2"
+                                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition flex items-center justify-center gap-2"
                                     >
                                         <RotateCcw className="w-4 h-4" />
                                         Clear
@@ -847,8 +853,6 @@ export default function EditUserPage() {
                             </form>
                         </div>
                     </div>
-
-                    
                 </div>
             </div>
         </div>

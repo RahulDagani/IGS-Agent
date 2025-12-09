@@ -42,6 +42,7 @@ interface PermissionPayload {
 interface CreateRolePayload {
     role_name: string;
     role_key: string;
+    role_type: string;
     data_access: string;
     permissions: PermissionPayload[];
 }
@@ -244,6 +245,7 @@ export default function CreateRolePage() {
             const payload: CreateRolePayload = {
                 role_name: formData.role_name,
                 role_key: formData.role_key,
+                role_type: "custom",
                 data_access: formData.data_access,
                 permissions: permissionsArray
             };
