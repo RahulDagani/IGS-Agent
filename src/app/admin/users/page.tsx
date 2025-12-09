@@ -318,10 +318,10 @@ export default function UsersTable() {
       filtered = filtered.filter((user) => {
         return (
           user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.role_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.status.toLowerCase().includes(searchTerm.toLowerCase())
+          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.role_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.status?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       });
     }
@@ -333,8 +333,8 @@ export default function UsersTable() {
         let bValue = b[sortField];
         
         if (typeof aValue === "string" && typeof bValue === "string") {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
+          aValue = aValue?.toLowerCase();
+          bValue = bValue?.toLowerCase();
         }
 
         if(aValue && bValue){
