@@ -16,6 +16,7 @@ import {
   FileText,
   Mail,
   Wallet,
+  Settings,
 } from "lucide-react";
 
 
@@ -35,6 +36,11 @@ export const navItems: NavItem[] = [
     icon: <LayoutDashboard size={18} />,
     path: "/",
   },
+  
+];
+
+
+const studentItems: NavItem[] = [
   {
         name: "Students",
         path: "/students",
@@ -50,7 +56,10 @@ export const navItems: NavItem[] = [
         path: "/applications",
         icon: <FileText size={18} />,
       },
-      {
+]
+
+const accountItems: NavItem[] = [
+  {
         name: "Wallet",
         path: "/wallet",
         icon: <Wallet size={18} />,
@@ -60,7 +69,12 @@ export const navItems: NavItem[] = [
         icon: <Mail size={18} />,
         path: "/resources",
       },
-];
+      {
+        name: "Account",
+        path: "/profile",
+        icon: <Settings size={18} />,
+      },
+]
 
 
 const AppSidebar: React.FC = () => {
@@ -76,87 +90,93 @@ const AppSidebar: React.FC = () => {
   }, [pathname]);
 
   // Recursive component for nested menu items
-  const NavItemComponent: React.FC<{ 
-    item: NavItem; 
-    level?: number;
-    parentKey?: string;
-  }> = ({ item, level = 0, parentKey = '' }) => {
-    const itemKey = parentKey ? `${parentKey}-${item.name}` : item.name;
-    const hasSubItems = item.subItems && item.subItems.length > 0;
-    const isSubmenuOpen = openSubmenus.has(itemKey);
-
-    return (
-      <li>
-        {hasSubItems ? (
-          <>
-            <button
-              onClick={() => handleSubmenuToggle(itemKey)}
-              className={`menu-item group w-full text-left ${
-                isSubmenuOpen ? "menu-item-active" : "menu-item-inactive"
-              } cursor-pointer ${
-                !isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "lg:justify-start"
-              }`}
-              style={{ paddingLeft: `${level * 20 + 16}px` }}
-            >
-              <span className={isSubmenuOpen ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
-                {item.icon}
-              </span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{item.name}</span>
-              )}
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200 ${
-                    isSubmenuOpen ? "rotate-180 text-brand-500" : ""
-                  }`}
-                />
-              )}
-            </button>
-            
-            {(isExpanded || isHovered || isMobileOpen) && (
-              <div
-                ref={(el) => { subMenuRefs.current[itemKey] = el; }}
-                className="overflow-hidden transition-all duration-300"
-                style={{
-                  height: isSubmenuOpen ? `${subMenuRefs.current[itemKey]?.scrollHeight || 0}px` : "0px",
-                }}
-              >
-                <ul className="flex flex-col gap-1 mt-1">
-                  {item.subItems!.map((subItem) => (
-                    <NavItemComponent 
-                      key={subItem.name} 
-                      item={subItem} 
-                      level={level + 1}
-                      parentKey={itemKey}
-                    />
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        ) : (
-          item.path && (
-            <Link
-              href={"/partner" + item.path}
-              className={`menu-item group ${
-                isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
-              }`}
-              style={{ paddingLeft: `${level * 20 + 16}px` }}
-            >
-              <span className={isActive(item.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
-                {item.icon}
-              </span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{item.name}</span>
-              )}
-            </Link>
-          )
-        )}
-      </li>
-    );
-  };
+ const NavItemComponent: React.FC<{ 
+   item: NavItem; 
+   level?: number;
+   parentKey?: string;
+   section?: string; // Add section identifier
+ }> = ({ item, level = 0, parentKey = '', section = '' }) => {
+   // Include section in the itemKey to make it unique
+   const itemKey = parentKey 
+     ? `${section}-${parentKey}-${item.name}` 
+     : `${section}-${item.name}`;
+     
+   const hasSubItems = item.subItems && item.subItems.length > 0;
+   const isSubmenuOpen = openSubmenus.has(itemKey);
+ 
+   return (
+     <li>
+       {hasSubItems ? (
+         <>
+           <button
+             onClick={() => handleSubmenuToggle(itemKey)}
+             className={`menu-item group w-full text-left ${
+               isSubmenuOpen ? "menu-item-active" : "menu-item-inactive"
+             } cursor-pointer ${
+               !isExpanded && !isHovered
+                 ? "lg:justify-center"
+                 : "lg:justify-start"
+             }`}
+             style={{ paddingLeft: `${level * 20 + 16}px` }}
+           >
+             <span className={isSubmenuOpen ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
+               {item.icon}
+             </span>
+             {(isExpanded || isHovered || isMobileOpen) && (
+               <span className="menu-item-text">{item.name}</span>
+             )}
+             {(isExpanded || isHovered || isMobileOpen) && (
+               <ChevronDownIcon
+                 className={`ml-auto w-5 h-5 transition-transform duration-200 ${
+                   isSubmenuOpen ? "rotate-180 text-brand-500" : ""
+                 }`}
+               />
+             )}
+           </button>
+           
+           {(isExpanded || isHovered || isMobileOpen) && (
+             <div
+               ref={(el) => { subMenuRefs.current[itemKey] = el; }}
+               className="overflow-hidden transition-all duration-300"
+               style={{
+                 height: isSubmenuOpen ? `${subMenuRefs.current[itemKey]?.scrollHeight || 0}px` : "0px",
+               }}
+             >
+               <ul className="flex flex-col gap-1 mt-1">
+                 {item.subItems!.map((subItem) => (
+                   <NavItemComponent 
+                     key={subItem.name} 
+                     item={subItem} 
+                     level={level + 1}
+                     parentKey={itemKey}
+                     section={section}
+                   />
+                 ))}
+               </ul>
+             </div>
+           )}
+         </>
+       ) : (
+         item.path && (
+           <Link
+             href={"/partner" + item.path}
+             className={`menu-item group ${
+               isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
+             }`}
+             style={{ paddingLeft: `${level * 20 + 16}px` }}
+           >
+             <span className={isActive(item.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
+               {item.icon}
+             </span>
+             {(isExpanded || isHovered || isMobileOpen) && (
+               <span className="menu-item-text">{item.name}</span>
+             )}
+           </Link>
+         )
+       )}
+     </li>
+   );
+ };
 
   const renderMainMenuItems = () => (
     <ul className="flex flex-col gap-4">
@@ -165,6 +185,22 @@ const AppSidebar: React.FC = () => {
       ))}
     </ul>
   );
+
+  const renderStudentItems = () => (
+  <ul className="flex flex-col gap-4">
+    {studentItems.map((item) => (
+      <NavItemComponent key={item.name} item={item} section="" />
+    ))}
+  </ul>
+);
+
+  const renderAccountItems = () => (
+  <ul className="flex flex-col gap-4">
+    {accountItems.map((item) => (
+      <NavItemComponent key={item.name} item={item} section="" />
+    ))}
+  </ul>
+);
 
   const handleSubmenuToggle = (itemKey: string) => {
     setOpenSubmenus(prev => {
@@ -278,7 +314,44 @@ const AppSidebar: React.FC = () => {
               </h2>
               {renderMainMenuItems()}
             </div>
-          </div>
+          
+
+
+          <div className="">
+                        <h2
+                          className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                            !isExpanded && !isHovered
+                              ? "lg:justify-center"
+                              : "justify-start"
+                          }`}
+                        >
+                          {isExpanded || isHovered || isMobileOpen ? (
+                            "Student Area"
+                          ) : (
+                            <HorizontaLDots />
+                          )}
+                        </h2>
+                        {renderStudentItems()}
+                      </div>
+
+                      <div className="">
+                        <h2
+                          className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                            !isExpanded && !isHovered
+                              ? "lg:justify-center"
+                              : "justify-start"
+                          }`}
+                        >
+                          {isExpanded || isHovered || isMobileOpen ? (
+                            "Account Settings"
+                          ) : (
+                            <HorizontaLDots />
+                          )}
+                        </h2>
+                        {renderAccountItems()}
+                      </div>
+
+                      </div>
         </nav>
         {isExpanded || isHovered || isMobileOpen ? null : null}
       </div>

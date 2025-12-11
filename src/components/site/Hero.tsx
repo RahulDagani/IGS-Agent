@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { CheckCircle, BookOpen, Users, BadgeCheck } from "lucide-react";
+import Link from "next/link";
 
 export default function Hero() {
   return (
@@ -21,7 +22,7 @@ export default function Hero() {
           </div>
 
           {/* Heading */}
-          <h1 className="text-5xl  font-bold text-[#0E2A47] leading-tight mt-6">
+          <h1 className=" text-[42px] md:text-[56px] font-bold text-[#0E2A47] leading-tight mt-6">
             The #1 Place To Learn,
             Grow, And Succeed
           </h1>
@@ -41,9 +42,11 @@ export default function Hero() {
 
           {/* CTA Buttons */}
           <div className="flex gap-4 mt-8">
-            <button className="bg-[#0566FF] text-white px-8 py-3 rounded-md font-medium hover:bg-blue-600 transition">
+           
+            <Link href="/apply" className="bg-[#0566FF] text-white px-8 py-3 rounded-md font-medium hover:bg-blue-600 transition">
               Apply Now
-            </button>
+            </Link>
+
             <button className="border border-gray-300 px-8 py-3 rounded-md font-medium text-gray-800 hover:bg-gray-50 transition">
               Browse Our Courses
             </button>

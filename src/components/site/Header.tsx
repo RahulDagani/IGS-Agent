@@ -9,7 +9,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="w-full border-b bg-white">
+    <header className="w-full border-b bg-white sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
         
         {/* Logo */}
@@ -61,10 +61,10 @@ export default function Header() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="md:hidden bg-white border-t p-4 space-y-4 text-[#0E2A47]">
-          <MobileNavItem title="Home" />
-          <MobileNavItem title="Courses" />
-          <MobileNavItem title="Pages" />
-          <MobileNavItem title="Accounts" />
+          <MobileNavItem title="Home" link="/home"/>
+          <MobileNavItem title="Universities" link="/universities" />
+          <MobileNavItem title="Collaborations" link="/collaborations" />
+          <MobileNavItem title="Contact" link="/contact" />
 
           <button className="w-full flex items-center justify-center gap-2 border border-[#0E2A47] text-[#0E2A47] px-6 py-2 rounded-full">
             <User size={18} />
@@ -91,9 +91,11 @@ const NavItem = ({ title, link }: { title: string, link: string }) => (
   </Link>
 );
 
-const MobileNavItem = ({ title }: { title: string }) => (
+const MobileNavItem = ({ title, link }: { title: string, link: string }) => (
+   <Link href={`${link}`}>
   <div className="flex items-center gap-2 py-1">
     <ChevronDown size={16} />
     {title}
   </div>
+  </Link>
 );

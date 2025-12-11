@@ -8,13 +8,33 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
-import { Edit, Trash, Plus, Users } from "lucide-react";
+import { Edit, Trash, Plus, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface CollaborationType {
   id: number;
   name: string;
   slug: string;
+}
+
+interface PaginationInfo {
+  total: number;
+  per_page: number;
+  current_page: number;
+  last_page: number;
+  from: number;
+  to: number;
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: CollaborationType[];
+  total: number;
+  limit: number;
+  page: number;
+  totalPages: number;
+  
+
 }
 
 interface AddEditCollaborationTypeModalProps {
@@ -154,7 +174,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 export default function CollaborationTypesTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<keyof CollaborationType>("id");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [selectedType, setSelectedType] = useState<CollaborationType | null>(null);
@@ -163,13 +183,27 @@ export default function CollaborationTypesTable() {
   const [error, setError] = useState<string | null>(null);
   const {token} = useAuth();
 
-  // Fetch collaboration types from API
-  const fetchCollaborationTypes = async () => {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
+  // Fetch collaboration types from API with pagination
+  const fetchCollaborationTypes = async (page: number = 1, limit: number = itemsPerPage) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_collaboration_types`, {
+      const url = new URL(`${BASE_URL}/tenant/option/apply_tenant_collaboration_types`);
+      url.searchParams.append('page', page.toString());
+      url.searchParams.append('limit', limit.toString());
+      
+      if (searchTerm) {
+        url.searchParams.append('search', searchTerm);
+      }
+
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -181,10 +215,20 @@ export default function CollaborationTypesTable() {
         throw new Error(`Failed to fetch collaboration types: ${response.status}`);
       }
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       
       if (result.success) {
         setCollaborationTypes(result.data);
+        
+        // Update pagination info if available
+        if (result) {
+          setTotalItems(result.total);
+          setTotalPages(result.totalPages);
+          setCurrentPage(result.page);
+          if (result.limit !== limit) {
+            setItemsPerPage(result.limit);
+          }
+        } 
       } else {
         throw new Error('Failed to fetch collaboration types');
       }
@@ -197,10 +241,23 @@ export default function CollaborationTypesTable() {
   };
 
   useEffect(() => {
-    fetchCollaborationTypes();
-  }, []);
+    fetchCollaborationTypes(currentPage, itemsPerPage);
+  }, [currentPage, itemsPerPage]);
 
-  // Filter and sort data
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchCollaborationTypes(1, itemsPerPage);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Filter and sort data (now client-side for current page data)
   const filteredAndSortedData = useMemo(() => {
     const filtered = collaborationTypes.filter((type) => {
       const matchesSearch = 
@@ -284,7 +341,7 @@ export default function CollaborationTypesTable() {
       
       if (result.success) {
         // Refresh the collaboration types list
-        await fetchCollaborationTypes();
+        await fetchCollaborationTypes(currentPage, itemsPerPage);
       } else {
         throw new Error('Failed to add collaboration type');
       }
@@ -315,7 +372,7 @@ export default function CollaborationTypesTable() {
       
       if (result.success) {
         // Refresh the collaboration types list
-        await fetchCollaborationTypes();
+        await fetchCollaborationTypes(currentPage, itemsPerPage);
         setSelectedType(null);
       } else {
         throw new Error('Failed to update collaboration type');
@@ -344,7 +401,7 @@ export default function CollaborationTypesTable() {
         
         if (result.success) {
           // Refresh the collaboration types list
-          await fetchCollaborationTypes();
+          await fetchCollaborationTypes(currentPage, itemsPerPage);
         } else {
           throw new Error('Failed to delete collaboration type');
         }
@@ -365,7 +422,45 @@ export default function CollaborationTypesTable() {
     setIsAddModalOpen(true);
   };
 
-  if (isLoading) {
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLimit = parseInt(e.target.value);
+    setItemsPerPage(newLimit);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  // Generate page numbers
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = startPage + maxVisiblePages - 1;
+      
+      if (endPage > totalPages) {
+        endPage = totalPages;
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
+
+  if (isLoading && collaborationTypes.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2">
@@ -386,7 +481,7 @@ export default function CollaborationTypesTable() {
           <div className="text-red-500 text-lg mb-2">Error Loading Collaboration Types</div>
           <div className="text-gray-600 dark:text-gray-400 mb-4">{error}</div>
           <button
-            onClick={fetchCollaborationTypes}
+            onClick={() => fetchCollaborationTypes(currentPage, itemsPerPage)}
             className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
           >
             Try Again
@@ -403,30 +498,30 @@ export default function CollaborationTypesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Types</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
+            {totalItems}
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Current Page</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {currentPage}
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Showing</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
             {filteredAndSortedData.length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">International</div>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {filteredAndSortedData.filter(d => d.slug === 'international').length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">National</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(d => d.slug === 'national').length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Other Types</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Total Pages</div>
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {filteredAndSortedData.filter(d => !['international', 'national'].includes(d.slug)).length}
+            {totalPages}
           </div>
         </div>
       </div>
 
-      {/* Search and Add Controls */}
+      {/* Search, Add, and Pagination Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         {/* Search Input */}
         <div className="flex-1 max-w-md">
@@ -456,8 +551,22 @@ export default function CollaborationTypesTable() {
           </div>
         </div>
 
-        {/* Add Button */}
+        {/* Items per page and Add Button */}
         <div className="flex items-center gap-3">
+          {/* <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
+            <select
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+              className="dark:bg-dark-900 h-11 rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+           */}
           <button
             onClick={handleAddClick}
             className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2"
@@ -477,7 +586,7 @@ export default function CollaborationTypesTable() {
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
-                    { key: "id", label: "ID" },
+                    // { key: "id", label: "ID" },
                     { key: "name", label: "Collaboration Type" },
                     { key: "slug", label: "Slug" },
                     { key: "action", label: "Action" },
@@ -504,11 +613,11 @@ export default function CollaborationTypesTable() {
                 {filteredAndSortedData.length > 0 ? (
                   filteredAndSortedData.map((type) => (
                     <TableRow key={type.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="px-5 py-4 text-start">
+                      {/* <TableCell className="px-5 py-4 text-start">
                         <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           #{type.id}
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
@@ -562,9 +671,65 @@ export default function CollaborationTypesTable() {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {collaborationTypes.length} collaboration types
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Results Count */}
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Showing {filteredAndSortedData.length} of {totalItems} collaboration types
+          {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+        </div>
+
+        {/* Pagination Buttons */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <ChevronLeft size={16} />
+              Previous
+            </button>
+
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg ${
+                    currentPage === page
+                      ? 'bg-brand-500 text-white'
+                      : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              
+              {totalPages > getPageNumbers().length && currentPage < totalPages - 2 && (
+                <>
+                  <span className="px-2 text-gray-500">...</span>
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    className="w-10 h-10 flex items-center justify-center text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Next
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add Modal */}

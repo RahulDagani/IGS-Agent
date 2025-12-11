@@ -117,6 +117,11 @@ export default function AgentRegisterPage() {
     agreeToTerms: false,
   });
 
+  const baseDomain = typeof window !== "undefined" 
+    ? window.location.origin 
+    : "";
+
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
@@ -152,6 +157,8 @@ export default function AgentRegisterPage() {
 
     if (!validateForm()) return;
 
+
+
     setLoading(true);
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
     
@@ -166,6 +173,7 @@ export default function AgentRegisterPage() {
           email: formData.email,
           password: formData.password,
           phone_number: formData.phoneNumber,
+          domain: baseDomain,
         }),
       });
 

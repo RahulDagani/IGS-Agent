@@ -302,7 +302,7 @@ function AgentLoginContent() {
                   href="/signup/agent"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
                 >
-                  Contact Administrator
+                  Sign Up
                 </Link>
               </p>
             </div>

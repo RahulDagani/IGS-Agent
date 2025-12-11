@@ -260,7 +260,7 @@ const AppHeader: React.FC = () => {
               Account settings
             </DropdownItem>
           </li>
-          <li>
+          {/* <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
@@ -284,7 +284,7 @@ const AppHeader: React.FC = () => {
               </svg>
               Platform Settings
             </DropdownItem>
-          </li>
+          </li> */}
         </ul>
         <button
           onClick={logout}

@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
-import { Edit, Trash, Plus, BookOpen } from "lucide-react";
+import { Edit, Trash, Plus, BookOpen, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface StudyLevel {
@@ -24,6 +24,17 @@ interface Discipline {
   study_level_name?: string;
   slug?: string;
   created_at?: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: Discipline[];
+  
+    total: number;
+    limit: number;
+    page: number;
+    totalPages: number;
+  
 }
 
 interface AddEditDisciplineModalProps {
@@ -187,7 +198,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 export default function DisciplinesTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<keyof Discipline>("id");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>(null);
@@ -195,15 +206,29 @@ export default function DisciplinesTable() {
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const {token} = useAuth();
+  const { token } = useAuth();
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(10);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
-  // Fetch disciplines from API
-  const fetchDisciplines = async () => {
+  // Fetch disciplines from API with pagination
+  const fetchDisciplines = async (page: number = currentPage, search: string = searchTerm) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_disciplines`, {
+      const url = new URL(`${BASE_URL}/tenant/option/apply_tenant_disciplines`);
+      url.searchParams.append('page', page.toString());
+      url.searchParams.append('limit', limit.toString());
+      
+      if (search.trim()) {
+        url.searchParams.append('search', search);
+      }
+      
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -215,10 +240,21 @@ export default function DisciplinesTable() {
         throw new Error(`Failed to fetch disciplines: ${response.status}`);
       }
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       
       if (result.success) {
         setDisciplines(result.data);
+        
+        // Handle pagination data
+        if (result) {
+          setTotalItems(result.total);
+          setTotalPages(result.totalPages);
+          setCurrentPage(result.page);
+          // Update limit if it's different from pagination limit
+          if (result.limit !== limit) {
+            setLimit(result.limit);
+          }
+        } 
       } else {
         throw new Error('Failed to fetch disciplines');
       }
@@ -264,7 +300,34 @@ export default function DisciplinesTable() {
     fetchData();
   }, []);
 
-  // Filter and sort data
+  // Handle search with debouncing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm.trim() !== '') {
+        fetchDisciplines(1, searchTerm);
+      } else {
+        fetchDisciplines(1);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Handle limit change
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setCurrentPage(1);
+    fetchDisciplines(1, searchTerm);
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    fetchDisciplines(page, searchTerm);
+  };
+
+  // Filter and sort data (client-side for current page)
   const filteredAndSortedData = useMemo(() => {
     const filtered = disciplines.filter((discipline) => {
       const matchesSearch = 
@@ -285,13 +348,13 @@ export default function DisciplinesTable() {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-        if(aValue && bValue){
+        if (aValue && bValue) {
           if (aValue < bValue) {
-          return sortDirection === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortDirection === "asc" ? 1 : -1;
-        }
+            return sortDirection === "asc" ? -1 : 1;
+          }
+          if (aValue > bValue) {
+            return sortDirection === "asc" ? 1 : -1;
+          }
         }
         
         return 0;
@@ -359,7 +422,7 @@ export default function DisciplinesTable() {
       
       if (result.success) {
         // Refresh the disciplines list
-        await fetchDisciplines();
+        await fetchDisciplines(currentPage, searchTerm);
       } else {
         throw new Error('Failed to add discipline');
       }
@@ -390,7 +453,7 @@ export default function DisciplinesTable() {
       
       if (result.success) {
         // Refresh the disciplines list
-        await fetchDisciplines();
+        await fetchDisciplines(currentPage, searchTerm);
         setSelectedDiscipline(null);
       } else {
         throw new Error('Failed to update discipline');
@@ -419,7 +482,7 @@ export default function DisciplinesTable() {
         
         if (result.success) {
           // Refresh the disciplines list
-          await fetchDisciplines();
+          await fetchDisciplines(currentPage, searchTerm);
         } else {
           throw new Error('Failed to delete discipline');
         }
@@ -438,6 +501,38 @@ export default function DisciplinesTable() {
   const handleAddClick = () => {
     setSelectedDiscipline(null);
     setIsAddModalOpen(true);
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const half = Math.floor(maxVisiblePages / 2);
+      let start = currentPage - half;
+      let end = currentPage + half;
+      
+      if (start < 1) {
+        start = 1;
+        end = maxVisiblePages;
+      }
+      
+      if (end > totalPages) {
+        end = totalPages;
+        start = totalPages - maxVisiblePages + 1;
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
   };
 
   if (isLoading) {
@@ -461,7 +556,7 @@ export default function DisciplinesTable() {
           <div className="text-red-500 text-lg mb-2">Error Loading Disciplines</div>
           <div className="text-gray-600 dark:text-gray-400 mb-4">{error}</div>
           <button
-            onClick={fetchDisciplines}
+            onClick={() => fetchDisciplines(currentPage, searchTerm)}
             className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
           >
             Try Again
@@ -478,13 +573,13 @@ export default function DisciplinesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Disciplines</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {filteredAndSortedData.length}
+            {totalItems}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Bachelors</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {filteredAndSortedData.filter(d => {
+            {disciplines.filter(d => {
               const studyLevelName = getStudyLevelName(d.study_level_id);
               return studyLevelName.toLowerCase().includes('bachelor');
             }).length}
@@ -493,7 +588,7 @@ export default function DisciplinesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Masters</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(d => {
+            {disciplines.filter(d => {
               const studyLevelName = getStudyLevelName(d.study_level_id);
               return studyLevelName.toLowerCase().includes('master');
             }).length}
@@ -502,7 +597,7 @@ export default function DisciplinesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">PhD</div>
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {filteredAndSortedData.filter(d => {
+            {disciplines.filter(d => {
               const studyLevelName = getStudyLevelName(d.study_level_id);
               return studyLevelName.toLowerCase().includes('phd') || studyLevelName.toLowerCase().includes('doctor');
             }).length}
@@ -510,7 +605,7 @@ export default function DisciplinesTable() {
         </div>
       </div>
 
-      {/* Search and Add Controls */}
+      {/* Search, Add Controls, and Pagination Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         {/* Search Input */}
         <div className="flex-1 max-w-md">
@@ -540,8 +635,24 @@ export default function DisciplinesTable() {
           </div>
         </div>
 
-        {/* Add Button */}
+        {/* Add Button and Items Per Page */}
         <div className="flex items-center gap-3">
+          {/* Items Per Page Selector */}
+          {/* <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Show:</span>
+            <select
+              value={limit}
+              onChange={(e) => handleLimitChange(Number(e.target.value))}
+              className="h-10 px-3 rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/10"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div> */}
+          
+          {/* Add Button */}
           <button
             onClick={handleAddClick}
             className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2"
@@ -561,7 +672,7 @@ export default function DisciplinesTable() {
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
-                    { key: "id", label: "ID" },
+                    // { key: "id", label: "ID" },
                     { key: "name", label: "Discipline" },
                     { key: "study_level_id", label: "Study Level" },
                     { key: "action", label: "Action" },
@@ -590,11 +701,11 @@ export default function DisciplinesTable() {
                     const studyLevelName = getStudyLevelName(discipline.study_level_id);
                     return (
                       <TableRow key={discipline.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <TableCell className="px-5 py-4 text-start">
+                        {/* <TableCell className="px-5 py-4 text-start">
                           <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                             #{discipline.id}
                           </div>
-                        </TableCell>
+                        </TableCell> */}
                         <TableCell className="px-5 py-4 text-start">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
@@ -659,9 +770,70 @@ export default function DisciplinesTable() {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {disciplines.length} disciplines
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Results Count */}
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Showing {disciplines.length} of {totalItems} disciplines (Page {currentPage} of {totalPages})
+        </div>
+        
+        {/* Pagination Buttons */}
+        <div className="flex items-center gap-2">
+          {/* First Page */}
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            title="First Page"
+          >
+            <ChevronsLeft size={16} className="text-gray-600 dark:text-gray-400" />
+          </button>
+          
+          {/* Previous Page */}
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            title="Previous Page"
+          >
+            <ChevronLeft size={16} className="text-gray-600 dark:text-gray-400" />
+          </button>
+          
+          {/* Page Numbers */}
+          {getPageNumbers().map((pageNum) => (
+            <button
+              key={pageNum}
+              onClick={() => handlePageChange(pageNum)}
+              className={`h-10 w-10 flex items-center justify-center rounded-lg border text-sm font-medium ${
+                currentPage === pageNum
+                  ? 'border-brand-500 bg-brand-500 text-white'
+                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              {pageNum}
+            </button>
+          ))}
+          
+          {/* Next Page */}
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            title="Next Page"
+          >
+            <ChevronRight size={16} className="text-gray-600 dark:text-gray-400" />
+          </button>
+          
+          {/* Last Page */}
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            title="Last Page"
+          >
+            <ChevronsRight size={16} className="text-gray-600 dark:text-gray-400" />
+          </button>
+        </div>
       </div>
 
       {/* Add Modal */}

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/site/Header';
 import Select from 'react-select';
 import Footer from '@/components/site/Footer';
+import { Search } from 'lucide-react';
 
 interface University {
   logo: string;
@@ -438,7 +439,7 @@ const UniversitySearchComponent = ({ initialData, initialParams }: UniversitySea
       <div className="main-div-search-panel bg-gray-50 min-h-screen">
         <div className="main-uni-course flex flex-col lg:flex-row max-w-7xl mx-auto">
           {/* Left Filter Sidebar */}
-          <section className="left11-form lg:w-1/4 p-4 lg:p-6">
+          <section className="left11-form lg:w-2/6 p-4 lg:p-6">
             <div className="university-side-form sticky top-4">
               {/* Mobile Filter Toggle */}
               <div className="lg:hidden mb-4">
@@ -467,9 +468,10 @@ const UniversitySearchComponent = ({ initialData, initialParams }: UniversitySea
                       value={universalSearch}
                       onChange={(e) => setUniversalSearch(e.target.value)}
                       placeholder="Search universities..."
-                      className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      className="w-full px-2 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
-                    <i className="ri-search-line absolute left-3 top-3.5 text-gray-400"></i>
+                    <Search size={18} className="ri-search-line absolute left-3 top-4 text-gray-400"/>
+                   
                   </div>
                 </div>
 
@@ -701,7 +703,7 @@ const UniversitySearchComponent = ({ initialData, initialParams }: UniversitySea
           <section className="top-section flex-1 p-4 lg:p-6">
             <div className="university-section">
               {/* Results Count */}
-              <div className="mb-6 p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+              {/* <div className="mb-6 p-4 bg-white rounded-xl shadow-sm border border-gray-100">
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">Universities</h1>
                 <div className="flex items-center justify-between">
                   <p className="text-gray-600">
@@ -717,7 +719,7 @@ const UniversitySearchComponent = ({ initialData, initialParams }: UniversitySea
                     </div>
                   ) : null}
                 </div>
-              </div>
+              </div> */}
 
               {/* Loader */}
               {loading && (

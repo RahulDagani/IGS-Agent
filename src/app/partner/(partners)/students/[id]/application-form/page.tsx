@@ -331,7 +331,7 @@ export default function StudentApplicationForm() {
         setValidationMessage("Student data saved successfully!");
         // Redirect back to applications list or show success message
         setTimeout(() => {
-          router.push('/student/applications');
+          router.push(`/partner/students/${studentId}/applications`);
         }, 2000);
       }
       

@@ -573,34 +573,48 @@ export default function TenantDashboard() {
 
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    outerRadius={90}
-                    dataKey="value"
-                    label={(entry) => `${entry.name}: ${entry.value}`}
-                  >
-                    {statusChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "none",
-                      borderRadius: "8px",
-                      color: "#fff",
-                    }}
-                    formatter={(value, name, props) => [
-                      `${value} applications`,
-                      props.payload.name,
-                    ]}
-                  />
-                  <Legend />
-                </PieChart>
+              <PieChart>
+  <Pie
+    data={statusChartData}
+    cx="50%"
+    cy="50%"
+    labelLine={true}
+    outerRadius={90}
+    dataKey="value"
+    label={(entry) => `${entry.name}: ${entry.value}`}
+  >
+    {statusChartData.map((entry, index) => (
+      <Cell key={`cell-${index}`} fill={entry.color} />
+    ))}
+  </Pie>
+  <Tooltip
+    contentStyle={{
+      backgroundColor: "#1F2937",
+      border: "none",
+      borderRadius: "8px",
+      color: "#fff", // Already here, but let's ensure it's working
+    }}
+    itemStyle={{
+      color: "#fff", // Add this to style individual items in tooltip
+    }}
+    labelStyle={{
+      color: "#fff", // Add this to style the label in tooltip
+    }}
+    formatter={(value, name, props) => [
+      `${value} applications`,
+      props.payload.name,
+    ]}
+  />
+  <Legend 
+  wrapperStyle={{
+    paddingTop: "30px",
+  }}
+  iconSize={12}
+  layout="horizontal"
+  verticalAlign="bottom"
+  align="center"
+/>
+</PieChart>
               </ResponsiveContainer>
             </div>
           </div>

@@ -639,7 +639,7 @@ export default function UsersTable() {
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
-                    { key: "id", label: "ID" },
+                    // { key: "id", label: "ID" },
                     { key: "name", label: "Name" },
                     { key: "email", label: "Email" },
                     { key: "phone", label: "Phone" },
@@ -677,11 +677,11 @@ export default function UsersTable() {
                 ) : filteredAndSortedData.length > 0 ? (
                   filteredAndSortedData.map((user) => (
                     <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="px-5 py-4 text-start">
+                      {/* <TableCell className="px-5 py-4 text-start">
                         <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           #{user.id}
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
                           <User size={14} className="text-gray-400" />

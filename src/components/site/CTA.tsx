@@ -81,9 +81,9 @@ export default function CTA() {
 
         {/* LEFT TEXT SIDE */}
         <div>
-          <h1 className="text-[42px] md:text-[60px] lg:text-[72px] font-black leading-[1.1] mb-8">
+          <h2 className="text-5xl font-black leading-[1.1] mb-8">
             {ctaData?.heading || "Empowering Agencies Through Real Experience."}
-          </h1>
+          </h2>
 
           <div className="text-lg leading-relaxed text-gray-900 space-y-4">
             {ctaData?.description ? (
