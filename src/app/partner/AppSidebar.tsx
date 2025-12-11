@@ -46,11 +46,11 @@ const studentItems: NavItem[] = [
         path: "/students",
         icon: <Users size={18} />,
       },
-      // {
-      //   name: "Programs",
-      //   path: "/programs",
-      //   icon: <Book size={18} />,
-      // },
+      {
+        name: "Programs",
+        path: "/programs",
+        icon: <Book size={18} />,
+      },
       {
         name: "Applications",
         path: "/applications",

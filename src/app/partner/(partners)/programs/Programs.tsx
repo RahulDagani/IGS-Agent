@@ -2,8 +2,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Badge from "@/components/ui/badge/Badge";
 import { DockIcon, DollarSign, GraduationCap, MapPin } from "lucide-react";
-import Link from "next/link";
 import {useAuth} from '@/context/AuthContext';
+import { useParams } from "next/navigation";
+import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import Link from "next/link";
 
 interface Course {
   id: number;
@@ -44,6 +46,23 @@ interface Course {
   collaboration_type_name: string;
 }
 
+interface Student {
+  user_id: number;
+  email: string;
+  phone: string;
+  status: string;
+  first_name: string;
+  last_name: string;
+  passport_number: string;
+  dob: string;
+  created_at: string;
+}
+
+interface StudentsResponse {
+  success: boolean;
+  data: Student[];
+}
+
 interface ApiResponse {
   success: boolean;
   data: Course[];
@@ -72,6 +91,204 @@ interface FilterModalProps {
   states: string[];
   studyLevels: string[];
 }
+
+// Application Confirmation Modal Component - Updated to include student selection
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (selectedStudentId: number) => void;
+  course: Course | null;
+  loading: boolean;
+  students: Student[];
+  isFetchingStudents: boolean;
+  studentError: string | null;
+}
+
+const ConfirmModal: React.FC<ConfirmModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  course,
+  loading,
+  students,
+  isFetchingStudents,
+  studentError
+}) => {
+  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
+
+  const formatFee = (fee: string, currency: string) => {
+    if (!fee || fee === "0.00") return "Free";
+    return `${currency} ${parseFloat(fee).toLocaleString()}`;
+  };
+
+  const handleSubmit = () => {
+    if (selectedStudentId === 0) {
+      alert("Please select a student");
+      return;
+    }
+    onConfirm(selectedStudentId);
+  };
+
+  if (!isOpen || !course) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md">
+        <div className="p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+            Confirm Application
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Please review your application details before submitting:
+          </p>
+
+          <div className="space-y-3 mb-4">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Course:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.course_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">University:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.university_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Study Level:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.study_level_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Application Fee:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">
+                {formatFee(course.application_fee, course.currency_code)}
+              </span>
+            </div>
+          </div>
+
+          {/* Student Selection Dropdown */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Student
+            </label>
+            {isFetchingStudents ? (
+              <div className="flex items-center justify-center p-4">
+                <svg className="animate-spin h-5 w-5 text-brand-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Loading students...</span>
+              </div>
+            ) : studentError ? (
+              <div className="text-sm text-red-600 dark:text-red-400 p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                Error loading students: {studentError}
+              </div>
+            ) : students.length === 0 ? (
+              <div className="text-sm text-yellow-600 dark:text-yellow-400 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                No students found. Please add students first.
+              </div>
+            ) : (
+              <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(Number(e.target.value))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                disabled={loading}
+              >
+                <option value={0}>-- Select a student --</option>
+                {students.map((student) => (
+                  <option key={student.user_id} value={student.user_id}>
+                    {student.first_name} {student.last_name} - {student.email}
+                  </option>
+                ))}
+              </select>
+            )}
+            {students.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {students.length} student(s) available
+              </p>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading || isFetchingStudents || students.length === 0 || selectedStudentId === 0}
+              className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Applying...
+                </>
+              ) : (
+                'Confirm Application'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Success/Error Alert Component
+interface AlertModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  type: 'success' | 'error';
+  message: string;
+}
+
+const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, type, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md">
+        <div className="p-6">
+          <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-4 ${
+            type === 'success' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
+          }`}>
+            {type === 'success' ? (
+              <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+          </div>
+          <h3 className={`text-lg font-semibold text-center mb-2 ${
+            type === 'success' ? 'text-green-800 dark:text-green-400' : 'text-red-800 dark:text-red-400'
+          }`}>
+            {type === 'success' ? 'Application Submitted!' : 'Application Failed'}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
+            {message}
+          </p>
+          <button
+            onClick={onClose}
+            className={`w-full px-4 py-2 text-sm text-white rounded-lg ${
+              type === 'success' 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-red-600 hover:bg-red-700'
+            } focus:outline-hidden focus:ring-2 focus:ring-opacity-50`}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
@@ -321,7 +538,10 @@ const FilterModal: React.FC<FilterModalProps> = ({
   );
 };
 
-const CourseCard: React.FC<{ course: Course }> = ({ course }) => {
+const CourseCard: React.FC<{ 
+  course: Course;
+  onApply: (course: Course) => void;
+}> = ({ course, onApply }) => {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -448,26 +668,37 @@ const CourseCard: React.FC<{ course: Course }> = ({ course }) => {
       </div>
 
       {/* Buttons */}
+      {/* <div className="mt-6 flex gap-3">
+        <button
+          onClick={() => onApply(course)}
+          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
+        >
+          Apply
+        </button>
+      </div> */}
       <div className="mt-6 flex gap-3">
-        <Link 
+        <Link
           href={`/partner/programs/${course.id}`}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
-          VIEW COURSE DETAILS
+          View Course Details
         </Link>
       </div>
     </div>
   );
 };
 
-        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function ProgramCards() {
   const {token, logout} = useAuth()
+  const {id: student_user_id} = useParams();   
   const [courses, setCourses] = useState<Course[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingStudents, setFetchingStudents] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [studentError, setStudentError] = useState<string | null>(null);
   const [sortField] = useState<SortField>("");
   const [sortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
@@ -479,6 +710,14 @@ export default function ProgramCards() {
     country: [],
     state: [],
   });
+
+  // Application states
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [alertType, setAlertType] = useState<'success' | 'error'>('success');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
 
   // Fetch courses from API
   useEffect(() => {
@@ -515,6 +754,94 @@ export default function ProgramCards() {
 
     fetchCourses();
   }, []);
+
+  // Fetch students when confirmation modal opens
+  const fetchStudents = async () => {
+    try {
+      setFetchingStudents(true);
+      setStudentError(null);
+      
+      const response = await fetch(`${BASE_URL}/agent/student`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch students');
+      }
+
+      const data: StudentsResponse = await response.json();
+      
+      if (data.success) {
+        setStudents(data.data);
+      } else {
+        throw new Error('Failed to load students');
+      }
+    } catch (err) {
+      setStudentError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setFetchingStudents(false);
+    }
+  };
+
+  // Handle Apply button click
+  const handleApplyClick = async (course: Course) => {
+    setSelectedCourse(course);
+    // Fetch students before opening confirmation modal
+    await fetchStudents();
+    setIsConfirmModalOpen(true);
+  };
+
+  // Handle application submission
+  const handleConfirmApplication = async (selectedStudentId: number) => {
+    if (!selectedCourse) return;
+
+    setIsApplying(true);
+    try {
+      const payload = {
+        student_user_id: selectedStudentId,
+        course_id: selectedCourse.id,
+        study_level_id: selectedCourse.study_level_id,
+        remarks: "Student wants Jan 2025 intake"
+      };
+
+      const response = await fetch(`${BASE_URL}/agent/student/application/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit application');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setAlertType('success');
+        setAlertMessage(`Your application for ${selectedCourse.course_name} at ${selectedCourse.university_name} has been submitted successfully for the selected student!`);
+      } else {
+        throw new Error(result.message || 'Application failed');
+      }
+    } catch (err) {
+      setAlertType('error');
+      setAlertMessage(err instanceof Error ? err.message : 'Failed to submit application. Please try again.');
+    } finally {
+      setIsApplying(false);
+      setIsConfirmModalOpen(false);
+      setIsAlertModalOpen(true);
+    }
+  };
+
+  // Close alert modal
+  const handleCloseAlert = () => {
+    setIsAlertModalOpen(false);
+    setSelectedCourse(null);
+  };
 
   // Get unique values for filters from actual API data
   const universities = useMemo(() => {
@@ -639,9 +966,19 @@ export default function ProgramCards() {
   }
 
   return (
-    <div className="space-y-4">
+    <>
+    
+    <div className="space-y-6">
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            Available Programs
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Select a course to apply.
+          </p>
+        </div>
         {/* Filter Button and Active Filters */}
         <div className="flex items-center gap-3">
           {hasActiveFilters && (
@@ -699,7 +1036,11 @@ export default function ProgramCards() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAndSortedData.length > 0 ? (
           filteredAndSortedData.map((course) => (
-            <CourseCard key={course.id} course={course} />
+            <CourseCard 
+              key={course.id} 
+              course={course} 
+              onApply={handleApplyClick}
+            />
           ))
         ) : (
           <div className="col-span-full text-center py-12">
@@ -730,6 +1071,27 @@ export default function ProgramCards() {
         states={states}
         studyLevels={studyLevels}
       />
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={handleConfirmApplication}
+        course={selectedCourse}
+        loading={isApplying}
+        students={students}
+        isFetchingStudents={fetchingStudents}
+        studentError={studentError}
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={isAlertModalOpen}
+        onClose={handleCloseAlert}
+        type={alertType}
+        message={alertMessage}
+      />
     </div>
+    </>
   );
 }
