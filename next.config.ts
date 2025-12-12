@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         hostname: "indoglobalstudies.org",
         pathname: "/**",
       },
+      {
+        protocol: "http",
+        hostname: "api.applystore.org",
+        pathname: "/**",
+      },
     ],
   },
 };

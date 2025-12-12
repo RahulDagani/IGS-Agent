@@ -1,9 +1,10 @@
 "use client"
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Globe, MapPin, Mail, FileText, Video, Link, Building2, BookOpen, Users, ArrowBigRightDash } from "lucide-react";
+import { Globe, MapPin, Mail, FileText, Video, Link as LinkIcon, Building2, BookOpen, Users, ArrowBigRightDash, X } from "lucide-react";
 import { Country, State, City } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
 
 interface UniversityFormData {
   // Basic Info
@@ -19,10 +20,10 @@ interface UniversityFormData {
   map_url: string | null;
   location_url: string | null;
   
-  // Media - Now as strings for URLs
-  logo: string | null;
-  image: string | null;
-  brochure: string | null;
+  // Media - Now as Files or URLs
+  logo: File | string | null;
+  image: File | string | null;
+  brochure: File | string | null;
   
   // Additional Info
   video_link: string | null;
@@ -73,6 +74,9 @@ interface UniversityData {
     logo: string | null;
     image: string | null;
     brochure: string | null;
+    logo_url: string | null;
+    image_url: string | null;
+    brochure_url: string | null;
     video_link: string | null;
     tuition_url: string | null;
     email: string | null;
@@ -94,11 +98,6 @@ interface ApiResponse {
 
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-// Dummy URLs for media files
-const DUMMY_LOGO_URL = "https://example.com/logo.png";
-const DUMMY_IMAGE_URL = "https://example.com/university.jpg";
-const DUMMY_BROCHURE_URL = "https://example.com/brochure.pdf";
-
 type Tab = "basic" | "contact" | "media" | "additional"
 
 export default function EditUniversity() {
@@ -118,6 +117,11 @@ export default function EditUniversity() {
   const states = selectedCountry ? State.getStatesOfCountry(selectedCountry) : [];
   const cities = selectedState ? City.getCitiesOfState(selectedCountry, selectedState) : [];
   
+  // Refs for file inputs
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const brochureInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState<UniversityFormData>({
     // Basic Info
     university: "",
@@ -132,7 +136,7 @@ export default function EditUniversity() {
     map_url: null,
     location_url: null,
     
-    // Media - as string URLs
+    // Media
     logo: null,
     image: null,
     brochure: null,
@@ -143,6 +147,15 @@ export default function EditUniversity() {
     kind_of_partner_id: null,
     collaboration_type_id: null,
     type_of_university_id: null,
+  });
+
+  const [preview, setPreview] = useState({
+    logo: "",
+    image: "",
+    brochureName: "",
+    currentLogo: "",
+    currentImage: "",
+    currentBrochure: "",
   });
 
   const [options, setOptions] = useState<OptionsData>({
@@ -199,6 +212,15 @@ export default function EditUniversity() {
           collaboration_type_id: data.university.collaboration_type_id,
           type_of_university_id: data.university.type_of_university_id,
         });
+        
+        // Set current URLs for preview
+        setPreview(prev => ({
+          ...prev,
+          currentLogo: data.university.logo_url || "",
+          currentImage: data.university.image_url || "",
+          currentBrochure: data.university.brochure_url || "",
+        }));
+        console.log(data.university.logo)
         
         setOptions(data.options);
         setSelectedCountry(data.university.country_code);
@@ -286,38 +308,55 @@ export default function EditUniversity() {
     }
   };
 
-  const handleMediaUrlChange = (field: keyof UniversityFormData, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value || null
-    }));
-  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'image' | 'brochure') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        [field]: file
+      }));
 
-  const handleRemoveFile = (fieldName: keyof UniversityFormData) => {
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: null
-    }));
-  };
-
-  const handleUseDummyUrl = (field: keyof UniversityFormData) => {
-    let dummyUrl = "";
-    switch(field) {
-      case 'logo':
-        dummyUrl = DUMMY_LOGO_URL;
-        break;
-      case 'image':
-        dummyUrl = DUMMY_IMAGE_URL;
-        break;
-      case 'brochure':
-        dummyUrl = DUMMY_BROCHURE_URL;
-        break;
+      // Create preview for images
+      if (field === 'logo' || field === 'image') {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreview(prev => ({
+            ...prev,
+            [field]: reader.result as string
+          }));
+        };
+        reader.readAsDataURL(file);
+      } else if (field === 'brochure') {
+        setPreview(prev => ({
+          ...prev,
+          brochureName: file.name
+        }));
+      }
     }
-    
+  };
+
+  console.log(preview)
+
+  const removeFile = (field: 'logo' | 'image' | 'brochure') => {
     setFormData(prev => ({
       ...prev,
-      [field]: dummyUrl
+      [field]: null
     }));
+    
+    setPreview(prev => ({
+      ...prev,
+      [field]: field === 'brochure' ? '' : '',
+      brochureName: field === 'brochure' ? '' : prev.brochureName
+    }));
+
+    // Reset file input
+    if (field === 'logo' && logoInputRef.current) {
+      logoInputRef.current.value = '';
+    } else if (field === 'image' && imageInputRef.current) {
+      imageInputRef.current.value = '';
+    } else if (field === 'brochure' && brochureInputRef.current) {
+      brochureInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -325,23 +364,51 @@ export default function EditUniversity() {
     setIsSubmitting(true);
 
     try {
-      // Create JSON payload
-      const payload = {
-        ...formData,
-        // Ensure numeric fields are sent as numbers or null
-        kind_of_partner_id: formData.kind_of_partner_id,
-        collaboration_type_id: formData.collaboration_type_id,
-        type_of_university_id: formData.type_of_university_id,
-      };
+      // Create FormData object
+      const formDataToSend = new FormData();
 
-      // Make API call to update university with JSON
+      // Append all text fields
+      formDataToSend.append('university', formData.university);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('country_code', formData.country_code);
+      formDataToSend.append('state_code', formData.state_code);
+      formDataToSend.append('city_code', formData.city_code);
+      
+      // Append contact info
+      if (formData.email) formDataToSend.append('email', formData.email);
+      if (formData.address) formDataToSend.append('address', formData.address);
+      if (formData.map_url) formDataToSend.append('map_url', formData.map_url);
+      if (formData.location_url) formDataToSend.append('location_url', formData.location_url);
+      
+      // Append additional info
+      if (formData.video_link) formDataToSend.append('video_link', formData.video_link);
+      if (formData.tuition_url) formDataToSend.append('tuition_url', formData.tuition_url);
+      if (formData.kind_of_partner_id !== null) formDataToSend.append('kind_of_partner_id', formData.kind_of_partner_id.toString());
+      if (formData.collaboration_type_id !== null) formDataToSend.append('collaboration_type_id', formData.collaboration_type_id.toString());
+      if (formData.type_of_university_id !== null) formDataToSend.append('type_of_university_id', formData.type_of_university_id.toString());
+
+      // Append files if they are File objects
+      if (formData.logo && typeof formData.logo !== 'string') {
+        formDataToSend.append('logo', formData.logo);
+      }
+      if (formData.image && typeof formData.image !== 'string') {
+        formDataToSend.append('image', formData.image);
+      }
+      if (formData.brochure && typeof formData.brochure !== 'string') {
+        formDataToSend.append('brochure', formData.brochure);
+      }
+
+      // If media is string (existing URL) and no new file uploaded, we might need to handle it differently
+      // This depends on your API. If your API expects the URL when no new file is uploaded, you might need to send it.
+      // For now, we'll only send files when they are File objects
+
       const response = await fetch(`${BASE_URL}/tenant/university/edit/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - browser sets it automatically
         },
-        body: JSON.stringify(payload),
+        body: formDataToSend,
       });
 
       if (!response.ok) {
@@ -363,7 +430,6 @@ export default function EditUniversity() {
       router.refresh();
     } catch (error) {
       console.error('Error updating university:', error);
-      // You might want to show an error message to the user here
       alert(`Error updating university: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
@@ -558,7 +624,7 @@ export default function EditUniversity() {
         </label>
         <div className="relative">
           <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Link size={18} />
+            <LinkIcon size={18} />
           </span>
           <input
             type="url"
@@ -579,7 +645,7 @@ export default function EditUniversity() {
         </label>
         <div className="relative">
           <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Link size={18} />
+            <LinkIcon size={18} />
           </span>
           <input
             type="url"
@@ -617,150 +683,210 @@ export default function EditUniversity() {
 
   const renderMediaTab = () => (
     <div className="space-y-5">
-      {/* Logo URL */}
+      {/* Logo Upload */}
       <div>
         <label htmlFor="logo" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          University Logo URL
+          University Logo
         </label>
         <div className="space-y-3">
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Link size={18} />
-            </span>
-            <input
-              type="url"
-              id="logo"
-              name="logo"
-              value={formData.logo || ""}
-              onChange={(e) => handleMediaUrlChange('logo', e.target.value)}
-              placeholder="https://example.com/logo.png"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleUseDummyUrl('logo')}
-              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Use Dummy Logo URL
-            </button>
-            {formData.logo && (
-              <button
-                type="button"
-                onClick={() => handleRemoveFile('logo')}
-                className="px-3 py-2 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
-              >
-                Remove Logo
-              </button>
-            )}
-          </div>
-          {formData.logo && (
-            <div className="mt-2">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Logo URL:</p>
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                <p className="text-sm text-green-600 dark:text-green-400 break-all">{formData.logo}</p>
+          {/* Current logo preview */}
+          {preview.currentLogo && !preview.logo && (
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Logo:</p>
+              <div className="flex items-center gap-3">
+                <div className="relative w-24 h-24 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+               
+                  <img 
+                    src={preview.currentLogo} 
+                    alt="Current logo" 
+                    className="w-full h-full object-contain p-2"
+                  />
+                </div>
+                {/* <p className="text-sm text-green-600 dark:text-green-400 break-all flex-1">
+                  {preview.currentLogo}
+                </p> */}
               </div>
             </div>
           )}
+
+          {/* New logo upload */}
+          <div className="flex items-center gap-4">
+            {preview.logo ? (
+              <div className="relative w-32 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <img 
+                  src={preview.logo} 
+                  alt="New logo preview" 
+                  className="w-full h-full object-contain p-2"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeFile('logo')}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <FileText size={24} className="text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Upload Logo</p>
+                </div>
+                <input
+                  ref={logoInputRef}
+                  id="logo"
+                  name="logo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange(e, 'logo')}
+                  className="hidden"
+                />
+              </label>
+            )}
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Recommended: Square PNG or JPG, min 200x200px
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {preview.currentLogo ? "Upload new logo to replace current one" : "Optional"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Image URL */}
+      {/* Image Upload */}
       <div>
         <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          University Image URL
+          University Image
         </label>
         <div className="space-y-3">
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Link size={18} />
-            </span>
-            <input
-              type="url"
-              id="image"
-              name="image"
-              value={formData.image || ""}
-              onChange={(e) => handleMediaUrlChange('image', e.target.value)}
-              placeholder="https://example.com/university.jpg"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleUseDummyUrl('image')}
-              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Use Dummy Image URL
-            </button>
-            {formData.image && (
-              <button
-                type="button"
-                onClick={() => handleRemoveFile('image')}
-                className="px-3 py-2 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
-              >
-                Remove Image
-              </button>
-            )}
-          </div>
-          {formData.image && (
-            <div className="mt-2">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Image URL:</p>
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                <p className="text-sm text-green-600 dark:text-green-400 break-all">{formData.image}</p>
+          {/* Current image preview */}
+          {preview.currentImage && !preview.image && (
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Image:</p>
+              <div className="flex items-center gap-3">
+                <div className="relative w-48 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                  <img 
+                    src={preview.currentImage} 
+                    alt="Current image" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                {/* <p className="text-sm text-green-600 dark:text-green-400 break-all flex-1">
+                  {preview.currentImage}
+                </p> */}
               </div>
             </div>
           )}
+
+          {/* New image upload */}
+          <div className="flex items-center gap-4">
+            {preview.image ? (
+              <div className="relative w-48 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <img 
+                  src={preview.image} 
+                  alt="New image preview" 
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeFile('image')}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <FileText size={24} className="text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Upload Image</p>
+                </div>
+                <input
+                  ref={imageInputRef}
+                  id="image"
+                  name="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange(e, 'image')}
+                  className="hidden"
+                />
+              </label>
+            )}
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Recommended: Landscape JPG, min 800x600px
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {preview.currentImage ? "Upload new image to replace current one" : "Optional"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Brochure URL */}
+      {/* Brochure Upload */}
       <div>
         <label htmlFor="brochure" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          University Brochure URL
+          University Brochure (PDF)
         </label>
         <div className="space-y-3">
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Link size={18} />
-            </span>
-            <input
-              type="url"
-              id="brochure"
-              name="brochure"
-              value={formData.brochure || ""}
-              onChange={(e) => handleMediaUrlChange('brochure', e.target.value)}
-              placeholder="https://example.com/brochure.pdf"
-              className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleUseDummyUrl('brochure')}
-              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Use Dummy Brochure URL
-            </button>
-            {formData.brochure && (
-              <button
-                type="button"
-                onClick={() => handleRemoveFile('brochure')}
-                className="px-3 py-2 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
-              >
-                Remove Brochure
-              </button>
-            )}
-          </div>
-          {formData.brochure && (
-            <div className="mt-2">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Brochure URL:</p>
+          {/* Current brochure info */}
+          {preview.currentBrochure && !preview.brochureName && (
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Brochure:</p>
               <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                <p className="text-sm text-green-600 dark:text-green-400 break-all">{formData.brochure}</p>
+                
+                <Link href={preview.currentBrochure} className="text-sm text-green-600 dark:text-green-400 break-all"> view current brochure </Link>
               </div>
             </div>
           )}
+
+          {/* New brochure upload */}
+          <div className="flex items-center gap-4">
+            {preview.brochureName ? (
+              <div className="relative w-48 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                <div className="flex flex-col items-center justify-center h-full p-4 bg-gray-50 dark:bg-gray-800">
+                  <FileText size={32} className="text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-600 dark:text-gray-300 text-center truncate w-full">
+                    {preview.brochureName}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => removeFile('brochure')}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <FileText size={24} className="text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Upload PDF</p>
+                </div>
+                <input
+                  ref={brochureInputRef}
+                  id="brochure"
+                  name="brochure"
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => handleFileChange(e, 'brochure')}
+                  className="hidden"
+                />
+              </label>
+            )}
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Upload university brochure in PDF format (max 10MB)
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {preview.currentBrochure ? "Upload new brochure to replace current one" : "Optional"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -796,7 +922,7 @@ export default function EditUniversity() {
         </label>
         <div className="relative">
           <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-            <Link size={18} />
+            <LinkIcon size={18} />
           </span>
           <input
             type="url"

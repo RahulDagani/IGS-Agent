@@ -56,14 +56,15 @@ const studentItems: NavItem[] = [
         path: "/applications",
         icon: <FileText size={18} />,
       },
-]
-
-const accountItems: NavItem[] = [
-  {
+      {
         name: "Wallet",
         path: "/wallet",
         icon: <Wallet size={18} />,
       },
+]
+
+const accountItems: NavItem[] = [
+  
       {
         name: "Resources",
         icon: <Mail size={18} />,
@@ -72,6 +73,11 @@ const accountItems: NavItem[] = [
       {
         name: "Account",
         path: "/profile",
+        icon: <Settings size={18} />,
+      },
+      {
+        name: "Users",
+        path: "/users",
         icon: <Settings size={18} />,
       },
 ]

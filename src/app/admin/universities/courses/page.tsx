@@ -32,9 +32,6 @@ interface ApiCourse {
   university_id: number;
   study_level_id: number;
   discipline_id: number;
-  partner_type_id: number;
-  collaboration_type_id: number;
-  university_type_id: number;
   course_name: string;
   course_slug: string;
   is_popular: number;
@@ -55,29 +52,66 @@ interface ApiCourse {
   gpa_score: string | null;
   about_course: string;
   admission_requirements: string;
+  is_deleted: number;
   created_at: string;
   updated_at: string;
   university_name: string;
+  country_code: string;
+  state_code: string;
+  city_code: string;
+  university_logo: string;
   study_level_name: string;
   discipline_name: string;
-  partner_type_name: string;
-  university_type_name: string;
-  collaboration_type_name: string;
+  university_logo_url: string;
 }
 
 interface ApiResponse {
   success: boolean;
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
   data: ApiCourse[];
+  filters: {
+    studyLevels: Array<{
+      id: number;
+      name: string;
+    }>;
+    disciplines: Array<{
+      id: number;
+      name: string;
+    }>;
+    universities: Array<{
+      id: number;
+      university: string;
+      country_code: string;
+      state_code: string;
+      city_code: string;
+    }>;
+    locations: {
+      countries: Array<{ country_code: string }>;
+      states: Array<{ state_code: string }>;
+      cities: Array<{ city_code: string }>;
+    };
+    tuitionRange: {
+      min: string;
+      max: string;
+    };
+  };
 }
 
 type SortField = keyof Course | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
-  universityName: string;
-  discipline: string;
-  studyLevel: string;
-  status: string;
+  discipline_ids: number[];
+  study_level_ids: number[];
+  university_ids: number[];
+  country_codes: string[];
+  state_codes: string[];
+  city_codes: string[];
   popular: string;
   externalEvaluation: string;
 }
@@ -86,34 +120,46 @@ interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterOptions) => void;
-  universities: string[];
-  disciplines: string[];
-  studyLevels: string[];
-  statuses: string[];
+  filtersData: ApiResponse['filters'] | null;
+  appliedFilters: FilterOptions;
 }
 
 const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
   onApply,
-  universities,
-  disciplines,
-  studyLevels,
-  statuses,
+  filtersData,
+  appliedFilters,
 }) => {
-  const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
-  const [selectedDiscipline, setSelectedDiscipline] = useState<string>("all");
-  const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedPopular, setSelectedPopular] = useState<string>("all");
-  const [selectedExternalEvaluation, setSelectedExternalEvaluation] = useState<string>("all");
+  const [selectedDisciplineIds, setSelectedDisciplineIds] = useState<number[]>(appliedFilters.discipline_ids);
+  const [selectedStudyLevelIds, setSelectedStudyLevelIds] = useState<number[]>(appliedFilters.study_level_ids);
+  const [selectedUniversityIds, setSelectedUniversityIds] = useState<number[]>(appliedFilters.university_ids);
+  const [selectedCountryCodes, setSelectedCountryCodes] = useState<string[]>(appliedFilters.country_codes);
+  const [selectedStateCodes, setSelectedStateCodes] = useState<string[]>(appliedFilters.state_codes);
+  const [selectedCityCodes, setSelectedCityCodes] = useState<string[]>(appliedFilters.city_codes);
+  const [selectedPopular, setSelectedPopular] = useState<string>(appliedFilters.popular);
+  const [selectedExternalEvaluation, setSelectedExternalEvaluation] = useState<string>(appliedFilters.externalEvaluation);
+
+const handleCheckboxChange = <T extends number | string>(
+  array: T[],
+  setArray: React.Dispatch<React.SetStateAction<T[]>>,
+  value: T
+) => {
+  if (array.includes(value)) {
+    setArray(array.filter(item => item !== value));
+  } else {
+    setArray([...array, value]);
+  }
+};
 
   const handleApply = () => {
     const filters: FilterOptions = {
-      universityName: selectedUniversity,
-      discipline: selectedDiscipline,
-      studyLevel: selectedStudyLevel,
-      status: selectedStatus,
+      discipline_ids: selectedDisciplineIds,
+      study_level_ids: selectedStudyLevelIds,
+      university_ids: selectedUniversityIds,
+      country_codes: selectedCountryCodes,
+      state_codes: selectedStateCodes,
+      city_codes: selectedCityCodes,
       popular: selectedPopular,
       externalEvaluation: selectedExternalEvaluation,
     };
@@ -122,20 +168,22 @@ const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const handleReset = () => {
-    setSelectedUniversity("all");
-    setSelectedDiscipline("all");
-    setSelectedStudyLevel("all");
-    setSelectedStatus("all");
+    setSelectedDisciplineIds([]);
+    setSelectedStudyLevelIds([]);
+    setSelectedUniversityIds([]);
+    setSelectedCountryCodes([]);
+    setSelectedStateCodes([]);
+    setSelectedCityCodes([]);
     setSelectedPopular("all");
     setSelectedExternalEvaluation("all");
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !filtersData) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex z-999999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-black/70 flex z-999999 p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-[400px] max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Courses
           </h3>
@@ -149,122 +197,272 @@ const FilterModal: React.FC<FilterModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-4">
-          {/* University Filter */}
+        <div className="grid grid-cols-1 gap-6">
+          {/* Study Levels Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              University
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Study Levels
             </label>
-            <select
-              value={selectedUniversity}
-              onChange={(e) => setSelectedUniversity(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Universities</option>
-              {universities.map((university) => (
-                <option key={university} value={university}>
-                  {university}
-                </option>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {filtersData.studyLevels.map((level) => (
+                <div key={level.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`study-level-${level.id}`}
+                    checked={selectedStudyLevelIds.includes(level.id)}
+                    onChange={() => handleCheckboxChange(selectedStudyLevelIds, setSelectedStudyLevelIds, level.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label
+                    htmlFor={`study-level-${level.id}`}
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {level.name}
+                  </label>
+                </div>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* Discipline Filter */}
+          {/* Disciplines Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Discipline
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Disciplines
             </label>
-            <select
-              value={selectedDiscipline}
-              onChange={(e) => setSelectedDiscipline(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Disciplines</option>
-              {disciplines.map((discipline) => (
-                <option key={discipline} value={discipline}>
-                  {discipline}
-                </option>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {filtersData.disciplines.map((discipline) => (
+                <div key={discipline.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`discipline-${discipline.id}`}
+                    checked={selectedDisciplineIds.includes(discipline.id)}
+                    onChange={() => handleCheckboxChange(selectedDisciplineIds, setSelectedDisciplineIds, discipline.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label
+                    htmlFor={`discipline-${discipline.id}`}
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {discipline.name}
+                  </label>
+                </div>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* Study Level Filter */}
+          {/* Universities Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Study Level
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Universities
             </label>
-            <select
-              value={selectedStudyLevel}
-              onChange={(e) => setSelectedStudyLevel(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Study Levels</option>
-              {studyLevels.map((level) => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {filtersData.universities.map((university) => (
+                <div key={university.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`university-${university.id}`}
+                    checked={selectedUniversityIds.includes(university.id)}
+                    onChange={() => handleCheckboxChange(selectedUniversityIds, setSelectedUniversityIds, university.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label
+                    htmlFor={`university-${university.id}`}
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {university.university}
+                  </label>
+                </div>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* Status Filter */}
+          {/* Countries Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Status
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Countries
             </label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Status</option>
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {filtersData.locations.countries.map((country) => (
+                <div key={country.country_code} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`country-${country.country_code}`}
+                    checked={selectedCountryCodes.includes(country.country_code)}
+                    onChange={() => handleCheckboxChange(selectedCountryCodes, setSelectedCountryCodes, country.country_code)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label
+                    htmlFor={`country-${country.country_code}`}
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {country.country_code}
+                  </label>
+                </div>
               ))}
-            </select>
+            </div>
+          </div>
+
+          {/* States Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              States
+            </label>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {filtersData.locations.states.map((state) => (
+                <div key={state.state_code} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`state-${state.state_code}`}
+                    checked={selectedStateCodes.includes(state.state_code)}
+                    onChange={() => handleCheckboxChange(selectedStateCodes, setSelectedStateCodes, state.state_code)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label
+                    htmlFor={`state-${state.state_code}`}
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {state.state_code}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Cities Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Cities
+            </label>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {filtersData.locations.cities.map((city) => (
+                <div key={city.city_code} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`city-${city.city_code}`}
+                    checked={selectedCityCodes.includes(city.city_code)}
+                    onChange={() => handleCheckboxChange(selectedCityCodes, setSelectedCityCodes, city.city_code)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label
+                    htmlFor={`city-${city.city_code}`}
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    {city.city_code}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Popular Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Popular Course
             </label>
-            <select
-              value={selectedPopular}
-              onChange={(e) => setSelectedPopular(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Courses</option>
-              <option value="yes">Popular Only</option>
-              <option value="no">Not Popular</option>
-            </select>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="popular-all"
+                  name="popular"
+                  value="all"
+                  checked={selectedPopular === "all"}
+                  onChange={(e) => setSelectedPopular(e.target.value)}
+                  className="h-4 w-4 border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                />
+                <label htmlFor="popular-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  All Courses
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="popular-yes"
+                  name="popular"
+                  value="yes"
+                  checked={selectedPopular === "yes"}
+                  onChange={(e) => setSelectedPopular(e.target.value)}
+                  className="h-4 w-4 border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                />
+                <label htmlFor="popular-yes" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Popular Only
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="popular-no"
+                  name="popular"
+                  value="no"
+                  checked={selectedPopular === "no"}
+                  onChange={(e) => setSelectedPopular(e.target.value)}
+                  className="h-4 w-4 border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                />
+                <label htmlFor="popular-no" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Not Popular
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* External Evaluation Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               External Evaluation
             </label>
-            <select
-              value={selectedExternalEvaluation}
-              onChange={(e) => setSelectedExternalEvaluation(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Courses</option>
-              <option value="yes">Required</option>
-              <option value="no">Not Required</option>
-            </select>
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="external-all"
+                  name="external"
+                  value="all"
+                  checked={selectedExternalEvaluation === "all"}
+                  onChange={(e) => setSelectedExternalEvaluation(e.target.value)}
+                  className="h-4 w-4 border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                />
+                <label htmlFor="external-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  All Courses
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="external-yes"
+                  name="external"
+                  value="yes"
+                  checked={selectedExternalEvaluation === "yes"}
+                  onChange={(e) => setSelectedExternalEvaluation(e.target.value)}
+                  className="h-4 w-4 border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                />
+                <label htmlFor="external-yes" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Required
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="external-no"
+                  name="external"
+                  value="no"
+                  checked={selectedExternalEvaluation === "no"}
+                  onChange={(e) => setSelectedExternalEvaluation(e.target.value)}
+                  className="h-4 w-4 border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                />
+                <label htmlFor="external-no" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Not Required
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleReset}
             className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Reset
+            Reset All
           </button>
           <button
             onClick={handleApply}
@@ -281,6 +479,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 export default function CoursesTable() {
   const { token } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -288,108 +487,118 @@ export default function CoursesTable() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [filters, setFilters] = useState<FilterOptions>({
-    universityName: "all",
-    discipline: "all",
-    studyLevel: "all",
-    status: "all",
+    discipline_ids: [],
+    study_level_ids: [],
+    university_ids: [],
+    country_codes: [],
+    state_codes: [],
+    city_codes: [],
     popular: "all",
     externalEvaluation: "all",
   });
 
+  // Build query string from filters
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    
+    // Add array parameters
+    filters.discipline_ids.forEach(id => params.append('discipline_id[]', id.toString()));
+    filters.study_level_ids.forEach(id => params.append('study_level_id[]', id.toString()));
+    filters.university_ids.forEach(id => params.append('university_id[]', id.toString()));
+    filters.country_codes.forEach(code => params.append('country_code[]', code));
+    filters.state_codes.forEach(code => params.append('state_code[]', code));
+    filters.city_codes.forEach(code => params.append('city_code[]', code));
+    
+    // Add single value parameters
+    if (filters.popular !== "all") {
+      params.append('is_popular', filters.popular === "yes" ? "1" : "0");
+    }
+    if (filters.externalEvaluation !== "all") {
+      params.append('external_evaluation', filters.externalEvaluation);
+    }
+    
+    return params.toString();
+  };
+
   // Fetch courses from API
-  useEffect(() => {
-    const fetchCourses = async () => {
-      if (!token) {
-        setError("Authentication token not found");
-        setIsLoading(false);
-        return;
+  const fetchCourses = async () => {
+    if (!token) {
+      setError("Authentication token not found");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      
+      const queryString = buildQueryString();
+      const url = `${BASE_URL}/tenant/course/list${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      try {
-        setIsLoading(true);
-        setError(null);
-        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-        
-        const response = await fetch(`${BASE_URL}/tenant/course/list`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+      const result: ApiResponse = await response.json();
+      
+      if (result.success && result.data) {
+        // Transform API data to match Course interface
+        const transformedCourses: Course[] = result.data.map((apiCourse: ApiCourse) => ({
+          id: apiCourse.id,
+          courseName: apiCourse.course_name,
+          universityName: apiCourse.university_name,
+          discipline: apiCourse.discipline_name,
+          studyLevel: apiCourse.study_level_name,
+          applicationFee: `${apiCourse.currency_code} ${apiCourse.application_fee}`,
+          externalEvaluation: "no", // Default value since not in API
+          popular: apiCourse.is_popular === 1 ? "yes" : "no",
+          status: apiCourse.is_deleted === 0 ? "active" : "inactive",
+          createdAt: apiCourse.created_at,
+        }));
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: ApiResponse = await response.json();
-        
-        if (result.success && result.data) {
-          // Transform API data to match Course interface
-          const transformedCourses: Course[] = result.data.map((apiCourse: ApiCourse) => ({
-            id: apiCourse.id,
-            courseName: apiCourse.course_name,
-            universityName: apiCourse.university_name,
-            discipline: apiCourse.discipline_name,
-            studyLevel: apiCourse.study_level_name,
-            applicationFee: `${apiCourse.currency_code} ${apiCourse.application_fee}`,
-            externalEvaluation: "no", // Default value since not in API
-            popular: apiCourse.is_popular === 1 ? "yes" : "no",
-            status: "active", // Default value since not in API
-            createdAt: apiCourse.created_at,
-          }));
-
-          setCourses(transformedCourses);
-        } else {
-          setCourses([]);
-        }
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-        setError('Failed to load courses. Please try again.');
+        setCourses(transformedCourses);
+        setApiResponse(result);
+      } else {
         setCourses([]);
-      } finally {
-        setIsLoading(false);
+        setApiResponse(null);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+      setError('Failed to load courses. Please try again.');
+      setCourses([]);
+      setApiResponse(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Initial fetch
+  useEffect(() => {
     fetchCourses();
-  }, [token]);
+  }, []);
 
-  // Get unique values for filters from actual data
-  const universities = useMemo(() => {
-    return Array.from(new Set(courses.map(course => course.universityName)));
-  }, [courses]);
-
-  const disciplines = useMemo(() => {
-    return Array.from(new Set(courses.map(course => course.discipline)));
-  }, [courses]);
-
-  const studyLevels = useMemo(() => {
-    return Array.from(new Set(courses.map(course => course.studyLevel)));
-  }, [courses]);
-
-  const statuses = useMemo(() => {
-    return Array.from(new Set(courses.map(course => course.status)));
-  }, [courses]);
+  // Fetch courses when filters change
+  useEffect(() => {
+    fetchCourses();
+  }, [filters]);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
     const filtered = courses.filter((course) => {
-      const matchesSearch = 
+      return searchTerm === "" ||
         course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.universityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.discipline.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.studyLevel.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.applicationFee.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesUniversity = filters.universityName === "all" || course.universityName === filters.universityName;
-      const matchesDiscipline = filters.discipline === "all" || course.discipline === filters.discipline;
-      const matchesStudyLevel = filters.studyLevel === "all" || course.studyLevel === filters.studyLevel;
-      const matchesStatus = filters.status === "all" || course.status === filters.status;
-      const matchesPopular = filters.popular === "all" || course.popular === filters.popular;
-      const matchesExternalEvaluation = filters.externalEvaluation === "all" || course.externalEvaluation === filters.externalEvaluation;
-      
-      return matchesSearch && matchesUniversity && matchesDiscipline && matchesStudyLevel && 
-             matchesStatus && matchesPopular && matchesExternalEvaluation;
     });
 
     // Sorting
@@ -414,7 +623,7 @@ export default function CoursesTable() {
     }
 
     return filtered;
-  }, [courses, searchTerm, filters, sortField, sortDirection]);
+  }, [courses, searchTerm, sortField, sortDirection]);
 
   const handleSort = (field: keyof Course) => {
     if (sortField === field) {
@@ -461,16 +670,14 @@ export default function CoursesTable() {
     setFilters(newFilters);
   };
 
-  const hasActiveFilters = filters.universityName !== "all" || filters.discipline !== "all" || 
-                          filters.studyLevel !== "all" || filters.status !== "all" ||
-                          filters.popular !== "all" || filters.externalEvaluation !== "all";
-
   const clearAllFilters = () => {
     setFilters({
-      universityName: "all",
-      discipline: "all",
-      studyLevel: "all",
-      status: "all",
+      discipline_ids: [],
+      study_level_ids: [],
+      university_ids: [],
+      country_codes: [],
+      state_codes: [],
+      city_codes: [],
       popular: "all",
       externalEvaluation: "all",
     });
@@ -479,29 +686,50 @@ export default function CoursesTable() {
   const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this course?")) {
       try {
-        // TODO: Implement delete API call
-        // const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-        // const response = await fetch(`${BASE_URL}/tenant/course/delete/${id}`, {
-        //   method: 'DELETE',
-        //   headers: {
-        //     'Authorization': `Bearer ${token}`,
-        //   },
-        // });
+        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+        const response = await fetch(`${BASE_URL}/tenant/course/delete/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         
-        // if (response.ok) {
-        //   // Remove course from local state
-        //   setCourses(prev => prev.filter(course => course.id !== id));
-        // } else {
-        //   throw new Error('Failed to delete course');
-        // }
-        
-        console.log("Delete course:", id);
-        // For now, just remove from local state
-        setCourses(prev => prev.filter(course => course.id !== id));
+        if (response.ok) {
+          // Refresh the courses list
+          fetchCourses();
+        } else {
+          throw new Error('Failed to delete course');
+        }
       } catch (err) {
         console.error('Error deleting course:', err);
         alert('Failed to delete course. Please try again.');
       }
+    }
+  };
+
+  const hasActiveFilters = 
+    filters.discipline_ids.length > 0 ||
+    filters.study_level_ids.length > 0 ||
+    filters.university_ids.length > 0 ||
+    filters.country_codes.length > 0 ||
+    filters.state_codes.length > 0 ||
+    filters.city_codes.length > 0 ||
+    filters.popular !== "all" ||
+    filters.externalEvaluation !== "all";
+
+  // Helper function to get filter name by ID
+  const getFilterName = (type: 'discipline' | 'studyLevel' | 'university', id: number): string => {
+    if (!apiResponse?.filters) return '';
+    
+    switch (type) {
+      case 'discipline':
+        return apiResponse.filters.disciplines.find(d => d.id === id)?.name || '';
+      case 'studyLevel':
+        return apiResponse.filters.studyLevels.find(s => s.id === id)?.name || '';
+      case 'university':
+        return apiResponse.filters.universities.find(u => u.id === id)?.university || '';
+      default:
+        return '';
     }
   };
 
@@ -518,7 +746,7 @@ export default function CoursesTable() {
       <div className="text-center py-8">
         <div className="text-red-600 dark:text-red-400 mb-4">{error}</div>
         <button 
-          onClick={() => window.location.reload()}
+          onClick={fetchCourses}
           className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
         >
           Retry
@@ -534,31 +762,31 @@ export default function CoursesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Courses</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {filteredAndSortedData.length}
+            {apiResponse?.total || 0}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Active Courses</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(c => c.status === 'active').length}
+            {courses.filter(c => c.status === 'active').length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Popular Courses</div>
           <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {filteredAndSortedData.filter(c => c.popular === 'yes').length}
+            {courses.filter(c => c.popular === 'yes').length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Universities</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Array.from(new Set(filteredAndSortedData.map(c => c.universityName))).length}
+            {apiResponse?.filters?.universities.length || 0}
           </div>
         </div>
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row">
+      <div className="flex flex-col sm:flex-row gap-4">
         {/* Search Input */}
         <div className="flex-1 max-w-md">
           <div className="relative">
@@ -567,7 +795,7 @@ export default function CoursesTable() {
               placeholder="Search by course name, university, discipline, study level, or fee..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg
@@ -594,7 +822,7 @@ export default function CoursesTable() {
               onClick={clearAllFilters}
               className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              Clear All
+              Clear All Filters
             </button>
           )}
           <button
@@ -619,35 +847,111 @@ export default function CoursesTable() {
 
       {/* Active Filters Display */}
       {hasActiveFilters && (
-        <div className="flex flex-wrap gap-2">
-          {filters.universityName !== "all" && (
-            <Badge size="sm" color="primary">
-              University: {filters.universityName}
+        <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+          {filters.discipline_ids.map(id => (
+            <Badge key={`discipline-${id}`} size="sm" color="primary">
+              Discipline: {getFilterName('discipline', id)}
+              <button 
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  discipline_ids: prev.discipline_ids.filter(did => did !== id)
+                }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
             </Badge>
-          )}
-          {filters.discipline !== "all" && (
-            <Badge size="sm" color="primary">
-              Discipline: {filters.discipline}
+          ))}
+          {filters.study_level_ids.map(id => (
+            <Badge key={`study-level-${id}`} size="sm" color="primary">
+              Study Level: {getFilterName('studyLevel', id)}
+              <button 
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  study_level_ids: prev.study_level_ids.filter(sid => sid !== id)
+                }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
             </Badge>
-          )}
-          {filters.studyLevel !== "all" && (
-            <Badge size="sm" color="primary">
-              Study Level: {filters.studyLevel}
+          ))}
+          {filters.university_ids.map(id => (
+            <Badge key={`university-${id}`} size="sm" color="primary">
+              University: {getFilterName('university', id)}
+              <button 
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  university_ids: prev.university_ids.filter(uid => uid !== id)
+                }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
             </Badge>
-          )}
-          {filters.status !== "all" && (
-            <Badge size="sm" color="primary">
-              Status: {filters.status}
+          ))}
+          {filters.country_codes.map(code => (
+            <Badge key={`country-${code}`} size="sm" color="primary">
+              Country: {code}
+              <button 
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  country_codes: prev.country_codes.filter(cc => cc !== code)
+                }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
             </Badge>
-          )}
+          ))}
+          {filters.state_codes.map(code => (
+            <Badge key={`state-${code}`} size="sm" color="primary">
+              State: {code}
+              <button 
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  state_codes: prev.state_codes.filter(sc => sc !== code)
+                }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
+            </Badge>
+          ))}
+          {filters.city_codes.map(code => (
+            <Badge key={`city-${code}`} size="sm" color="primary">
+              City: {code}
+              <button 
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  city_codes: prev.city_codes.filter(cc => cc !== code)
+                }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
+            </Badge>
+          ))}
           {filters.popular !== "all" && (
             <Badge size="sm" color="primary">
               Popular: {filters.popular === "yes" ? "Yes" : "No"}
+              <button 
+                onClick={() => setFilters(prev => ({ ...prev, popular: "all" }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
             </Badge>
           )}
           {filters.externalEvaluation !== "all" && (
             <Badge size="sm" color="primary">
               External Evaluation: {filters.externalEvaluation === "yes" ? "Required" : "Not Required"}
+              <button 
+                onClick={() => setFilters(prev => ({ ...prev, externalEvaluation: "all" }))}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
             </Badge>
           )}
         </div>
@@ -811,9 +1115,40 @@ export default function CoursesTable() {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {courses.length} courses
+      {/* Results Count and Pagination Info */}
+      <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+        <div>
+          Showing {filteredAndSortedData.length} of {apiResponse?.total || 0} courses
+          {apiResponse && (
+            <span className="ml-2">
+              (Page {apiResponse.page} of {apiResponse.totalPages})
+            </span>
+          )}
+        </div>
+        {apiResponse && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                // Implement previous page logic
+                console.log('Previous page');
+              }}
+              disabled={!apiResponse.hasPrevPage}
+              className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => {
+                // Implement next page logic
+                console.log('Next page');
+              }}
+              disabled={!apiResponse.hasNextPage}
+              className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filter Modal */}
@@ -821,10 +1156,8 @@ export default function CoursesTable() {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onApply={handleApplyFilters}
-        universities={universities}
-        disciplines={disciplines}
-        studyLevels={studyLevels}
-        statuses={statuses}
+        filtersData={apiResponse?.filters || null}
+        appliedFilters={filters}
       />
     </div>
   );

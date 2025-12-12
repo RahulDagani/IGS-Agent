@@ -9,8 +9,10 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
-import { Edit, Trash, Globe, Building2, Mail, MapPin } from "lucide-react";
+import { Edit, Trash, Globe, Building2, Mail, MapPin, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Country } from "country-state-city";
+import Image from "next/image";
 
 interface University {
   id: number;
@@ -40,19 +42,47 @@ interface University {
   kind_of_partner_name: string;
   collaboration_type_name: string;
   university_type_name: string;
+  logo_url: string | null;
+  image_url: string | null;
+  brochure_url: string | null;
+}
+
+interface CountryFilter {
+  country_code: string;
+}
+
+interface PartnerTypeFilter {
+  id: number;
+  name: string;
+}
+
+interface CollaborationTypeFilter {
+  id: number;
+  name: string;
+}
+
+interface UniversityTypeFilter {
+  id: number;
+  name: string;
+}
+
+interface FiltersData {
+  countries: CountryFilter[];
+  partnerTypes: PartnerTypeFilter[];
+  collaborationTypes: CollaborationTypeFilter[];
+  universityTypes: UniversityTypeFilter[];
 }
 
 interface ApiResponse {
   success: boolean;
-  message: string;
-  data: {
-    universities: University[];
-    options: {
-      partnerTypes: Array<{ id: number; name: string }>;
-      collaborationTypes: Array<{ id: number; name: string }>;
-      universityTypes: Array<{ id: number; name: string }>;
-    };
-  };
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  data: University[];
+  filters: FiltersData;
 }
 
 type SortField = keyof University | "";
@@ -63,31 +93,33 @@ interface FilterOptions {
   type: string;
   status: string;
   partnerType: string;
+  collaborationType: string;
 }
 
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterOptions) => void;
-  countries: string[];
-  types: string[];
-  statuses: string[];
-  partnerTypes: string[];
+  filtersData: FiltersData;
 }
+
+const getCountryName = (code: string | undefined | null) => {
+  if (!code) return '';
+  const country = Country.getCountryByCode(code);
+  return country ? country.name : code;
+};
 
 const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
   onApply,
-  countries,
-  types,
-  statuses,
-  partnerTypes,
+  filtersData,
 }) => {
   const [selectedCountry, setSelectedCountry] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedPartnerType, setSelectedPartnerType] = useState<string>("all");
+  const [selectedCollaborationType, setSelectedCollaborationType] = useState<string>("all");
 
   const handleApply = () => {
     const filters: FilterOptions = {
@@ -95,6 +127,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
       type: selectedType,
       status: selectedStatus,
       partnerType: selectedPartnerType,
+      collaborationType: selectedCollaborationType,
     };
     onApply(filters);
     onClose();
@@ -105,13 +138,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
     setSelectedType("all");
     setSelectedStatus("all");
     setSelectedPartnerType("all");
+    setSelectedCollaborationType("all");
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex z-999999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/70 flex z-99999 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Universities
@@ -138,9 +172,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             >
               <option value="all">All Countries</option>
-              {countries.map((country) => (
-                <option key={country} value={country}>
-                  {country}
+              {filtersData.countries.map((country) => (
+                <option key={country.country_code} value={country.country_code.trim()}>
+                  {getCountryName(country.country_code.trim())}
                 </option>
               ))}
             </select>
@@ -157,9 +191,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             >
               <option value="all">All Types</option>
-              {types.map((type) => (
-                <option key={type} value={type}>
-                  {type}
+              {filtersData.universityTypes.map((type) => (
+                <option key={type.id} value={type.name}>
+                  {type.name}
                 </option>
               ))}
             </select>
@@ -176,11 +210,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             >
               <option value="all">All Status</option>
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
-              ))}
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
 
@@ -195,9 +226,28 @@ const FilterModal: React.FC<FilterModalProps> = ({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             >
               <option value="all">All Partner Types</option>
-              {partnerTypes.map((partnerType) => (
-                <option key={partnerType} value={partnerType}>
-                  {partnerType}
+              {filtersData.partnerTypes.map((partnerType) => (
+                <option key={partnerType.id} value={partnerType.name}>
+                  {partnerType.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Collaboration Type Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Collaboration Type
+            </label>
+            <select
+              value={selectedCollaborationType}
+              onChange={(e) => setSelectedCollaborationType(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="all">All Collaboration Types</option>
+              {filtersData.collaborationTypes.map((collabType) => (
+                <option key={collabType.id} value={collabType.name}>
+                  {collabType.name}
                 </option>
               ))}
             </select>
@@ -233,86 +283,132 @@ export default function UniversitiesTable() {
     type: "all",
     status: "all",
     partnerType: "all",
+    collaborationType: "all",
   });
   const [universities, setUniversities] = useState<University[]>([]);
+  const [filtersData, setFiltersData] = useState<FiltersData>({
+    countries: [],
+    partnerTypes: [],
+    collaborationTypes: [],
+    universityTypes: []
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const {token} = useAuth();
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  const { token } = useAuth();
 
-  // Fetch data from API
-  useEffect(() => {
-    const fetchUniversities = async () => {
-      try {
-        setLoading(true);
-         // Get token from localStorage
-        // You might want to use a more secure way to store tokens
-        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-        const response = await fetch(`${BASE_URL}/tenant/university/list`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+  // Helper functions to find IDs from names
+  const findTypeId = (typeName: string): string => {
+    const type = filtersData.universityTypes.find(t => t.name === typeName);
+    return type ? type.id.toString() : '';
+  };
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch universities: ${response.status}`);
-        }
+  const findPartnerTypeId = (partnerName: string): string => {
+    const partner = filtersData.partnerTypes.find(p => p.name === partnerName);
+    return partner ? partner.id.toString() : '';
+  };
 
-        const data: ApiResponse = await response.json();
-        
-        if (data.success) {
-          setUniversities(data.data.universities);
-        } else {
-          throw new Error(data.message || "Failed to fetch universities");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-        console.error("Error fetching universities:", err);
-      } finally {
-        setLoading(false);
+  const findCollaborationTypeId = (collabName: string): string => {
+    const collab = filtersData.collaborationTypes.find(c => c.name === collabName);
+    return collab ? collab.id.toString() : '';
+  };
+
+  // Fetch data from API with pagination and filters
+  const fetchUniversities = async (page: number = 1, search: string = "", filters: FilterOptions = {
+    country: "all",
+    type: "all",
+    status: "all",
+    partnerType: "all",
+    collaborationType: "all",
+  }) => {
+    try {
+      setLoading(true);
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      
+      // Build query parameters with correct API parameter names
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: pagination.limit.toString(),
+        ...(search && { search }), // search parameter stays the same
+        ...(filters.country !== "all" && { country_code: filters.country }),
+        ...(filters.type !== "all" && { type_of_university_id: findTypeId(filters.type) }),
+        ...(filters.status !== "all" && { is_deleted: filters.status === "active" ? "0" : "1" }),
+        ...(filters.partnerType !== "all" && { kind_of_partner_id: findPartnerTypeId(filters.partnerType) }),
+        ...(filters.collaborationType !== "all" && { collaboration_type_id: findCollaborationTypeId(filters.collaborationType) }),
+      });
+
+      const response = await fetch(`${BASE_URL}/tenant/university/list?${params}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch universities: ${response.status}`);
       }
-    };
 
-    fetchUniversities();
-  }, []);
+      const data: ApiResponse = await response.json();
+      
+      if (data.success) {
+        setUniversities(data.data);
+        setFiltersData(data.filters);
+        setPagination({
+          page: data.page,
+          limit: data.limit,
+          total: data.total,
+          totalPages: data.totalPages,
+          hasNextPage: data.hasNextPage,
+          hasPrevPage: data.hasPrevPage
+        });
+      } else {
+        throw new Error("Failed to fetch universities");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      console.error("Error fetching universities:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Get unique values for filters from API data
-  const countries = useMemo(() => {
-    return Array.from(new Set(universities.map(university => university.country_code))).filter(Boolean);
-  }, [universities]);
+  // Initial fetch and fetch when filters change
+  useEffect(() => {
+    fetchUniversities(1, searchTerm, filters);
+  }, [searchTerm, filters]);
 
-  const types = useMemo(() => {
-    return Array.from(new Set(universities.map(university => university.university_type_name))).filter(Boolean);
-  }, [universities]);
-
-  const statuses = useMemo(() => {
-    return ["active", "inactive"]; // Based on is_deleted field
-  }, []);
-
-  const partnerTypes = useMemo(() => {
-    return Array.from(new Set(universities.map(university => university.kind_of_partner_name))).filter(Boolean);
-  }, [universities]);
-
-  // Filter and sort data
+  // Filter and sort data client-side (for immediate UI updates)
   const filteredAndSortedData = useMemo(() => {
-    const filtered = universities.filter((university) => {
-      const matchesSearch = 
-        university.university.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.country_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.university_type_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        university.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (university.address && university.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        university.kind_of_partner_name.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCountry = filters.country === "all" || university.country_code === filters.country;
-      const matchesType = filters.type === "all" || university.university_type_name === filters.type;
-      const matchesStatus = filters.status === "all" || 
-        (filters.status === "active" ? university.is_deleted === 0 : university.is_deleted === 1);
-      const matchesPartnerType = filters.partnerType === "all" || university.kind_of_partner_name === filters.partnerType;
-      
-      return matchesSearch && matchesCountry && matchesType && matchesStatus && matchesPartnerType;
-    });
+    let filtered = [...universities];
+
+    // Apply client-side filtering (in addition to server-side)
+    if (filters.status !== "all") {
+      filtered = filtered.filter(university => 
+        filters.status === "active" ? university.is_deleted === 0 : university.is_deleted === 1
+      );
+    }
+
+    // Apply client-side search (in addition to server-side)
+    if (searchTerm) {
+      filtered = filtered.filter((university) => {
+        return (
+          university.university.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (university.country_code && university.country_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (university.university_type_name && university.university_type_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (university.email && university.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (university.address && university.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (university.kind_of_partner_name && university.kind_of_partner_name.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+      });
+    }
 
     // Sorting
     if (sortField) {
@@ -324,13 +420,15 @@ export default function UniversitiesTable() {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-        if(aValue && bValue){
-          if (aValue < bValue) {
+        
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+        
+        if (aValue < bValue) {
           return sortDirection === "asc" ? -1 : 1;
         }
         if (aValue > bValue) {
           return sortDirection === "asc" ? 1 : -1;
-        }
         }
         
         return 0;
@@ -338,7 +436,7 @@ export default function UniversitiesTable() {
     }
 
     return filtered;
-  }, [searchTerm, filters, sortField, sortDirection, universities]);
+  }, [universities, searchTerm, filters, sortField, sortDirection]);
 
   const handleSort = (field: keyof University) => {
     if (sortField === field) {
@@ -362,21 +460,7 @@ export default function UniversitiesTable() {
     return isDeleted === 0 ? "Active" : "Inactive";
   };
 
-  const getPartnerTypeColor = (partnerType: string) => {
-    switch (partnerType) {
-      case "Elite Partner":
-        return "success";
-      case "Strategic Partner":
-        return "warning";
-      case "Channel Partner":
-        return "info";
-      case "Affiliate Partner":
-        return "primary";
-      default:
-        return "primary";
-    }
-  };
-
+ 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -387,31 +471,65 @@ export default function UniversitiesTable() {
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
+    // Reset to page 1 when filters change
+    fetchUniversities(1, searchTerm, newFilters);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchUniversities(newPage, searchTerm, filters);
+    }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    // Reset to page 1 on search
+    fetchUniversities(1, value, filters);
   };
 
   const hasActiveFilters = filters.country !== "all" || filters.type !== "all" || 
-                          filters.status !== "all" || filters.partnerType !== "all";
+                          filters.status !== "all" || filters.partnerType !== "all" || 
+                          filters.collaborationType !== "all";
 
   const clearAllFilters = () => {
-    setFilters({
+    const defaultFilters: FilterOptions = {
       country: "all",
       type: "all",
       status: "all",
       partnerType: "all",
-    });
+      collaborationType: "all",
+    };
+    setFilters(defaultFilters);
+    fetchUniversities(1, searchTerm, defaultFilters);
   };
 
-  const handleDelete = (id: number) => {
-    // Handle delete action
-    console.log("Delete university:", id);
-    // You can add confirmation modal here
+  const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this university?")) {
-      // Perform delete operation via API
-      // You'll need to implement the delete API call here
+      try {
+        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+        const response = await fetch(`${BASE_URL}/tenant/university/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          // Refresh the data
+          fetchUniversities(pagination.page, searchTerm, filters);
+        } else {
+          throw new Error("Failed to delete university");
+        }
+      } catch (err) {
+        console.error("Error deleting university:", err);
+        alert("Failed to delete university. Please try again.");
+      }
     }
   };
 
-  if (loading) {
+  if (loading && universities.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-lg text-gray-600 dark:text-gray-400">Loading universities...</div>
@@ -419,7 +537,7 @@ export default function UniversitiesTable() {
     );
   }
 
-  if (error) {
+  if (error && universities.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-lg text-red-600 dark:text-red-400">Error: {error}</div>
@@ -434,31 +552,31 @@ export default function UniversitiesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Universities</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {filteredAndSortedData.length}
+            {pagination.total}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Active</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.filter(u => u.is_deleted === 0).length}
+            {universities.filter(u => u.is_deleted === 0).length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Countries</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Array.from(new Set(filteredAndSortedData.map(u => u.country_code))).length}
+            {filtersData.countries.length}
           </div>
         </div>
-        {/* <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Partner Types</div>
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Current Page</div>
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {Array.from(new Set(filteredAndSortedData.map(u => u.kind_of_partner_name))).length}
+            {pagination.page} / {pagination.totalPages}
           </div>
-        </div> */}
+        </div>
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row">
+      <div className="flex flex-col sm:flex-row gap-4">
         {/* Search Input */}
         <div className="flex-1 max-w-md">
           <div className="relative">
@@ -466,8 +584,8 @@ export default function UniversitiesTable() {
               type="text"
               placeholder="Search by name, country, email, address, or partner type..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+              onChange={handleSearch}
+              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg
@@ -522,7 +640,7 @@ export default function UniversitiesTable() {
         <div className="flex flex-wrap gap-2">
           {filters.country !== "all" && (
             <Badge size="sm" color="primary">
-              Country: {filters.country}
+              Country: {getCountryName(filters.country)}
             </Badge>
           )}
           {filters.type !== "all" && (
@@ -538,6 +656,11 @@ export default function UniversitiesTable() {
           {filters.partnerType !== "all" && (
             <Badge size="sm" color="primary">
               Partner: {filters.partnerType}
+            </Badge>
+          )}
+          {filters.collaborationType !== "all" && (
+            <Badge size="sm" color="primary">
+              Collaboration: {filters.collaborationType}
             </Badge>
           )}
         </div>
@@ -586,8 +709,14 @@ export default function UniversitiesTable() {
                   filteredAndSortedData.map((university) => (
                     <TableRow key={university.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
-                        <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          #{university.id}
+                        <div className="flex justify-center items-center">
+                          <Image
+                            className="mx-auto"
+                            src={university.logo_url || '/images/no-image.png'}
+                            alt="Logo"
+                            width={85}
+                            height={65}
+                          />
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
@@ -604,7 +733,7 @@ export default function UniversitiesTable() {
                         <div className="flex items-center gap-2">
                           <Globe size={14} className="text-gray-400" />
                           <Badge size="sm" color="primary">
-                            {university.country_code}
+                            {getCountryName(university.country_code)}
                           </Badge>
                         </div>
                       </TableCell>
@@ -640,7 +769,7 @@ export default function UniversitiesTable() {
                       <TableCell className="px-5 py-4 text-start">
                         <Badge
                           size="sm"
-                          color={getPartnerTypeColor(university.kind_of_partner_name)}
+                          color={"primary"}
                         >
                           {university.kind_of_partner_name}
                         </Badge>
@@ -683,9 +812,77 @@ export default function UniversitiesTable() {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {universities.length} universities
+      {/* Pagination and Results Count */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Showing {filteredAndSortedData.length} universities on page {pagination.page} of {pagination.totalPages}
+          {pagination.total > 0 && ` (Total: ${pagination.total} universities)`}
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={!pagination.hasPrevPage}
+            className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <ChevronsLeft size={16} />
+          </button>
+          <button
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={!pagination.hasPrevPage}
+            className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              // Show pages around current page
+              let pageNum;
+              if (pagination.totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (pagination.page <= 3) {
+                pageNum = i + 1;
+              } else if (pagination.page >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i;
+              } else {
+                pageNum = pagination.page - 2 + i;
+              }
+              
+              if (pageNum < 1 || pageNum > pagination.totalPages) return null;
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`w-10 h-10 rounded-lg border text-sm font-medium ${
+                    pagination.page === pageNum
+                      ? "bg-brand-500 text-white border-brand-500"
+                      : "border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+          
+          <button
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={!pagination.hasNextPage}
+            className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button
+            onClick={() => handlePageChange(pagination.totalPages)}
+            disabled={!pagination.hasNextPage}
+            className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <ChevronsRight size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Filter Modal */}
@@ -693,10 +890,7 @@ export default function UniversitiesTable() {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onApply={handleApplyFilters}
-        countries={countries}
-        types={types}
-        statuses={statuses}
-        partnerTypes={partnerTypes}
+        filtersData={filtersData}
       />
     </div>
   );

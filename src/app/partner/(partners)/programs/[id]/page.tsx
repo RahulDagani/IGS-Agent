@@ -1,36 +1,223 @@
 "use client"
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Heart, DollarSign, Play, Download } from "lucide-react";
 import Image from "next/image";
+import { useParams } from "next/navigation";
+import { City, Country, State } from "country-state-city";
+import { useAuth } from "@/context/AuthContext";
 
 interface CourseDetails {
   id: number;
-  courseName: string;
-  university: string;
-  country: string;
-  description: string;
-  universityLogo: string;
-  videoLink: string;
-  brochureLink: string;
-  tuitionLink: string;
-  isIGSPartner: boolean;
-  universityType: string;
-  isShortlisted: boolean;
-  aboutCourse: string;
-  admissionRequirements: {
-    transcripts: string;
-    englishProficiency: string;
-    finances: string;
+  course_name: string;
+  course_slug: string;
+  study_level: {
+    id: number;
+    name: string;
   };
-  applicationDeadline: string;
-  applicationProcedure: string;
-  galleryImages: string[];
-  location: {
-    latitude: number;
-    longitude: number;
-    address: string;
+  discipline: {
+    id: number;
+    name: string;
   };
+  duration_min: number;
+  duration_max: number;
+  duration_unit: string;
+  tuition_fee: string;
+  currency_code: string;
+  application_fee: string;
+  about_course: string;
+  admission_requirements: string;
+  is_popular: number;
+  university: {
+    id: number;
+    name: string;
+    slug: string;
+    description: string;
+    country_code: string;
+    state_code: string;
+    city_code: string;
+    address: string | null;
+    map_url: string | null;
+    location_url: string | null;
+    kind_of_partner_id: number;
+    type_of_university_id: number;
+    collaboration_type_id: number;
+    logo: string;
+    image: string;
+    brochure: string;
+    video_link: string;
+    tuition_url: string | null;
+    email: string;
+  };
+  intakes: Array<{
+    intake_id: number;
+    start_date: string;
+    open_date: string;
+    submission_deadline: string;
+    seat_availability: string;
+    turnaround_time: string;
+    conversion_rate: string;
+    overall_score_label: string;
+    overall_score_intent: string;
+    intake_created_at: string;
+  }>;
 }
+
+interface Student {
+  user_id: number;
+  email: string;
+  phone: string;
+  status: string;
+  first_name: string;
+  last_name: string;
+  passport_number: string;
+  dob: string;
+  created_at: string;
+}
+
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (studentId: number) => void;
+  course: CourseDetails | null;
+  loading: boolean;
+  students: Student[];
+  isFetchingStudents: boolean;
+  studentError: string | null;
+}
+
+const ConfirmModal: React.FC<ConfirmModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  course,
+  loading,
+  students,
+  isFetchingStudents,
+  studentError
+}) => {
+  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
+
+  const formatFee = (fee: string, currency: string) => {
+    if (!fee || fee === "0.00") return "Free";
+    return `${currency} ${parseFloat(fee).toLocaleString()}`;
+  };
+
+  const handleSubmit = () => {
+    if (selectedStudentId === 0) {
+      alert("Please select a student");
+      return;
+    }
+    onConfirm(selectedStudentId);
+  };
+
+  if (!isOpen || !course) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md">
+        <div className="p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+            Confirm Application
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Please review your application details before submitting:
+          </p>
+
+          <div className="space-y-3 mb-4">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Course:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.course_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">University:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.university.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Study Level:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.study_level.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Application Fee:</span>
+              <span className="text-sm font-medium text-gray-800 dark:text-white">
+                {formatFee(course.application_fee, course.currency_code)}
+              </span>
+            </div>
+          </div>
+
+          {/* Student Selection Dropdown */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Student
+            </label>
+            {isFetchingStudents ? (
+              <div className="flex items-center justify-center p-4">
+                <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Loading students...</span>
+              </div>
+            ) : studentError ? (
+              <div className="text-sm text-red-600 dark:text-red-400 p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                Error loading students: {studentError}
+              </div>
+            ) : students.length === 0 ? (
+              <div className="text-sm text-yellow-600 dark:text-yellow-400 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                No students found. Please add students first.
+              </div>
+            ) : (
+              <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(Number(e.target.value))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                disabled={loading}
+              >
+                <option value={0}>-- Select a student --</option>
+                {students.map((student) => (
+                  <option key={student.user_id} value={student.user_id}>
+                    {student.first_name} {student.last_name} - {student.email}
+                  </option>
+                ))}
+              </select>
+            )}
+            {students.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {students.length} student(s) available
+              </p>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={loading || isFetchingStudents || students.length === 0 || selectedStudentId === 0}
+              className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Applying...
+                </>
+              ) : (
+                'Confirm Application'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface AccordionItemProps {
   title: string;
@@ -66,69 +253,84 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, isOpen =
 };
 
 const CourseDetailsPage: React.FC = () => {
-  const [isShortlisted, setIsShortlisted] = useState(false);
+  const params = useParams();
+  const courseId = params?.id || 3; // Default to 3 if no params
+  
+  const [courseData, setCourseData] = useState<CourseDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // const [isShortlisted, setIsShortlisted] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [isFetchingStudents, setIsFetchingStudents] = useState(false);
+  const [studentError, setStudentError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
 
-  const courseData: CourseDetails = {
-    id: 2162,
-    courseName: "Biomedical Engineering",
-    university: "University Of North Texas",
-    country: "United States of America",
-    description: "The University of North Texas is a public research university in the Dallas–Fort Worth metroplex. UNT's main campus is in Denton, Texas, and it also has a satellite campus in Frisco, Texas. It offers 114 bachelor's, 97 master's, and 39 doctoral degree programs.",
-    universityLogo: "https://indoglobalstudies.org/assets/images/university-logo/1729764622-university-of-north-texas-logo-477F29AACD-seeklogo_com.png",
-    videoLink: "https://www.youtube.com/watch?v=W8Km41EMjqs",
-    brochureLink: "https://indoglobalstudies.org/assets/brochers/university-brocher/1729764622-EmptyBrochure.pdf",
-    tuitionLink: "https://www.unt.edu/admissions/tuition-costs-aid.html",
-    isIGSPartner: true,
-    universityType: "Public",
-    isShortlisted: false,
-    aboutCourse: `
-      <h2 style="color:#B22222;"><strong>Master of Science in Biomedical Engineering</strong></h2>
-      <p>Students pursuing graduate programs within the Department of Biomedical Engineering have the ability to use their knowledge and skillset to create practical applications in health care and within their communities. Current and past students have sought to increase physical patient mobility, diagnose and cure cancer, and develop bioresorbable implants for surgeries.</p>
-      <p>At UNT, you'll also be able to complement your education and research with conferences and other professional development opportunities throughout your time here at College of Engineering. Students seeking one of our graduate degrees will learn what it means to be a UNT Eagle and to create a lasting impact in your community.</p>
-      <p>Our program offers both a thesis and non-thesis option so you can carve out the path that works best for you and your future career goals.</p>
-      <p><a href="https://www.unt.edu/academics/programs/biomedical-engineering-masters.html">https://www.unt.edu/academics/programs/biomedical-engineering-masters.html</a></p>
-    `,
-    admissionRequirements: {
-      transcripts: `
-        <p>UNT requires official school transcripts, diploma and degree certificates from all universities attended. After we process your application from ApplyTexas, you will receive an email with access to the MyUNT portal to upload scans of your official documents to be used for evaluation.</p>
-        <ul>
-          <li>These MUST be in both English and your native language, if applicable. English translations must be from either the academic institution or a certified translator.</li>
-          <li>UNT will also accept credential evaluation reports from NACES-member evaluation companies.* For more details on this option, see below.</li>
-          <li>Once all documents are received, we will evaluate and forward them to the academic program for an admission decision.</li>
-          <li>If admitted, students are required to submit original, official documents before registering for classes.</li>
-        </ul>
-      `,
-      englishProficiency: `
-        <p>UNT degree program applicants are required to demonstrate English Language Proficiency which can be met through a variety of options including TOEFL, IELTS and DuoLingo. You can find more details about score requirements, how to submit scores and more on our complete list of ways to demonstrate English Language Proficiency.</p>
-        <p>If you do not meet these requirements, we encourage you to consider UNT's Intensive English Language Institute.</p>
-      `,
-      finances: `
-        <p>If you will be studying on an F-1 or J-1 visa, you must show proof of financial support. Once admitted, to request an I-20 to attend UNT, you must submit all required documents via iNorthTX – UNT's new online system for managing international student and scholar cases.</p>
-        <p>Sponsored students should contact the UNT Sponsored and Special Programs office.</p>
-      `
-    },
-    applicationDeadline: `
-      <p>Contact your academic program for information regarding program-specific deadlines as they may be earlier than the priority dates listed below. Applying by the following dates increases your chance of I-20 processing, if admitted.</p>
-      <p><strong>International Application Priority Dates</strong></p>
-      <p><strong>Fall: April 15</strong><br>
-      <strong>Spring: Oct. 15</strong><br>
-      <strong>Summer: Jan. 1</strong></p>
-    `,
-    applicationProcedure: `
-      <p>Please send student details, documents and online application login credentials to admissions@indoglobalstudies.org without submitting the application.</p>
-      <p>IGS team will submit the application through channel partner.</p>
-    `,
-    galleryImages: [
-      "https://via.placeholder.com/400x300?text=Campus+1",
-      "https://via.placeholder.com/400x300?text=Campus+2",
-      "https://via.placeholder.com/400x300?text=Lab+Facilities",
-      "https://via.placeholder.com/400x300?text=Student+Life"
-    ],
-    location: {
-      latitude: 33.2148,
-      longitude: -97.1331,
-      address: "Denton, Texas, USA"
+  const {token} = useAuth();
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  // Fetch course data
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${BASE_URL}/agent/course/${courseId}`,{
+          headers:{
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch course: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setCourseData(data.data);
+        } else {
+          throw new Error(data.message || 'Failed to load course data');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching course:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourseData();
+  }, [courseId]);
+
+  // Fetch students
+  const fetchStudents = async () => {
+    try {
+      setIsFetchingStudents(true);
+      setStudentError(null);
+      
+      const response = await fetch(`${BASE_URL}/agent/student`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch students: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setStudents(data.data || []);
+      } else {
+        throw new Error(data.message || 'Failed to load students');
+      }
+    } catch (err) {
+      setStudentError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error fetching students:', err);
+    } finally {
+      setIsFetchingStudents(false);
     }
   };
 
@@ -136,16 +338,124 @@ const CourseDetailsPage: React.FC = () => {
     setOpenAccordion(openAccordion === accordion ? null : accordion);
   };
 
-  const handleShortlist = () => {
-    setIsShortlisted(!isShortlisted);
-    // Here you would typically make an API call to update the shortlist status
+  // const handleShortlist = () => {
+  //   setIsShortlisted(!isShortlisted);
+  //   // Here you would typically make an API call to update the shortlist status
+  // };
+
+  const handleApply = async () => {
+    await fetchStudents();
+    setShowConfirmModal(true);
   };
 
-  const handleApply = () => {
-    // Handle apply logic
-    
-    console.log("Apply clicked for course:", courseData.id);
+  const handleConfirmApplication = async (studentId: number) => {
+    try {
+      setIsApplying(true);
+      
+      // Replace with your actual application submission API
+      const response = await fetch(`${BASE_URL}/agent/student/application/add`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          student_user_id: studentId,
+          course_id: courseId,
+          
+          intake_id: courseData?.intakes[0]?.intake_id,
+          study_level_id: courseData?.study_level.id,
+        remarks: "Student wants Jan 2026 intake"
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Application failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('Application submitted successfully!');
+        setShowConfirmModal(false);
+      } else {
+        throw new Error(data.message || 'Application failed');
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Application failed');
+      console.error('Error submitting application:', err);
+    } finally {
+      setIsApplying(false);
+    }
   };
+
+  // Helper function to get location names
+  const getLocationNames = () => {
+    if (!courseData) return { country: '', state: '', city: '' };
+    
+    const country = Country.getCountryByCode(courseData.university.country_code)?.name || courseData.university.country_code;
+    const state = State.getStateByCodeAndCountry(courseData.university.state_code, courseData.university.country_code)?.name || courseData.university.state_code;
+    const city = City.getCitiesOfState(courseData.university.country_code, courseData.university.state_code)
+      .find(city => city.name === courseData.university.city_code)?.name || courseData.university.city_code;
+    
+    return { country, state, city };
+  };
+
+  // Format currency
+  const formatCurrency = (amount: string, currencyCode: string) => {
+    if (!amount || amount === "0.00") return "Free";
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2
+    }).format(parseFloat(amount));
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <svg className="animate-spin h-10 w-10 text-blue-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-600 dark:text-gray-400">Loading course details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">Error loading course</div>
+          <p className="text-gray-600 dark:text-gray-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!courseData) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-400">Course not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  const locationNames = getLocationNames();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -155,13 +465,17 @@ const CourseDetailsPage: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* University Logo */}
-              <div className="lg:col-span-1 flex justify-center items-center p-6 bg-white rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="lg:col-span-1 flex justify-center items-center p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                 <Image
                   width={500}
                   height={500}
-                  src={courseData.universityLogo}
-                  alt={courseData.university}
+                  src={"/images/university.jpg"}
+                  alt={courseData.university.name}
                   className="max-w-full h-auto max-h-32 object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "/images/university.jpg";
+                  }}
                 />
               </div>
 
@@ -169,20 +483,46 @@ const CourseDetailsPage: React.FC = () => {
               <div className="lg:col-span-3 space-y-4">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-                    {courseData.courseName}
+                    {courseData.course_name}
                   </h1>
                   <p className="text-gray-600 dark:text-gray-400 text-lg">
-                    at {courseData.university} of {courseData.country}
+                    at {courseData.university.name} • {locationNames.city}, {locationNames.state}, {locationNames.country}
                   </p>
                   <p className="text-gray-700 dark:text-gray-300 mt-4 leading-relaxed">
-                    {courseData.description}
+                    {courseData.university.description || "No description available."}
                   </p>
+                </div>
+
+                {/* Key Details */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Study Level</p>
+                    <p className="font-medium text-gray-800 dark:text-white">{courseData.study_level.name}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Duration</p>
+                    <p className="font-medium text-gray-800 dark:text-white">
+                      {courseData.duration_min}-{courseData.duration_max} {courseData.duration_unit}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Tuition Fee</p>
+                    <p className="font-medium text-gray-800 dark:text-white">
+                      {formatCurrency(courseData.tuition_fee, courseData.currency_code)}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Application Fee</p>
+                    <p className="font-medium text-gray-800 dark:text-white">
+                      {formatCurrency(courseData.application_fee, courseData.currency_code)}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Action Buttons and Links */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <a
-                    href={courseData.videoLink}
+                    href={courseData.university.video_link || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -192,7 +532,7 @@ const CourseDetailsPage: React.FC = () => {
                   </a>
                   
                   <a
-                    href={courseData.brochureLink}
+                    href={courseData.university.brochure || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
@@ -202,7 +542,7 @@ const CourseDetailsPage: React.FC = () => {
                   </a>
                   
                   <a
-                    href={courseData.tuitionLink}
+                    href={courseData.university.tuition_url || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
@@ -211,20 +551,12 @@ const CourseDetailsPage: React.FC = () => {
                     Tuition URL
                   </a>
                   
-                  <div className="hidden md:block"></div> {/* Spacer */}
-                  
-                  <div className="flex items-center justify-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                    {courseData.isIGSPartner ? "IGS Partners" : "Not IGS Partner"}
-                  </div>
-                  
-                  <div className="flex items-center justify-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
-                    {courseData.universityType}
-                  </div>
+                  <div className="hidden md:block"></div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pt-4">
-                  <button
+                  {/* <button
                     onClick={handleShortlist}
                     className={`flex items-center justify-center gap-2 px-6 py-3 rounded-full border transition-all ${
                       isShortlisted
@@ -234,7 +566,7 @@ const CourseDetailsPage: React.FC = () => {
                   >
                     <Heart size={18} fill={isShortlisted ? "currentColor" : "none"} />
                     {isShortlisted ? "Shortlisted" : "Shortlist"}
-                  </button>
+                  </button> */}
                   
                   <button
                     onClick={handleApply}
@@ -253,33 +585,50 @@ const CourseDetailsPage: React.FC = () => {
       <section className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 px-3 relative">
-            Course info
+            <span className="mb-2">Course info</span>
             <span className="absolute bottom-0 left-3 w-6 h-1.5 bg-blue-500 rounded-full mt-1"></span>
           </h2>
 
-          {/* Accordion Section */}
-          <div className="space-y-4">
-            {/* Gallery Accordion */}
-            <AccordionItem
-              title="Gallery"
-              isOpen={openAccordion === 'gallery'}
-              onToggle={() => toggleAccordion('gallery')}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {courseData.galleryImages.map((image, index) => (
-                  <div key={index} className="rounded-lg overflow-hidden">
-                    <Image
-                    width={500}
-                    height={500}
-                      src={image}
-                      alt={`Gallery ${index + 1}`}
-                      className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
-                    />
+          {/* Intakes Section */}
+          {courseData.intakes && courseData.intakes.length > 0 && (
+            <div className="mb-8 bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Available Intakes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {courseData.intakes.map((intake, index) => (
+                  <div key={intake.intake_id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Start Date:</span>
+                        <span className="text-sm font-medium text-gray-800 dark:text-white">
+                          {formatDate(intake.start_date)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Deadline:</span>
+                        <span className="text-sm font-medium text-gray-800 dark:text-white">
+                          {formatDate(intake.submission_deadline)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Availability:</span>
+                        <span className={`text-sm font-medium ${
+                          intake.seat_availability === "Very High" ? "text-green-600" :
+                          intake.seat_availability === "High" ? "text-green-500" :
+                          intake.seat_availability === "Medium" ? "text-yellow-500" :
+                          "text-red-500"
+                        }`}>
+                          {intake.seat_availability}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-            </AccordionItem>
+            </div>
+          )}
 
+          {/* Accordion Section */}
+          <div className="space-y-4">
             {/* About the Course Accordion */}
             <AccordionItem
               title="About the course"
@@ -288,7 +637,7 @@ const CourseDetailsPage: React.FC = () => {
             >
               <div 
                 className="prose prose-gray dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: courseData.aboutCourse }}
+                dangerouslySetInnerHTML={{ __html: courseData.about_course || "No course description available." }}
               />
             </AccordionItem>
 
@@ -298,88 +647,68 @@ const CourseDetailsPage: React.FC = () => {
               isOpen={openAccordion === 'admission'}
               onToggle={() => toggleAccordion('admission')}
             >
-              <div className="space-y-6">
-                <div>
-                  <h5 className="font-semibold text-gray-800 dark:text-white mb-3">Transcripts</h5>
-                  <div 
-                    className="prose prose-gray dark:prose-invert max-w-none text-sm"
-                    dangerouslySetInnerHTML={{ __html: courseData.admissionRequirements.transcripts }}
-                  />
-                </div>
-                
-                <div>
-                  <h5 className="font-semibold text-gray-800 dark:text-white mb-3">English Language Proficiency</h5>
-                  <div 
-                    className="prose prose-gray dark:prose-invert max-w-none text-sm"
-                    dangerouslySetInnerHTML={{ __html: courseData.admissionRequirements.englishProficiency }}
-                  />
-                </div>
-                
-                <div>
-                  <h5 className="font-semibold text-gray-800 dark:text-white mb-3">Statement of Finances and proof of funding documents</h5>
-                  <div 
-                    className="prose prose-gray dark:prose-invert max-w-none text-sm"
-                    dangerouslySetInnerHTML={{ __html: courseData.admissionRequirements.finances }}
-                  />
-                </div>
+              <div className="space-y-4">
+                <div 
+                  className="prose prose-gray dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: courseData.admission_requirements || "No admission requirements specified." }}
+                />
               </div>
             </AccordionItem>
 
-            {/* Application Deadline Accordion */}
+            {/* University Details Accordion */}
             <AccordionItem
-              title="Application Deadline"
-              isOpen={openAccordion === 'deadline'}
-              onToggle={() => toggleAccordion('deadline')}
+              title="University Information"
+              isOpen={openAccordion === 'university'}
+              onToggle={() => toggleAccordion('university')}
             >
-              <div 
-                className="prose prose-gray dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: courseData.applicationDeadline }}
-              />
-            </AccordionItem>
-
-            {/* Application Procedure Accordion */}
-            <AccordionItem
-              title="Application Procedure"
-              isOpen={openAccordion === 'procedure'}
-              onToggle={() => toggleAccordion('procedure')}
-            >
-              <div 
-                className="prose prose-gray dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: courseData.applicationProcedure }}
-              />
+              <div className="space-y-4">
+                <div>
+                  <h5 className="font-semibold text-gray-800 dark:text-white mb-2">Contact Information</h5>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Email: {courseData.university.email || "Not specified"}
+                  </p>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    Location: {locationNames.city}, {locationNames.state}, {locationNames.country}
+                  </p>
+                  {courseData.university.address && (
+                    <p className="text-gray-700 dark:text-gray-300">
+                      Address: {courseData.university.address}
+                    </p>
+                  )}
+                </div>
+              </div>
             </AccordionItem>
           </div>
 
           {/* Map Section */}
-          <div className="mt-12 rounded-lg overflow-hidden shadow-lg">
-            <iframe
-              src={`https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3357.238366489743!2d${courseData.location.longitude}!3d${courseData.location.latitude}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzPCsDEyJzUzLjMiTiA5N8KwMDgnMDAuMyJX!5e0!3m2!1sen!2sus!4v1620000000000!5m2!1sen!2sus`}
-              width="100%"
-              height="450"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title={`Location of ${courseData.university}`}
-            />
-          </div>
+          {courseData.university.map_url && (
+            <div className="mt-12 rounded-lg overflow-hidden shadow-lg">
+              <iframe
+                src={courseData.university.map_url}
+                width="100%"
+                height="450"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title={`Location of ${courseData.university.name}`}
+              />
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Recommended Courses Section - You can uncomment and implement this later */}
-      {/*
-      <section className="bg-gray-100 dark:bg-gray-800 py-12">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 px-3 relative">
-            Recommended for you
-            <span className="absolute bottom-0 left-3 w-6 h-1.5 bg-green-500 rounded-full mt-1"></span>
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Add recommended courses here *//*}
-          </div>
-        </div>
-      </section>
-      */}
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmApplication}
+        course={courseData}
+        loading={isApplying}
+        students={students}
+        isFetchingStudents={isFetchingStudents}
+        studentError={studentError}
+      />
     </div>
   );
 };

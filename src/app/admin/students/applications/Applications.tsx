@@ -298,6 +298,160 @@ const FilterModal: React.FC<FilterModalProps> = ({
   );
 };
 
+
+interface FlowModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  application: Application | null;
+}
+
+const FlowModal: React.FC<FlowModalProps> = ({
+  isOpen,
+  onClose,
+  application
+}) => {
+  
+  if (!isOpen || !application) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Application Status Flow
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="mb-6">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            <strong>University:</strong> {application.university}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            <strong>Course:</strong> {application.course}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            <strong>Student:</strong> {application.studentName}
+          </p>
+        </div>
+
+        {/* Application Status Flow */}
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+            Application Status History
+          </h4>
+          
+          <div className="space-y-4">
+            {/* Application Submitted */}
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mr-3">
+                <svg className="w-4 h-4 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  Application Submitted
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Submitted on: {new Date().toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Application Reviewed */}
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
+                <svg className="w-4 h-4 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  Application Reviewed
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Reviewed by: Admin • {new Date().toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Assigned to User */}
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center mr-3">
+                <svg className="w-4 h-4 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {application.assignedTo !== "Not Assigned" 
+                    ? `Assigned to ${application.assignedTo}`
+                    : "Not Assigned Yet"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Status: {application.assignedTo === "Not Assigned" ? "Pending" : "Assigned"}
+                </p>
+              </div>
+            </div>
+
+            {/* Document Status */}
+            <div className="flex items-start">
+              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                application.commonDocumentsStatus === "complete" 
+                  ? "bg-green-100 dark:bg-green-900" 
+                  : "bg-yellow-100 dark:bg-yellow-900"
+              }`}>
+                <svg className={`w-4 h-4 ${
+                  application.commonDocumentsStatus === "complete" 
+                    ? "text-green-600 dark:text-green-300" 
+                    : "text-yellow-600 dark:text-yellow-300"
+                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {application.commonDocumentsStatus === "complete" 
+                    ? "Documents Verified" 
+                    : "Documents Pending"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {application.commonDocumentsStatus === "complete" 
+                    ? "All documents verified" 
+                    : "Waiting for document upload"}
+                </p>
+              </div>
+            </div>
+
+            {/* Current Status */}
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
+                <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  {application.status}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Current Status • Updated: {new Date().toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({
   isOpen,
   onClose,
@@ -736,6 +890,8 @@ interface ApplicationCardProps {
   onViewCommonDocs: (application: Application) => void;
   onViewSpecificDocs: (application: Application) => void;
   onRequestAdditionalDoc: (application: Application) => void;
+  setShowFlowModal: (application: Application) => void;
+
 }
 
 const ApplicationCard: React.FC<ApplicationCardProps> = ({ 
@@ -743,7 +899,9 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({
   onUpdateStatus,
   onViewCommonDocs,
   onViewSpecificDocs,
-  onRequestAdditionalDoc
+  onRequestAdditionalDoc,
+  setShowFlowModal
+
 }) => {
   const getStatusColor = (status: Application["status"]) => {
     switch (status) {
@@ -913,12 +1071,19 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({
         
       </div>
       <div className="mt-6 flex gap-3">
-        
+       
         <button 
           onClick={() => onRequestAdditionalDoc(application)}
           className="flex-1 border border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
         >
-          Request Doc
+          Req Doc
+        </button>
+
+        <button 
+          onClick={() => setShowFlowModal(application)}
+          className="flex-1 border border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
+        >
+          Application flow
         </button>
       </div>
     </div>
@@ -937,6 +1102,15 @@ export default function ApplicationsTable() {
   const [filters, setFilters] = useState<FilterOptions>({
     student: "all",
   });
+
+
+     const [isFlowModalOpen, setIsFlowModalOpen] = useState<boolean>(false);
+    const [showFlowModal, setShowFlowModal] = useState<boolean>(false);
+     const handleShowFlowModal = (application: Application) => {
+      setSelectedApplication(application);
+      setIsFlowModalOpen(true);
+    };
+    
   
   const [students, setStudents] = useState<Student[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -1287,6 +1461,133 @@ export default function ApplicationsTable() {
         </div>
       )}
 
+
+            {
+        showFlowModal && <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
+    <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+          Application Status Flow
+        </h3>
+        <button
+          onClick={()=>setShowFlowModal(false)}
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          <strong>University:</strong> Harvard University
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          <strong>Course:</strong> Mathematics
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          <strong>Student:</strong> Jhon doe
+        </p>
+      </div>
+
+      {/* Application Status Flow */}
+      <div className="mb-6">
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+          Application Status History
+        </h4>
+        
+        <div className="space-y-4">
+          {/* Application Submitted */}
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mr-3">
+              <svg className="w-4 h-4 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Application Submitted
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Submitted on: Oct 15, 2023
+              </p>
+            </div>
+          </div>
+
+          {/* Application Reviewed */}
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
+              <svg className="w-4 h-4 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Application Reviewed
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Reviewed by: John Smith • Oct 18, 2023
+              </p>
+            </div>
+          </div>
+
+          {/* Assigned to User */}
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center mr-3">
+              <svg className="w-4 h-4 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Assigned to Processing Officer
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Assigned to: Sarah Johnson • Oct 20, 2023
+              </p>
+            </div>
+          </div>
+
+          {/* Document Pending */}
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center mr-3">
+              <svg className="w-4 h-4 text-yellow-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Document Verification Pending
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Waiting for: Transcripts • Since Oct 22, 2023
+              </p>
+            </div>
+          </div>
+
+          {/* Current Status */}
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
+              <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Under Review
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Current Status • Updated: Oct 25, 2023
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+     
+    </div>
+  </div>
+      }
+
       {!loading.applications && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {applications && applications.length > 0 ? (
@@ -1298,6 +1599,8 @@ export default function ApplicationsTable() {
                 onViewCommonDocs={handleViewCommonDocs}
                 onViewSpecificDocs={handleViewSpecificDocs}
                 onRequestAdditionalDoc={handleRequestAdditionalDoc}
+                setShowFlowModal={handleShowFlowModal}
+
               />
             ))
           ) : (
@@ -1342,6 +1645,12 @@ export default function ApplicationsTable() {
         title={selectedModalTitle}
         documents={selectedDocuments}
         loading={false}
+      />
+
+       <FlowModal
+        isOpen={isFlowModalOpen}
+        onClose={() => setIsFlowModalOpen(false)}
+        application={selectedApplication}
       />
 
       <DocumentsModal

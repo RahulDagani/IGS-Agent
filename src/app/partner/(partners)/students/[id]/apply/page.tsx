@@ -1,10 +1,24 @@
 "use client"
 import React, { useState, useMemo, useEffect } from "react";
 import Badge from "@/components/ui/badge/Badge";
-import { DockIcon, DollarSign, GraduationCap, MapPin } from "lucide-react";
-import {useAuth} from '@/context/AuthContext';
+import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar } from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
 import { useParams } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+
+interface Intake {
+  intake_id: number;
+  course_id: number;
+  start_date: string;
+  open_date: string;
+  submission_deadline: string;
+  seat_availability: string;
+  turnaround_time: string;
+  conversion_rate: string;
+  overall_score_label: string;
+  overall_score_intent: string;
+  intake_created_at: string;
+}
 
 interface Course {
   id: number;
@@ -43,6 +57,7 @@ interface Course {
   partner_type_name: string;
   university_type_name: string;
   collaboration_type_name: string;
+  intakes: Intake[];
 }
 
 interface ApiResponse {
@@ -127,6 +142,37 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 {formatFee(course.application_fee, course.currency_code)}
               </span>
             </div>
+            {/* Display intakes in confirmation modal */}
+            {course.intakes && course.intakes.length > 0 && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Available Intakes:</span>
+                <div className="mt-2 space-y-1">
+                  {course.intakes.slice(0, 3).map((intake) => (
+                    <div key={intake.intake_id} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-700 dark:text-gray-300">
+                        {new Date(intake.start_date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        intake.seat_availability === "Very High" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" :
+                        intake.seat_availability === "High" ? "bg-green-50 text-green-700 dark:bg-green-800/30 dark:text-green-300" :
+                        intake.seat_availability === "Medium" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" :
+                        "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                      }`}>
+                        {intake.seat_availability}
+                      </span>
+                    </div>
+                  ))}
+                  {course.intakes.length > 3 && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      +{course.intakes.length - 3} more intakes available
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -486,6 +532,35 @@ const CourseCard: React.FC<{
     return `${currency} ${parseFloat(fee).toLocaleString()}`;
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        year: 'numeric' 
+      });
+    } catch {
+      return "Invalid date";
+    }
+  };
+
+  const getSeatAvailabilityColor = (availability: string) => {
+    switch (availability.toLowerCase()) {
+      case 'very high':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'high':
+        return 'bg-green-50 text-green-700 dark:bg-green-800/30 dark:text-green-300';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'low':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'very low':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+    }
+  };
+
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
       {/* Top Section */}
@@ -549,6 +624,33 @@ const CourseCard: React.FC<{
             <strong className="block font-semibold text-gray-800 dark:text-white">{course.discipline_name}</strong>
           </div>
         </div>
+
+        {/* Intakes Section */}
+        {course.intakes && course.intakes.length > 0 && (
+          <div className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 pt-2">
+            <Calendar size={18} className="mt-0.5"/>
+            <div className="flex-1">
+              <span className="block">Available Intakes</span>
+              <div className="mt-1 space-y-1">
+                {course.intakes.slice(0, 2).map((intake) => (
+                  <div key={intake.intake_id} className="flex justify-between items-center">
+                    <span className="font-medium text-gray-800 dark:text-white">
+                      {formatDate(intake.start_date)}
+                    </span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${getSeatAvailabilityColor(intake.seat_availability)}`}>
+                      {intake.seat_availability}
+                    </span>
+                  </div>
+                ))}
+                {course.intakes.length > 2 && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    +{course.intakes.length - 2} more intakes
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Entry Requirements */}
@@ -636,7 +738,7 @@ export default function ProgramCards() {
     const fetchCourses = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/courses/list`, {
+        const response = await fetch(`${BASE_URL}/agent/courses`, {
           headers: {
             'Authorization': `Bearer ${token}` // Adjust based on your auth setup
           }

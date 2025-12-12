@@ -1,11 +1,26 @@
 "use client"
 import React, { useState, useMemo, useEffect } from "react";
 import Badge from "@/components/ui/badge/Badge";
-import { DockIcon, DollarSign, GraduationCap, MapPin } from "lucide-react";
-import {useAuth} from '@/context/AuthContext';
+import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar } from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
 import { useParams } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Link from "next/link";
+import { Country, State, City } from "country-state-city";
+
+interface Intake {
+  intake_id: number;
+  course_id: number;
+  start_date: string;
+  open_date: string;
+  submission_deadline: string;
+  seat_availability: string;
+  turnaround_time: string;
+  conversion_rate: string;
+  overall_score_label: string;
+  overall_score_intent: string;
+  intake_created_at: string;
+}
 
 interface Course {
   id: number;
@@ -44,6 +59,11 @@ interface Course {
   partner_type_name: string;
   university_type_name: string;
   collaboration_type_name: string;
+  intakes: Intake[];
+  // Add location fields if available in API
+  country_code?: string;
+  state_code?: string;
+  city_code?: string;
 }
 
 interface Student {
@@ -295,11 +315,11 @@ const FilterModal: React.FC<FilterModalProps> = ({
   onClose,
   onApply,
   universities,
+  courses,
   disciplines,
   countries,
   states,
 }) => {
-    
   
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>("");
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
@@ -563,6 +583,32 @@ const CourseCard: React.FC<{
     return `${currency} ${parseFloat(fee).toLocaleString()}`;
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getAvailabilityColor = (availability: string) => {
+    switch (availability.toLowerCase()) {
+      case 'very high':
+        return 'text-green-600 bg-green-50 dark:bg-green-900/20';
+      case 'high':
+        return 'text-green-500 bg-green-50 dark:bg-green-900/20';
+      case 'medium':
+        return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20';
+      case 'low':
+        return 'text-orange-600 bg-orange-50 dark:bg-orange-900/20';
+      case 'very low':
+        return 'text-red-600 bg-red-50 dark:bg-red-900/20';
+      default:
+        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20';
+    }
+  };
+
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
       {/* Top Section */}
@@ -626,6 +672,33 @@ const CourseCard: React.FC<{
             <strong className="block font-semibold text-gray-800 dark:text-white">{course.discipline_name}</strong>
           </div>
         </div>
+
+        {/* Intakes */}
+        {course.intakes && course.intakes.length > 0 && (
+          <div className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <Calendar size={18}/>
+            <div className="flex-1">
+              <span className="block">Available Intakes</span>
+              <div className="mt-1 space-y-1">
+                {course.intakes.slice(0, 2).map((intake) => (
+                  <div key={intake.intake_id} className="flex justify-between items-center">
+                    <span className="font-medium text-gray-800 dark:text-white">
+                      {formatDate(intake.start_date)}
+                    </span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${getAvailabilityColor(intake.seat_availability)}`}>
+                      {intake.seat_availability}
+                    </span>
+                  </div>
+                ))}
+                {course.intakes.length > 2 && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    +{course.intakes.length - 2} more intakes
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Entry Requirements */}
@@ -668,14 +741,6 @@ const CourseCard: React.FC<{
       </div>
 
       {/* Buttons */}
-      {/* <div className="mt-6 flex gap-3">
-        <button
-          onClick={() => onApply(course)}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
-        >
-          Apply
-        </button>
-      </div> */}
       <div className="mt-6 flex gap-3">
         <Link
           href={`/partner/programs/${course.id}`}
@@ -724,7 +789,7 @@ export default function ProgramCards() {
     const fetchCourses = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/courses/list`, {
+        const response = await fetch(`${BASE_URL}/agent/courses`, {
           headers: {
             'Authorization': `Bearer ${token}` // Adjust based on your auth setup
           }
@@ -860,21 +925,27 @@ export default function ProgramCards() {
     return Array.from(new Set(courses.map(course => course.study_level_name.toLowerCase())));
   }, [courses]);
 
-  // Static filter options (you might want to make these dynamic too)
-  const countries = useMemo(() => [
-    "australia", "canada", "germany", "united-kingdom", "united-states-of-america"
-  ], []);
+  // Get all countries from the country-state-city library
+  const countries = useMemo(() => {
+    return Country.getAllCountries()
+      .map(country => ({
+        code: country.isoCode,
+        name: country.name,
+        phonecode: country.phonecode
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(country => country.name);
+  }, []);
 
-  const states = useMemo(() => [
-    "alabama", "alaska", "arizona", "arkansas", "bad-honnef", "bavaria", "berlin",
-    "british-columbia", "california", "connecticut", "delaware", "dortmund", "england",
-    "florida", "georgia", "glasgow", "hamburg", "hesse", "illinois", "indiana", "kansas",
-    "kentucky", "las-vegas", "manchester", "massachusetts", "michigan", "mississippi",
-    "missouri", "munich", "nebraska", "nevada", "new-hampshire", "new-jersey",
-    "new-south-wales", "new-york", "north-carolina", "nova-scotia", "ohio", "oklahoma",
-    "pennsylvania", "rhode-island", "san-francisco", "saxony", "scotland", "south-carolina",
-    "tennessee", "texas", "victoria", "wales", "washington", "wisconsin", "wyoming"
-  ], []);
+  // Get all states from the country-state-city library (US states as example)
+  const states = useMemo(() => {
+    // You can filter by specific country if you have country data
+    // For now, let's show all states from all countries
+    const allStates = State.getAllStates();
+    return allStates
+      .map(state => state.name)
+      .sort((a, b) => a.localeCompare(b));
+  }, []);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {

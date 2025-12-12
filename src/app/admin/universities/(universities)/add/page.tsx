@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
-import { Globe, MapPin, Mail, FileText, Video, Link, Building2, BookOpen, Users, Plus } from "lucide-react";
+import { Globe, MapPin, Mail, FileText, Video, Link, Building2, BookOpen, Users, Plus, X } from "lucide-react";
 
 interface UniversityFormData {
   // Basic Info
@@ -22,10 +22,10 @@ interface UniversityFormData {
   map_url: string;
   location_url: string;
   
-  // Media - now just strings for dummy names
-  logo: string;
-  image: string;
-  brochure: string;
+  // Media - File objects
+  logo: File | null;
+  image: File | null;
+  brochure: File | null;
   
   // Additional Info
   video_link: string;
@@ -51,6 +51,11 @@ export default function AddUniversity() {
   const [typeOfUniversities, setTypeOfUniversities] = useState<Option[]>([]);
   const [collaborationTypes, setCollaborationTypes] = useState<Option[]>([]);
 
+  // Refs for file inputs
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const brochureInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState<UniversityFormData>({
     // Basic Info
     university: "",
@@ -68,14 +73,20 @@ export default function AddUniversity() {
     map_url: "",
     location_url: "",
     
-    // Media - initialize with empty strings
-    logo: "",
-    image: "",
-    brochure: "",
+    // Media - initialize with null
+    logo: null,
+    image: null,
+    brochure: null,
     
     // Additional Info
     video_link: "",
     tuition_url: "",
+  });
+
+  const [preview, setPreview] = useState({
+    logo: "",
+    image: "",
+    brochureName: "",
   });
 
   const [selectedCountry, setSelectedCountry] = useState<string>("");
@@ -159,58 +170,132 @@ export default function AddUniversity() {
     }
   };
 
-  // Remove file change handler since we're not handling actual file uploads
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'image' | 'brochure') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        [field]: file
+      }));
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!token) {
-    alert("Please log in to add a university");
-    return;
-  }
+      // Create preview for images
+      if (field === 'logo' || field === 'image') {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreview(prev => ({
+            ...prev,
+            [field]: reader.result as string
+          }));
+        };
+        reader.readAsDataURL(file);
+      } else if (field === 'brochure') {
+        setPreview(prev => ({
+          ...prev,
+          brochureName: file.name
+        }));
+      }
+    }
+  };
 
-  setIsSubmitting(true);
+  const removeFile = (field: 'logo' | 'image' | 'brochure') => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: null
+    }));
+    
+    setPreview(prev => ({
+      ...prev,
+      [field]: field === 'brochure' ? '' : '',
+      brochureName: field === 'brochure' ? '' : prev.brochureName
+    }));
 
-  try {
+    // Reset file input
+    if (field === 'logo' && logoInputRef.current) {
+      logoInputRef.current.value = '';
+    } else if (field === 'image' && imageInputRef.current) {
+      imageInputRef.current.value = '';
+    } else if (field === 'brochure' && brochureInputRef.current) {
+      brochureInputRef.current.value = '';
+    }
+  };
 
-    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
-    // Add dummy file names since we're not handling actual file uploads
-    const submitData = {
-      ...formData,
-      logo: "dummy-logo.jpg", // Add dummy filename
-      image: "dummy-image.jpg", // Add dummy filename  
-      brochure: "dummy-brochure.pdf", // Add dummy filename
-    };
-
-
-    const response = await fetch(`${BASE_URL}/tenant/university/add`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json', // Add this header
-      },
-      body: JSON.stringify(submitData), // Use the data with dummy filenames
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Server error response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}`);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!token) {
+      alert("Please log in to add a university");
+      return;
     }
 
-    const result = await response.json();
-    
-    // Redirect back to universities list
-    router.push('/admin/universities');
-    router.refresh();
-  } catch (error) {
-    console.error('Error adding university:', error);
-    alert('Error adding university. Please try again.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    // Validate required files
+    if (!formData.logo || !formData.image) {
+      alert("Please upload both logo and university image");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+      // Create FormData object
+      const formDataToSend = new FormData();
+
+      // Append all text fields
+      formDataToSend.append('university', formData.university);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('country_code', formData.country_code);
+      formDataToSend.append('state_code', formData.state_code);
+      formDataToSend.append('city_code', formData.city_code);
+      formDataToSend.append('kind_of_partner_id', formData.kind_of_partner_id);
+      formDataToSend.append('type_of_university_id', formData.type_of_university_id);
+      formDataToSend.append('collaboration_type_id', formData.collaboration_type_id);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('address', formData.address);
+      formDataToSend.append('map_url', formData.map_url);
+      formDataToSend.append('location_url', formData.location_url);
+      formDataToSend.append('video_link', formData.video_link);
+      formDataToSend.append('tuition_url', formData.tuition_url);
+
+      // Append files
+      if (formData.logo) {
+        formDataToSend.append('logo', formData.logo);
+      }
+      if (formData.image) {
+        formDataToSend.append('image', formData.image);
+      }
+      if (formData.brochure) {
+        formDataToSend.append('brochure', formData.brochure);
+      }
+
+      const response = await fetch(`${BASE_URL}/tenant/university/add`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type header for FormData - browser will set it with boundary
+        },
+        body: formDataToSend,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // Redirect back to universities list
+      router.push('/admin/universities');
+      router.refresh();
+    } catch (error) {
+      console.error('Error adding university:', error);
+      alert('Error adding university. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Get countries, states, and cities
   const countries = Country.getAllCountries();
   const states = selectedCountry ? State.getStatesOfCountry(selectedCountry) : [];
@@ -497,94 +582,151 @@ export default function AddUniversity() {
 
   const renderMediaTab = () => (
     <div className="space-y-5">
-      {/* Logo Upload - UI only */}
+      {/* Logo Upload */}
       <div>
         <label htmlFor="logo" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          University Logo
+          University Logo *
         </label>
         <div className="flex items-center gap-4">
-          <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <FileText size={24} className="text-gray-400 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Upload Logo</p>
+          {preview.logo ? (
+            <div className="relative w-32 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+              <img 
+                src={preview.logo} 
+                alt="Logo preview" 
+                className="w-full h-full object-contain p-2"
+              />
+              <button
+                type="button"
+                onClick={() => removeFile('logo')}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+              >
+                <X size={14} />
+              </button>
             </div>
-            <input
-              id="logo"
-              name="logo"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled // Disable actual file selection
-            />
-          </label>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <FileText size={24} className="text-gray-400 mb-2" />
+                <p className="text-xs text-gray-500 dark:text-gray-400">Upload Logo</p>
+              </div>
+              <input
+                ref={logoInputRef}
+                id="logo"
+                name="logo"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, 'logo')}
+                className="hidden"
+                required
+              />
+            </label>
+          )}
           <div className="flex-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Recommended: Square PNG or JPG, min 200x200px
             </p>
-            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-              Will use dummy image automatically
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              * Required
             </p>
           </div>
         </div>
       </div>
 
-      {/* Image Upload - UI only */}
+      {/* Image Upload */}
       <div>
         <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          University Image
+          University Image *
         </label>
         <div className="flex items-center gap-4">
-          <label className="flex flex-col items-center justify-center w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <FileText size={24} className="text-gray-400 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Upload Image</p>
+          {preview.image ? (
+            <div className="relative w-48 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+              <img 
+                src={preview.image} 
+                alt="Image preview" 
+                className="w-full h-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removeFile('image')}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+              >
+                <X size={14} />
+              </button>
             </div>
-            <input
-              id="image"
-              name="image"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled // Disable actual file selection
-            />
-          </label>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <FileText size={24} className="text-gray-400 mb-2" />
+                <p className="text-xs text-gray-500 dark:text-gray-400">Upload Image</p>
+              </div>
+              <input
+                ref={imageInputRef}
+                id="image"
+                name="image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, 'image')}
+                className="hidden"
+                required
+              />
+            </label>
+          )}
           <div className="flex-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Recommended: Landscape JPG, min 800x600px
             </p>
-            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-              Will use dummy image automatically
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              * Required
             </p>
           </div>
         </div>
       </div>
 
-      {/* Brochure Upload - UI only */}
+      {/* Brochure Upload */}
       <div>
         <label htmlFor="brochure" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
           University Brochure (PDF)
         </label>
         <div className="flex items-center gap-4">
-          <label className="flex flex-col items-center justify-center w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <FileText size={24} className="text-gray-400 mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Upload PDF</p>
+          {preview.brochureName ? (
+            <div className="relative w-48 h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+              <div className="flex flex-col items-center justify-center h-full p-4 bg-gray-50 dark:bg-gray-800">
+                <FileText size={32} className="text-gray-400 mb-2" />
+                <p className="text-xs text-gray-600 dark:text-gray-300 text-center truncate w-full">
+                  {preview.brochureName}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => removeFile('brochure')}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
-            <input
-              id="brochure"
-              name="brochure"
-              type="file"
-              accept=".pdf"
-              className="hidden"
-              disabled // Disable actual file selection
-            />
-          </label>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-48 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <FileText size={24} className="text-gray-400 mb-2" />
+                <p className="text-xs text-gray-500 dark:text-gray-400">Upload PDF</p>
+              </div>
+              <input
+                ref={brochureInputRef}
+                id="brochure"
+                name="brochure"
+                type="file"
+                accept=".pdf"
+                onChange={(e) => handleFileChange(e, 'brochure')}
+                className="hidden"
+              />
+            </label>
+          )}
           <div className="flex-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Upload university brochure in PDF format (max 10MB)
             </p>
-            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-              Will use dummy PDF automatically
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Optional
             </p>
           </div>
         </div>
@@ -730,7 +872,7 @@ export default function AddUniversity() {
               {activeTab === "additional" && (
               <button
                 type="submit"
-                disabled={isSubmitting || !token || isLoadingOptions}
+                disabled={isSubmitting || !token || isLoadingOptions || !formData.logo || !formData.image}
                 className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
               >
                 {isSubmitting ? (
@@ -738,7 +880,7 @@ export default function AddUniversity() {
                     <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                  </svg>
                     Adding University...
                   </>
                 ) : (
