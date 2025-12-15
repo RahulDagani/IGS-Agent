@@ -12,9 +12,6 @@ interface CourseFormData {
   university_id: string;
   study_level_id: string;
   discipline_id: string;
-  partner_type_id: string;
-  collaboration_type_id: string;
-  university_type_id: string;
   course_name: string;
   is_popular: string;
   duration_min: string;
@@ -88,24 +85,20 @@ export default function EditCourse({ params }: EditCoursePageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
+  
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Options state
   const [universities, setUniversities] = useState<University[]>([]);
   const [studyLevels, setStudyLevels] = useState<Option[]>([]);
   const [disciplines, setDisciplines] = useState<Option[]>([]);
-  const [partnerTypes, setPartnerTypes] = useState<Option[]>([]);
-  const [collaborationTypes, setCollaborationTypes] = useState<Option[]>([]);
-  const [universityTypes, setUniversityTypes] = useState<Option[]>([]);
 
   const [formData, setFormData] = useState<CourseFormData>({
     // Basics
     university_id: "",
     study_level_id: "",
     discipline_id: "",
-    partner_type_id: "",
-    collaboration_type_id: "",
-    university_type_id: "",
     course_name: "",
     is_popular: "0",
     duration_min: "",
@@ -163,7 +156,7 @@ useEffect(() => {
 
       // Fetch all options first
       const optionsPromises = [
-        fetch(`${BASE_URL}/tenant/university/list`, {
+        fetch(`${BASE_URL}/tenant/university/names`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
         fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
@@ -172,16 +165,9 @@ useEffect(() => {
         fetch(`${BASE_URL}/tenant/option/apply_tenant_disciplines`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
-        fetch(`${BASE_URL}/tenant/option/apply_tenant_partner_types`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-        fetch(`${BASE_URL}/tenant/option/apply_tenant_collaboration_types`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-        fetch(`${BASE_URL}/tenant/option/apply_tenant_university_types`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        })
       ];
+
+      
 
       // Wait for all options to load first
       const optionsResults = await Promise.all(optionsPromises);
@@ -191,15 +177,13 @@ useEffect(() => {
         universitiesRes,
         studyLevelsRes,
         disciplinesRes,
-        partnerTypesRes,
-        collaborationTypesRes,
-        universityTypesRes
       ] = optionsResults;
 
       // Process universities response
       if (universitiesRes.ok) {
+        
         const universitiesData = await universitiesRes.json();
-        setUniversities(universitiesData.data.universities || []);
+        setUniversities(universitiesData.data || []);
       }
 
       // Process study levels
@@ -214,24 +198,6 @@ useEffect(() => {
         setDisciplines(disciplinesData.data || []);
       }
 
-      // Process partner types
-      if (partnerTypesRes.ok) {
-        const partnerTypesData = await partnerTypesRes.json();
-        setPartnerTypes(partnerTypesData.data || []);
-      }
-
-      // Process collaboration types
-      if (collaborationTypesRes.ok) {
-        const collaborationTypesData = await collaborationTypesRes.json();
-        setCollaborationTypes(collaborationTypesData.data || []);
-      }
-
-      // Process university types
-      if (universityTypesRes.ok) {
-        const universityTypesData = await universityTypesRes.json();
-        setUniversityTypes(universityTypesData.data || []);
-      }
-
       // Now fetch course data after options are loaded
       const courseRes = await fetch(`${BASE_URL}/tenant/course/${courseId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
@@ -239,18 +205,15 @@ useEffect(() => {
 
       if (courseRes.ok) {
         const courseData = await courseRes.json();
-        console.log(courseId, courseData)
+       
         const course = courseData?.course;
-        console.log("Course data loaded:", course);
+        const intakes = courseData?.intakes;
         
         if (course) {
           setFormData({
             university_id: course.university_id?.toString() || "",
             study_level_id: course.study_level_id?.toString() || "",
             discipline_id: course.discipline_id?.toString() || "",
-            partner_type_id: course.partner_type_id?.toString() || "",
-            collaboration_type_id: course.collaboration_type_id?.toString() || "",
-            university_type_id: course.university_type_id?.toString() || "",
             course_name: course.course_name || "",
             is_popular: course.is_popular?.toString() || "0",
             duration_min: course.duration_min?.toString() || "",
@@ -276,8 +239,8 @@ useEffect(() => {
             admission_requirements: course.admission_requirements || "",
             
             // Intakes
-            intakes: course.intakes?.length > 0 
-              ? course.intakes.map((intake: Intake) => ({
+            intakes: intakes?.length > 0 
+              ? intakes.map((intake: Intake) => ({
                   start_date: intake.start_date || "",
                   open_date: intake.open_date || "",
                   submission_deadline: intake.submission_deadline || "",
@@ -310,12 +273,70 @@ useEffect(() => {
   fetchData();
 }, [token, courseId]);
 
+  // Fetch disciplines when study_level_id changes
+  const fetchDisciplines = async (studyLevelId: string) => {
+    if (!token || !studyLevelId) {
+      setDisciplines([]);
+      setFormData(prev => ({ ...prev, discipline_id: "" }));
+      return;
+    }
+
+    try {
+      setIsLoadingDisciplines(true);
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+      const response = await fetch(
+        `${BASE_URL}/tenant/course/get/disciplines/${studyLevelId}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success === "2" && data.data) {
+          setDisciplines(data.data);
+        } else {
+          setDisciplines([]);
+        }
+      } else {
+        setDisciplines([]);
+      }
+    } catch (error) {
+      console.error('Error fetching disciplines:', error);
+      setDisciplines([]);
+    } finally {
+      setIsLoadingDisciplines(false);
+    }
+  };
+
+  // Effect to fetch disciplines when study_level_id changes
+  useEffect(() => {
+    if (formData.study_level_id) {
+      fetchDisciplines(formData.study_level_id);
+    } else {
+      setDisciplines([]);
+      setFormData(prev => ({ ...prev, discipline_id: "" }));
+    }
+  }, [formData.study_level_id, token]);
+
+
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    // If study level is changing, reset discipline_id
+    if (name === "study_level_id") {
+      setFormData(prev => ({
+        ...prev,
+        study_level_id: value,
+        discipline_id: "" // Reset discipline when study level changes
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleIntakeChange = (index: number, field: string, value: string) => {
@@ -357,7 +378,7 @@ useEffect(() => {
   const validateForm = () => {
   const requiredFields = [
     'university_id', 'study_level_id', 'discipline_id', 
-    'university_type_id', 'course_name', 'tuition_fee', 
+    'course_name', 'tuition_fee', 
     'currency_code', 'application_fee', 'about_course', 
     'admission_requirements'
   ];
@@ -394,15 +415,20 @@ useEffect(() => {
 
     setIsSubmitting(true);
 
+    // Helper function to format dates
+function formatDate(dateString: string) {
+  if (!dateString) return null;
+  
+  const date = new Date(dateString);
+  return date.toISOString().split('T')[0]; // Returns 'YYYY-MM-DD'
+}
+
     try {
       // Prepare data for API
       const submitData = {
         university_id: parseInt(formData.university_id),
         study_level_id: parseInt(formData.study_level_id),
         discipline_id: parseInt(formData.discipline_id),
-        partner_type_id: parseInt(formData.partner_type_id),
-        collaboration_type_id: parseInt(formData.collaboration_type_id),
-        university_type_id: parseInt(formData.university_type_id),
         course_name: formData.course_name,
         is_popular: parseInt(formData.is_popular),
         duration_min: parseInt(formData.duration_min) || 0,
@@ -424,7 +450,12 @@ useEffect(() => {
         admission_requirements: formData.admission_requirements,
         intakes: formData.intakes.filter(intake => 
           intake.start_date && intake.open_date && intake.submission_deadline
-        ),
+        ).map(intake => ({
+      ...intake,
+      start_date: formatDate(intake.start_date),
+      open_date: formatDate(intake.open_date),
+      submission_deadline: formatDate(intake.submission_deadline)
+    })),
       };
 
       const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
@@ -565,7 +596,7 @@ useEffect(() => {
           </select>
         </div>
 
-        {/* Discipline */}
+         {/* Discipline */}
         <div>
           <label htmlFor="discipline_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Discipline *
@@ -576,75 +607,27 @@ useEffect(() => {
             value={formData.discipline_id}
             onChange={handleInputChange}
             required
-            disabled={isLoadingOptions}
+            disabled={!formData.study_level_id || isLoadingDisciplines}
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
           >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select Discipline"}</option>
+            <option value="">
+              {!formData.study_level_id 
+                ? "Select Study Level First"
+                : isLoadingDisciplines 
+                ? "Loading Disciplines..." 
+                : disciplines.length === 0
+                ? "No disciplines available"
+                : "Select Discipline"}
+            </option>
             {disciplines.map(discipline => (
               <option key={discipline.id} value={discipline.id}>{discipline.name}</option>
             ))}
           </select>
-        </div>
-
-        {/* University Type */}
-        <div>
-          <label htmlFor="university_type_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            University Type *
-          </label>
-          <select
-            id="university_type_id"
-            name="university_type_id"
-            value={formData.university_type_id}
-            onChange={handleInputChange}
-            required
-            disabled={isLoadingOptions}
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
-          >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select University Type"}</option>
-            {universityTypes.map(type => (
-              <option key={type.id} value={type.id}>{type.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Partner Type */}
-        <div>
-          <label htmlFor="partner_type_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Partner Type
-          </label>
-          <select
-            id="partner_type_id"
-            name="partner_type_id"
-            value={formData.partner_type_id}
-            onChange={handleInputChange}
-            disabled={isLoadingOptions}
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
-          >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select Partner Type"}</option>
-            {partnerTypes.map(partner => (
-              <option key={partner.id} value={partner.id}>{partner.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Collaboration Type */}
-        <div>
-          <label htmlFor="collaboration_type_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Collaboration Type
-          </label>
-          <select
-            id="collaboration_type_id"
-            name="collaboration_type_id"
-            value={formData.collaboration_type_id}
-            onChange={handleInputChange}
-            disabled={isLoadingOptions}
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
-          >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select Collaboration Type"}</option>
-            {collaborationTypes.map(collab => (
-              <option key={collab.id} value={collab.id}>{collab.name}</option>
-            ))}
-          </select>
+          {!formData.study_level_id && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Please select a study level first to load available disciplines
+            </p>
+          )}
         </div>
 
         {/* Popular Course */}
@@ -1020,6 +1003,8 @@ useEffect(() => {
         </div>
       )}
 
+      
+
       {formData.intakes.map((intake, index) => (
         <div
           key={index}
@@ -1042,12 +1027,13 @@ useEffect(() => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Start Date */}
+           
             <div>
               <label
                 htmlFor={`start_date_${index}`}
                 className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
               >
-                Start Date *
+                Course Start date *
               </label>
               <DatePicker
                 selected={intake.start_date ? new Date(intake.start_date) : null}
@@ -1070,7 +1056,7 @@ useEffect(() => {
                 htmlFor={`open_date_${index}`}
                 className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
               >
-                Open Date *
+                Application open date *
               </label>
               <DatePicker
                 selected={intake.open_date ? new Date(intake.open_date) : null}
@@ -1093,7 +1079,7 @@ useEffect(() => {
                 htmlFor={`submission_deadline_${index}`}
                 className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
               >
-                Submission Deadline *
+                Application submission Deadline*
               </label>
               <DatePicker
                 selected={

@@ -12,9 +12,6 @@ interface CourseFormData {
   university_id: string;
   study_level_id: string;
   discipline_id: string;
-  partner_type_id: string;
-  collaboration_type_id: string;
-  university_type_id: string;
   course_name: string;
   is_popular: string;
   duration_min: string;
@@ -71,18 +68,12 @@ export default function AddCourse() {
   const [universities, setUniversities] = useState<University[]>([]);
   const [studyLevels, setStudyLevels] = useState<Option[]>([]);
   const [disciplines, setDisciplines] = useState<Option[]>([]);
-  const [partnerTypes, setPartnerTypes] = useState<Option[]>([]);
-  const [collaborationTypes, setCollaborationTypes] = useState<Option[]>([]);
-  const [universityTypes, setUniversityTypes] = useState<Option[]>([]);
 
   const [formData, setFormData] = useState<CourseFormData>({
     // Basics
     university_id: "",
     study_level_id: "",
     discipline_id: "",
-    partner_type_id: "",
-    collaboration_type_id: "",
-    university_type_id: "",
     course_name: "",
     is_popular: "0",
     duration_min: "",
@@ -160,24 +151,7 @@ export default function AddCourse() {
           const studyLevelsData = await studyLevelsRes.json();
           setStudyLevels(studyLevelsData.data || []);
         }
-
-        // Process partner types
-        if (partnerTypesRes.ok) {
-          const partnerTypesData = await partnerTypesRes.json();
-          setPartnerTypes(partnerTypesData.data || []);
-        }
-
-        // Process collaboration types
-        if (collaborationTypesRes.ok) {
-          const collaborationTypesData = await collaborationTypesRes.json();
-          setCollaborationTypes(collaborationTypesData.data || []);
-        }
-
-        // Process university types
-        if (universityTypesRes.ok) {
-          const universityTypesData = await universityTypesRes.json();
-          setUniversityTypes(universityTypesData.data || []);
-        }
+       
 
       } catch (error) {
         console.error('Error fetching options:', error);
@@ -306,9 +280,6 @@ export default function AddCourse() {
         university_id: parseInt(formData.university_id),
         study_level_id: parseInt(formData.study_level_id),
         discipline_id: parseInt(formData.discipline_id),
-        partner_type_id: parseInt(formData.partner_type_id),
-        collaboration_type_id: parseInt(formData.collaboration_type_id),
-        university_type_id: parseInt(formData.university_type_id),
         course_name: formData.course_name,
         is_popular: parseInt(formData.is_popular),
         duration_min: parseInt(formData.duration_min) || 0,
@@ -475,66 +446,7 @@ export default function AddCourse() {
           )}
         </div>
 
-        {/* University Type */}
-        <div>
-          <label htmlFor="university_type_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            University Type *
-          </label>
-          <select
-            id="university_type_id"
-            name="university_type_id"
-            value={formData.university_type_id}
-            onChange={handleInputChange}
-            required
-            disabled={isLoadingOptions}
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
-          >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select University Type"}</option>
-            {universityTypes.map(type => (
-              <option key={type.id} value={type.id}>{type.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Partner Type */}
-        <div>
-          <label htmlFor="partner_type_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Partner Type
-          </label>
-          <select
-            id="partner_type_id"
-            name="partner_type_id"
-            value={formData.partner_type_id}
-            onChange={handleInputChange}
-            disabled={isLoadingOptions}
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
-          >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select Partner Type"}</option>
-            {partnerTypes.map(partner => (
-              <option key={partner.id} value={partner.id}>{partner.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Collaboration Type */}
-        <div>
-          <label htmlFor="collaboration_type_id" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Collaboration Type
-          </label>
-          <select
-            id="collaboration_type_id"
-            name="collaboration_type_id"
-            value={formData.collaboration_type_id}
-            onChange={handleInputChange}
-            disabled={isLoadingOptions}
-            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none disabled:opacity-50"
-          >
-            <option value="">{isLoadingOptions ? "Loading..." : "Select Collaboration Type"}</option>
-            {collaborationTypes.map(collab => (
-              <option key={collab.id} value={collab.id}>{collab.name}</option>
-            ))}
-          </select>
-        </div>
+        
 
         {/* Popular Course */}
         <div>

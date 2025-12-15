@@ -86,6 +86,7 @@ interface ApplicationStatus {
 
 interface FilterOptions {
   student: string;
+  status: string;
 }
 
 interface FilterModalProps {
@@ -93,7 +94,9 @@ interface FilterModalProps {
   onClose: () => void;
   onApply: (filters: FilterOptions) => void;
   students: Student[];
+  applicationStatuses: ApplicationStatus[];
   loadingStudents: boolean;
+  loadingStatus: boolean;
 }
 
 interface UpdateStatusModalProps {
@@ -217,13 +220,19 @@ const FilterModal: React.FC<FilterModalProps> = ({
   onClose,
   onApply,
   students,
+  applicationStatuses,
   loadingStudents,
+  loadingStatus,
+
 }) => {
   const [selectedStudent, setSelectedStudent] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+
 
   const handleApply = () => {
     const filters: FilterOptions = {
       student: selectedStudent,
+      status: selectedStatus,
     };
     onApply(filters);
     onClose();
@@ -231,6 +240,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   const handleReset = () => {
     setSelectedStudent("all");
+    setSelectedStatus("all");
   };
 
   if (!isOpen) return null;
@@ -250,6 +260,33 @@ const FilterModal: React.FC<FilterModalProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+
+        <div className="space-y-4 mb-2 ">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Application Status
+            </label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              disabled={loadingStatus}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="all">
+                {
+                  loadingStatus 
+                    ? "Loading status..." 
+                    : "All Status"
+                }
+              </option>
+              {applicationStatuses.map((status) => (
+                <option key={status.id} value={status.id.toString()}>
+                  {status.status_label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -1101,6 +1138,7 @@ export default function ApplicationsTable() {
   const [applicationStatuses, setApplicationStatuses] = useState<ApplicationStatus[]>([]);
   const [filters, setFilters] = useState<FilterOptions>({
     student: "all",
+    status: "all",
   });
 
 
@@ -1196,6 +1234,16 @@ export default function ApplicationsTable() {
           url = `${BASE_URL}/tenant/student/application/list/${filters.student}`;
         } 
 
+        if (filters.status !== "all") {
+          url = `${BASE_URL}/tenant/student/application/list?application_status_id=${filters.status}`;
+        } 
+
+        if (filters.status !== "all" && filters.student !== "all") {
+          url = `${BASE_URL}/tenant/student/application/list?application_status_id=${filters.status}&student_id=${filters.student}`;
+        } 
+
+        
+
         const response = await fetch(url,{
           headers: {
             'Content-Type': 'application/json',
@@ -1242,7 +1290,7 @@ export default function ApplicationsTable() {
     };
 
     fetchApplications();
-  }, [filters.student, BASE_URL, token]);
+  }, [filters.student, filters.status, BASE_URL, token]);
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
@@ -1400,6 +1448,7 @@ export default function ApplicationsTable() {
   const clearAllFilters = () => {
     setFilters({
       student: "all",
+      status: "all"
     });
   };
 
@@ -1627,7 +1676,9 @@ export default function ApplicationsTable() {
         onClose={() => setIsFilterModalOpen(false)}
         onApply={handleApplyFilters}
         students={students}
+        applicationStatuses={applicationStatuses}
         loadingStudents={loading.students}
+        loadingStatus={loading.statuses}
       />
 
       <UpdateStatusModal

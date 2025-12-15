@@ -11,6 +11,7 @@ import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
 import { Edit, Trash, Book, Building2, GraduationCap, Star, DollarSign } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Country, State } from "country-state-city";
 
 interface Course {
   id: number;
@@ -124,6 +125,18 @@ interface FilterModalProps {
   appliedFilters: FilterOptions;
 }
 
+const getCountryName = (code: string | undefined | null) => {
+  if (!code) return '';
+  const country = Country.getCountryByCode(code);
+  return country ? country.name : code;
+};
+
+const getStateName = (code: string | undefined | null) => {
+  if (!code) return '';
+  const state = State.getStateByCode(code);
+  return state ? state.name : code;
+};
+
 const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
@@ -140,17 +153,17 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [selectedPopular, setSelectedPopular] = useState<string>(appliedFilters.popular);
   const [selectedExternalEvaluation, setSelectedExternalEvaluation] = useState<string>(appliedFilters.externalEvaluation);
 
-const handleCheckboxChange = <T extends number | string>(
-  array: T[],
-  setArray: React.Dispatch<React.SetStateAction<T[]>>,
-  value: T
-) => {
-  if (array.includes(value)) {
-    setArray(array.filter(item => item !== value));
-  } else {
-    setArray([...array, value]);
-  }
-};
+  // Reset local state when appliedFilters change (modal opens with new filters)
+  useEffect(() => {
+    setSelectedDisciplineIds(appliedFilters.discipline_ids);
+    setSelectedStudyLevelIds(appliedFilters.study_level_ids);
+    setSelectedUniversityIds(appliedFilters.university_ids);
+    setSelectedCountryCodes(appliedFilters.country_codes);
+    setSelectedStateCodes(appliedFilters.state_codes);
+    setSelectedCityCodes(appliedFilters.city_codes);
+    setSelectedPopular(appliedFilters.popular);
+    setSelectedExternalEvaluation(appliedFilters.externalEvaluation);
+  }, [appliedFilters]);
 
   const handleApply = () => {
     const filters: FilterOptions = {
@@ -182,7 +195,7 @@ const handleCheckboxChange = <T extends number | string>(
 
   return (
     <div className="fixed inset-0 bg-black/70 flex z-999999 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-[400px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Courses
@@ -200,17 +213,23 @@ const handleCheckboxChange = <T extends number | string>(
         <div className="grid grid-cols-1 gap-6">
           {/* Study Levels Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Study Levels
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
               {filtersData.studyLevels.map((level) => (
                 <div key={level.id} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`study-level-${level.id}`}
                     checked={selectedStudyLevelIds.includes(level.id)}
-                    onChange={() => handleCheckboxChange(selectedStudyLevelIds, setSelectedStudyLevelIds, level.id)}
+                    onChange={() => {
+                      if (selectedStudyLevelIds.includes(level.id)) {
+                        setSelectedStudyLevelIds(selectedStudyLevelIds.filter(id => id !== level.id));
+                      } else {
+                        setSelectedStudyLevelIds([...selectedStudyLevelIds, level.id]);
+                      }
+                    }}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label
@@ -226,17 +245,23 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* Disciplines Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Disciplines
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
               {filtersData.disciplines.map((discipline) => (
                 <div key={discipline.id} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`discipline-${discipline.id}`}
                     checked={selectedDisciplineIds.includes(discipline.id)}
-                    onChange={() => handleCheckboxChange(selectedDisciplineIds, setSelectedDisciplineIds, discipline.id)}
+                    onChange={() => {
+                      if (selectedDisciplineIds.includes(discipline.id)) {
+                        setSelectedDisciplineIds(selectedDisciplineIds.filter(id => id !== discipline.id));
+                      } else {
+                        setSelectedDisciplineIds([...selectedDisciplineIds, discipline.id]);
+                      }
+                    }}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label
@@ -252,17 +277,23 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* Universities Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Universities
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
               {filtersData.universities.map((university) => (
                 <div key={university.id} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`university-${university.id}`}
                     checked={selectedUniversityIds.includes(university.id)}
-                    onChange={() => handleCheckboxChange(selectedUniversityIds, setSelectedUniversityIds, university.id)}
+                    onChange={() => {
+                      if (selectedUniversityIds.includes(university.id)) {
+                        setSelectedUniversityIds(selectedUniversityIds.filter(id => id !== university.id));
+                      } else {
+                        setSelectedUniversityIds([...selectedUniversityIds, university.id]);
+                      }
+                    }}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label
@@ -278,24 +309,30 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* Countries Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Countries
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
               {filtersData.locations.countries.map((country) => (
                 <div key={country.country_code} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`country-${country.country_code}`}
                     checked={selectedCountryCodes.includes(country.country_code)}
-                    onChange={() => handleCheckboxChange(selectedCountryCodes, setSelectedCountryCodes, country.country_code)}
+                    onChange={() => {
+                      if (selectedCountryCodes.includes(country.country_code)) {
+                        setSelectedCountryCodes(selectedCountryCodes.filter(code => code !== country.country_code));
+                      } else {
+                        setSelectedCountryCodes([...selectedCountryCodes, country.country_code]);
+                      }
+                    }}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label
                     htmlFor={`country-${country.country_code}`}
                     className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                   >
-                    {country.country_code}
+                    {getCountryName(country.country_code)}
                   </label>
                 </div>
               ))}
@@ -304,24 +341,30 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* States Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               States
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
               {filtersData.locations.states.map((state) => (
                 <div key={state.state_code} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`state-${state.state_code}`}
                     checked={selectedStateCodes.includes(state.state_code)}
-                    onChange={() => handleCheckboxChange(selectedStateCodes, setSelectedStateCodes, state.state_code)}
+                    onChange={() => {
+                      if (selectedStateCodes.includes(state.state_code)) {
+                        setSelectedStateCodes(selectedStateCodes.filter(code => code !== state.state_code));
+                      } else {
+                        setSelectedStateCodes([...selectedStateCodes, state.state_code]);
+                      }
+                    }}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label
                     htmlFor={`state-${state.state_code}`}
                     className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                   >
-                    {state.state_code}
+                    {getStateName(state.state_code)}
                   </label>
                 </div>
               ))}
@@ -330,17 +373,23 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* Cities Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Cities
             </label>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
               {filtersData.locations.cities.map((city) => (
                 <div key={city.city_code} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`city-${city.city_code}`}
                     checked={selectedCityCodes.includes(city.city_code)}
-                    onChange={() => handleCheckboxChange(selectedCityCodes, setSelectedCityCodes, city.city_code)}
+                    onChange={() => {
+                      if (selectedCityCodes.includes(city.city_code)) {
+                        setSelectedCityCodes(selectedCityCodes.filter(code => code !== city.city_code));
+                      } else {
+                        setSelectedCityCodes([...selectedCityCodes, city.city_code]);
+                      }
+                    }}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
                   <label
@@ -356,7 +405,7 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* Popular Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Popular Course
             </label>
             <div className="space-y-2">
@@ -407,7 +456,7 @@ const handleCheckboxChange = <T extends number | string>(
 
           {/* External Evaluation Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               External Evaluation
             </label>
             <div className="space-y-2">
@@ -496,10 +545,16 @@ export default function CoursesTable() {
     popular: "all",
     externalEvaluation: "all",
   });
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [limit] = useState<number>(10);
 
   // Build query string from filters
   const buildQueryString = () => {
     const params = new URLSearchParams();
+    
+    // Add pagination
+    params.append('page', currentPage.toString());
+    params.append('limit', limit.toString());
     
     // Add array parameters
     filters.discipline_ids.forEach(id => params.append('discipline_id[]', id.toString()));
@@ -516,7 +571,6 @@ export default function CoursesTable() {
     if (filters.externalEvaluation !== "all") {
       params.append('external_evaluation', filters.externalEvaluation);
     }
-    
     return params.toString();
   };
 
@@ -534,6 +588,7 @@ export default function CoursesTable() {
       const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
       
       const queryString = buildQueryString();
+      console.log(queryString)
       const url = `${BASE_URL}/tenant/course/list${queryString ? `?${queryString}` : ''}`;
       
       const response = await fetch(url, {
@@ -566,6 +621,8 @@ export default function CoursesTable() {
 
         setCourses(transformedCourses);
         setApiResponse(result);
+        // Update current page from API response
+        setCurrentPage(result.page);
       } else {
         setCourses([]);
         setApiResponse(null);
@@ -585,12 +642,12 @@ export default function CoursesTable() {
     fetchCourses();
   }, []);
 
-  // Fetch courses when filters change
+  // Fetch courses when filters or page change
   useEffect(() => {
     fetchCourses();
-  }, [filters]);
+  }, [filters, currentPage]);
 
-  // Filter and sort data
+  // Filter and sort data (client-side for search)
   const filteredAndSortedData = useMemo(() => {
     const filtered = courses.filter((course) => {
       return searchTerm === "" ||
@@ -668,6 +725,7 @@ export default function CoursesTable() {
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const clearAllFilters = () => {
@@ -681,6 +739,7 @@ export default function CoursesTable() {
       popular: "all",
       externalEvaluation: "all",
     });
+    setCurrentPage(1);
   };
 
   const handleDelete = async (id: number) => {
@@ -705,6 +764,10 @@ export default function CoursesTable() {
         alert('Failed to delete course. Please try again.');
       }
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
   };
 
   const hasActiveFilters = 
@@ -733,7 +796,7 @@ export default function CoursesTable() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && currentPage === 1) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
@@ -741,7 +804,7 @@ export default function CoursesTable() {
     );
   }
 
-  if (error) {
+  if (error && currentPage === 1) {
     return (
       <div className="text-center py-8">
         <div className="text-red-600 dark:text-red-400 mb-4">{error}</div>
@@ -892,7 +955,7 @@ export default function CoursesTable() {
           ))}
           {filters.country_codes.map(code => (
             <Badge key={`country-${code}`} size="sm" color="primary">
-              Country: {code}
+              Country: {getCountryName(code)}
               <button 
                 onClick={() => setFilters(prev => ({
                   ...prev,
@@ -906,7 +969,7 @@ export default function CoursesTable() {
           ))}
           {filters.state_codes.map(code => (
             <Badge key={`state-${code}`} size="sm" color="primary">
-              State: {code}
+              State: {getStateName(code)}
               <button 
                 onClick={() => setFilters(prev => ({
                   ...prev,
@@ -961,156 +1024,162 @@ export default function CoursesTable() {
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
           <div className="min-w-[1400px]">
-            <Table>
-              {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                <TableRow>
-                  {[
-                    { key: "id", label: "ID" },
-                    { key: "courseName", label: "Course Name" },
-                    { key: "universityName", label: "University" },
-                    { key: "discipline", label: "Discipline" },
-                    { key: "studyLevel", label: "Study Level" },
-                    { key: "applicationFee", label: "Application Fee" },
-                    { key: "externalEvaluation", label: "Ext. Evaluation" },
-                    { key: "popular", label: "Popular" },
-                    { key: "status", label: "Status" },
-                    { key: "createdAt", label: "Created At" },
-                    { key: "action", label: "Action" },
-                  ].map(({ key, label }) => (
-                    <TableCell
-                      key={key}
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => key !== "action" ? handleSort(key as keyof Course) : undefined}
-                    >
-                      <div className="flex items-center gap-1">
-                        {label}
-                        {key !== "action" && (
-                          <span className="text-xs">{getSortIcon(key as keyof Course)}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHeader>
-
-              {/* Table Body */}
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((course) => (
-                    <TableRow key={course.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          #{course.id}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                            <Book size={16} className="text-gray-600 dark:text-gray-400" />
-                          </div>
-                          <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {course.courseName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <Building2 size={14} className="text-gray-400" />
-                          <span className="text-gray-600 text-theme-sm dark:text-gray-400">
-                            {course.universityName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge size="sm" color="info">
-                          {course.discipline}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <GraduationCap size={14} className="text-gray-400" />
-                          <Badge size="sm" color="primary">
-                            {course.studyLevel}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <DollarSign size={14} className="text-gray-400" />
-                          <span className="text-gray-600 text-theme-sm dark:text-gray-400">
-                            {course.applicationFee}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getExternalEvaluationColor(course.externalEvaluation)}
-                        >
-                          {course.externalEvaluation === "yes" ? "Required" : "Not Required"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getPopularColor(course.popular)}
-                        >
-                          {course.popular === "yes" ? (
-                            <div className="flex items-center gap-1">
-                              <Star size={12} className="fill-current" />
-                              Popular
-                            </div>
-                          ) : (
-                            "Standard"
+            {isLoading && currentPage > 1 ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+              </div>
+            ) : (
+              <Table>
+                {/* Table Header */}
+                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                  <TableRow>
+                    {[
+                      { key: "id", label: "ID" },
+                      { key: "courseName", label: "Course Name" },
+                      { key: "universityName", label: "University" },
+                      { key: "discipline", label: "Discipline" },
+                      { key: "studyLevel", label: "Study Level" },
+                      { key: "applicationFee", label: "Application Fee" },
+                      { key: "externalEvaluation", label: "Ext. Evaluation" },
+                      { key: "popular", label: "Popular" },
+                      { key: "status", label: "Status" },
+                      { key: "createdAt", label: "Created At" },
+                      { key: "action", label: "Action" },
+                    ].map(({ key, label }) => (
+                      <TableCell
+                        key={key}
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                        onClick={() => key !== "action" ? handleSort(key as keyof Course) : undefined}
+                      >
+                        <div className="flex items-center gap-1">
+                          {label}
+                          {key !== "action" && (
+                            <span className="text-xs">{getSortIcon(key as keyof Course)}</span>
                           )}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getStatusColor(course.status)}
-                        >
-                          {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="text-gray-500 text-theme-sm dark:text-gray-400">
-                          {formatDate(course.createdAt)}
                         </div>
                       </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/admin/universities/courses/edit/${course.id}`}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            title="Edit Course"
+                    ))}
+                  </TableRow>
+                </TableHeader>
+
+                {/* Table Body */}
+                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {filteredAndSortedData.length > 0 ? (
+                    filteredAndSortedData.map((course) => (
+                      <TableRow key={course.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                            #{course.id}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                              <Book size={16} className="text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                              {course.courseName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-2">
+                            <Building2 size={14} className="text-gray-400" />
+                            <span className="text-gray-600 text-theme-sm dark:text-gray-400">
+                              {course.universityName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <Badge size="sm" color="info">
+                            {course.discipline}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap size={14} className="text-gray-400" />
+                            <Badge size="sm" color="primary">
+                              {course.studyLevel}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-2">
+                            <DollarSign size={14} className="text-gray-400" />
+                            <span className="text-gray-600 text-theme-sm dark:text-gray-400">
+                              {course.applicationFee}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <Badge
+                            size="sm"
+                            color={getExternalEvaluationColor(course.externalEvaluation)}
                           >
-                            <Edit size={18} />
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(course.id)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                            title="Delete Course"
+                            {course.externalEvaluation === "yes" ? "Required" : "Not Required"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <Badge
+                            size="sm"
+                            color={getPopularColor(course.popular)}
                           >
-                            <Trash size={18} />
-                          </button>
-                        </div>
+                            {course.popular === "yes" ? (
+                              <div className="flex items-center gap-1">
+                                <Star size={12} className="fill-current" />
+                                Popular
+                              </div>
+                            ) : (
+                              "Standard"
+                            )}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <Badge
+                            size="sm"
+                            color={getStatusColor(course.status)}
+                          >
+                            {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="text-gray-500 text-theme-sm dark:text-gray-400">
+                            {formatDate(course.createdAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/admin/universities/courses/edit/${course.id}`}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                              title="Edit Course"
+                            >
+                              <Edit size={18} />
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(course.id)}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                              title="Delete Course"
+                            >
+                              <Trash size={18} />
+                            </button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
+                      >
+                        No courses found matching your criteria.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
-                    >
-                      No courses found matching your criteria.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </div>
       </div>
@@ -1125,25 +1194,22 @@ export default function CoursesTable() {
             </span>
           )}
         </div>
-        {apiResponse && (
+        {apiResponse && apiResponse.totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                // Implement previous page logic
-                console.log('Previous page');
-              }}
+              onClick={() => handlePageChange(currentPage - 1)}
               disabled={!apiResponse.hasPrevPage}
-              className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
             >
               Previous
             </button>
+            <span className="px-3 py-1">
+              {currentPage} / {apiResponse.totalPages}
+            </span>
             <button
-              onClick={() => {
-                // Implement next page logic
-                console.log('Next page');
-              }}
+              onClick={() => handlePageChange(currentPage + 1)}
               disabled={!apiResponse.hasNextPage}
-              className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
             >
               Next
             </button>

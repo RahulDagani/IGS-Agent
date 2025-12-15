@@ -99,6 +99,7 @@ interface ApplicationStatus {
 interface FilterOptions {
   agent: string;
   student: string;
+  status: string;
 }
 
 interface FilterModalProps {
@@ -107,6 +108,8 @@ interface FilterModalProps {
   onApply: (filters: FilterOptions) => void;
   agents: Agent[];
   students: Student[];
+  applicationStatuses: ApplicationStatus[];
+  loadingStatus: boolean;
   loadingStudents: boolean;
 }
 
@@ -235,14 +238,21 @@ const FilterModal: React.FC<FilterModalProps> = ({
   agents,
   students,
   loadingStudents,
+    applicationStatuses,
+  loadingStatus,
+
 }) => {
   const [selectedAgent, setSelectedAgent] = useState<string>("all");
   const [selectedStudent, setSelectedStudent] = useState<string>("all");
+    const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  
 
   const handleApply = () => {
     const filters: FilterOptions = {
       agent: selectedAgent,
       student: selectedStudent,
+      status: selectedStatus,
+
     };
     onApply(filters);
     onClose();
@@ -251,6 +261,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const handleReset = () => {
     setSelectedAgent("all");
     setSelectedStudent("all");
+    setSelectedStatus("all");
   };
 
   useEffect(() => {
@@ -279,6 +290,32 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
 
         <div className="space-y-4">
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select Application Status
+            </label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              disabled={loadingStatus}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="all">
+                {
+                  loadingStatus 
+                    ? "Loading status..." 
+                    : "All Status"
+                }
+              </option>
+              {applicationStatuses.map((status) => (
+                <option key={status.id} value={status.id.toString()}>
+                  {status.status_label}
+                </option>
+              ))}
+            </select>
+          </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Agent
@@ -1160,6 +1197,7 @@ export default function ApplicationsTable() {
   const [filters, setFilters] = useState<FilterOptions>({
     agent: "all",
     student: "all",
+    status: "all",
   });
   
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -1273,21 +1311,38 @@ export default function ApplicationsTable() {
   useEffect(() => {
     const fetchApplications = async () => {
       setLoading(prev => ({ ...prev, applications: true }));
-      try {
-        let url = `${BASE_URL}/tenant/agent/application/list`;
-        
-        if (filters.agent !== "all" && filters.student !== "all") {
-          url = `${BASE_URL}/tenant/agent/application/list/${filters.agent}/${filters.student}`;
-        } else if (filters.agent !== "all") {
-          url = `${BASE_URL}/tenant/agent/application/list/${filters.agent}`;
-        }
+     try {
+  let url = `${BASE_URL}/tenant/agent/application/list`;
+  const params = new URLSearchParams();
+  
+  // Add agent parameter if not "all"
+  if (filters.agent !== "all") {
+    params.append('agent_id', filters.agent);
+  }
+  
+  // Add student parameter if not "all"
+  if (filters.student !== "all") {
+    params.append('student_id', filters.student);
+  }
+  console.log(filters)
+  // Add status parameter if not "all"
+  if (filters.status !== "all") {
+    params.append('application_status_id', filters.status);
+  }
+  
+  // Append parameters to URL if any exist
+  const queryString = params.toString();
+  if (queryString) {
+    url += `?${queryString}`;
+  }
 
-        const response = await fetch(url,{
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
         const data: ApiResponse = await response.json();
         
         if (data.success) {
@@ -1330,7 +1385,7 @@ export default function ApplicationsTable() {
     };
 
     fetchApplications();
-  }, [filters.agent, filters.student, BASE_URL, token]);
+  }, [filters.agent, filters.student, filters.status, BASE_URL, token]);
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
@@ -1384,20 +1439,36 @@ export default function ApplicationsTable() {
         alert('Document request sent successfully!');
         
         // Refresh the applications to show the new document request
-        let url = `${BASE_URL}/tenant/agent/application/list`;
-        
-        if (filters.agent !== "all" && filters.student !== "all") {
-          url = `${BASE_URL}/tenant/agent/application/list/${filters.agent}/${filters.student}`;
-        } else if (filters.agent !== "all") {
-          url = `${BASE_URL}/tenant/agent/application/list/${filters.agent}`;
-        }
+          let url = `${BASE_URL}/tenant/agent/application/list`;
+  const params = new URLSearchParams();
+  
+  // Add agent parameter if not "all"
+  if (filters.agent !== "all") {
+    params.append('agent_id', filters.agent);
+  }
+  
+  // Add student parameter if not "all"
+  if (filters.student !== "all") {
+    params.append('student_id', filters.student);
+  }
+  
+  // Add status parameter if not "all"
+  if (filters.status !== "all") {
+    params.append('application_status_id', filters.status);
+  }
+  
+  // Append parameters to URL if any exist
+  const queryString = params.toString();
+  if (queryString) {
+    url += `?${queryString}`;
+  }
 
-        const refreshResponse = await fetch(url, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
+  const refreshResponse = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
         
         const refreshData: ApiResponse = await refreshResponse.json();
         
@@ -1494,6 +1565,7 @@ export default function ApplicationsTable() {
     setFilters({
       agent: "all",
       student: "all",
+      status: "all",
     });
   };
 
@@ -1724,6 +1796,9 @@ export default function ApplicationsTable() {
         onApply={handleApplyFilters}
         agents={agents}
         students={students}
+                applicationStatuses={applicationStatuses}
+        loadingStatus={loading.statuses}
+
         loadingStudents={loading.students}
       />
 

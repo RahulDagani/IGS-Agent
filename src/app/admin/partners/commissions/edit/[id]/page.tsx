@@ -14,34 +14,9 @@ interface CommissionFormData {
   remark: string;
 }
 
-interface University {
+interface UniversityType {
   id: number;
-  uuid: string;
-  tenant_id: number;
   university: string;
-  university_slug: string;
-  description: string;
-  country_code: string;
-  state_code: string;
-  city_code: string;
-  address: string | null;
-  map_url: string | null;
-  location_url: string | null;
-  kind_of_partner_id: number;
-  type_of_university_id: number;
-  collaboration_type_id: number;
-  logo: string | null;
-  image: string | null;
-  brochure: string | null;
-  video_link: string | null;
-  tuition_url: string | null;
-  email: string;
-  is_deleted: number;
-  created_at: string;
-  updated_at: string;
-  kind_of_partner_name: string;
-  collaboration_type_name: string;
-  university_type_name: string;
 }
 
 interface StudyLevel {
@@ -87,7 +62,7 @@ export default function EditCommission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countries, setCountries] = useState<CountryType[]>([]);
-  const [universities, setUniversities] = useState<University[]>([]);
+  const [universities, setUniversities] = useState<UniversityType[]>([]);
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
 
   // Fetch commission data and initial form data
@@ -126,7 +101,7 @@ export default function EditCommission() {
         }));
 
         // Fetch universities
-        const universitiesResponse = await fetch(`${BASE_URL}/tenant/university/list`, {
+        const universitiesResponse = await fetch(`${BASE_URL}/tenant/university/names`, {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -139,7 +114,7 @@ export default function EditCommission() {
         }
 
         const universitiesResult = await universitiesResponse.json();
-        const universitiesData: University[] = universitiesResult.data.universities;
+        const universitiesData: UniversityType[] = universitiesResult.data;
 
         // Fetch study levels
         const studyLevelsResponse = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {

@@ -247,32 +247,32 @@ export default function AgentTable() {
           <div className="min-w-[800px]">
             <Table>
               {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                <TableRow>
-                  {[
-                    { key: "name", label: "Name" },
-                    { key: "businessName", label: "Business Name" },
-                    { key: "email", label: "Email" },
-                    { key: "phoneNumber", label: "Phone Number" },
-                    { key: "status", label: "Status" },
-                    { key: "payment", label: "Payment" },
-
-                    { key: "students", label: "Students" },
-                  ].map(({ key, label }) => (
-                    <TableCell
-                      key={key}
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => handleSort(key as keyof Agent)}
-                    >
-                      <div className="flex items-center gap-1">
-                        {label}
-                        <span className="text-xs">{getSortIcon(key as keyof Agent)}</span>
-                      </div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHeader>
+              
+<TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+  <TableRow>
+    {[
+      { key: "name", label: "Name" },
+      { key: "businessName", label: "Business Name" },
+      { key: "email", label: "Email" },
+      { key: "phoneNumber", label: "Phone Number" },
+      { key: "status", label: "Status" },
+      { key: "isPaymentVerified", label: "Payment" }, // Changed from "payment" to "isPaymentVerified"
+      { key: "students", label: "Students" },
+    ].map(({ key, label }) => (
+      <TableCell
+        key={key}
+        isHeader
+        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+        onClick={() => handleSort(key as keyof Agent)}
+      >
+        <div className="flex items-center gap-1">
+          {label}
+          <span className="text-xs">{getSortIcon(key as keyof Agent)}</span>
+        </div>
+      </TableCell>
+    ))}
+  </TableRow>
+</TableHeader>
 
               {/* Table Body */}
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
