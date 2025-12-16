@@ -235,7 +235,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex z-999999 justify-center align-middle p-4 px-6 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Courses
@@ -816,7 +816,7 @@ export default function CoursesTable() {
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search Input */}
-        <div className="flex-1 max-w-md">
+        {/* <div className="flex-1 max-w-md">
           <div className="relative">
             <input
               type="text"
@@ -841,7 +841,7 @@ export default function CoursesTable() {
               </svg>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Filter Button and Active Filters */}
         <div className="flex items-center gap-3">
