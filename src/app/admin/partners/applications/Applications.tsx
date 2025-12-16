@@ -471,9 +471,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 focus:outline-hidden focus:ring-2 focus:ring-gray-500/10"
+                className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10"
               >
-                Close
+                Apply
               </button>
             </div>
           </>
@@ -1301,7 +1301,15 @@ export default function ApplicationsTable() {
     // Add all filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value && value !== "all") {
-        params.append(key, value);
+        if(key == "status"){
+            key = "applicationStatus"
+            params.append(key, value);
+          }else if(key == "study_level"){
+            key = "level"
+            params.append(key, value);
+          }else{
+            params.append(key, value);
+          }
       }
     });
     
@@ -1522,7 +1530,6 @@ export default function ApplicationsTable() {
     setLoading(prev => ({ ...prev, updatingStatus: true }));
     try {
       const { created_by, student_user_id } = selectedApplication;
-      
       const response = await fetch(
         `${BASE_URL}/tenant/agent/application/status/${created_by}/${student_user_id}/${applicationId}`,
         {
