@@ -14,9 +14,11 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (user: User, token: string) => void;
+  adminAgentLogin: (user: User, token: string, adminToken: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean; // ✅ added
+  adminToken?: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,13 +28,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); // ✅ added
 
+  //For admin Re-Login from Agent panel
+  const [adminToken, setAdminToken] = useState<string | null>(null);
+
+
   useEffect(() => {
     const storedUser = Cookies.get("user");
     const storedToken = Cookies.get("token");
+    const storedAdminToken = Cookies.get("adminToken");
 
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setToken(storedToken);
+    }
+
+    if(storedAdminToken){
+      setAdminToken(storedAdminToken);
     }
 
     setLoading(false); // ✅ done loading cookies
@@ -44,6 +55,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.set("user", JSON.stringify(userData), { expires: 7 });
     Cookies.set("token", jwt, { expires: 7 });
   };
+
+  const adminAgentLogin = (userData: User, jwt:string, adminToken: string) => {
+    setUser(userData);
+    setToken(jwt);
+    Cookies.set("user", JSON.stringify(userData), {expires: 7});
+    Cookies.set("token", jwt, {expires: 7});
+    Cookies.set("adminToken", adminToken, {expires: 7});
+  }
 
   const logout = () => {
     const role = user?.role;
@@ -65,8 +84,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const value: AuthContextType = {
     user,
     token,
+    adminToken,
     login,
     logout,
+    adminAgentLogin,
     isAuthenticated: !!token,
     loading,
   };

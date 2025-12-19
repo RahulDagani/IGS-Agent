@@ -32,7 +32,17 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
       router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
 
     } else if (user && !allowedRoles.includes(user.role)) {
-      router.replace("/unauthorized");
+      let signinRoute = "/signin";
+      if (pathname?.startsWith("/student")) {
+        signinRoute = "/signin/student";
+      } else if (pathname?.startsWith("/partner")) {
+        signinRoute = "/signin/agent";
+      }else if(pathname?.startsWith("/admin")){
+        signinRoute = "/signin"
+      }
+      const returnUrl = encodeURIComponent(pathname || "/");
+      router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
+      // router.replace("/unauthorized");
     }
   }, [loading, isAuthenticated, user, allowedRoles, router, pathname]);
 
