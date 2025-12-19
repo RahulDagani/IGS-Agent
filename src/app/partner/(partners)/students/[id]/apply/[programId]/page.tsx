@@ -77,12 +77,9 @@ interface Student {
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (studentId: number) => void;
+  onConfirm: () => void;
   course: CourseDetails | null;
   loading: boolean;
-  students: Student[];
-  isFetchingStudents: boolean;
-  studentError: string | null;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -91,11 +88,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   course,
   loading,
-  students,
-  isFetchingStudents,
-  studentError
 }) => {
-  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
 
   const formatFee = (fee: string, currency: string) => {
     if (!fee || fee === "0.00") return "Free";
@@ -103,11 +96,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   };
 
   const handleSubmit = () => {
-    if (selectedStudentId === 0) {
-      alert("Please select a student");
-      return;
-    }
-    onConfirm(selectedStudentId);
+    onConfirm();
   };
 
   if (!isOpen || !course) return null;
@@ -144,48 +133,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </div>
           </div>
 
-          {/* Student Selection Dropdown */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select Student
-            </label>
-            {isFetchingStudents ? (
-              <div className="flex items-center justify-center p-4">
-                <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span className="text-sm text-gray-600 dark:text-gray-400">Loading students...</span>
-              </div>
-            ) : studentError ? (
-              <div className="text-sm text-red-600 dark:text-red-400 p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                Error loading students: {studentError}
-              </div>
-            ) : students.length === 0 ? (
-              <div className="text-sm text-yellow-600 dark:text-yellow-400 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
-                No students found. Please add students first.
-              </div>
-            ) : (
-              <select
-                value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                disabled={loading}
-              >
-                <option value={0}>-- Select a student --</option>
-                {students.map((student) => (
-                  <option key={student.user_id} value={student.user_id}>
-                    {student.first_name} {student.last_name} - {student.email}
-                  </option>
-                ))}
-              </select>
-            )}
-            {students.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {students.length} student(s) available
-              </p>
-            )}
-          </div>
 
           <div className="flex gap-3">
             <button
@@ -197,7 +144,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || isFetchingStudents || students.length === 0 || selectedStudentId === 0}
+              disabled={loading}
               className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
@@ -254,7 +201,9 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, isOpen =
 
 const CourseDetailsPage: React.FC = () => {
   const params = useParams();
-  const courseId = params?.id || 3; // Default to 3 if no params
+  const courseId = params?.programId;
+  const studentUserId = params?.id;
+
   
   const [courseData, setCourseData] = useState<CourseDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -262,9 +211,6 @@ const CourseDetailsPage: React.FC = () => {
   // const [isShortlisted, setIsShortlisted] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [isFetchingStudents, setIsFetchingStudents] = useState(false);
-  const [studentError, setStudentError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
 
   const {token} = useAuth();
@@ -303,36 +249,7 @@ const CourseDetailsPage: React.FC = () => {
     fetchCourseData();
   }, [courseId]);
 
-  // Fetch students
-  const fetchStudents = async () => {
-    try {
-      setIsFetchingStudents(true);
-      setStudentError(null);
-      
-      const response = await fetch(`${BASE_URL}/agent/student`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch students: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setStudents(data.data || []);
-      } else {
-        throw new Error(data.message || 'Failed to load students');
-      }
-    } catch (err) {
-      setStudentError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error fetching students:', err);
-    } finally {
-      setIsFetchingStudents(false);
-    }
-  };
+
 
   const toggleAccordion = (accordion: string) => {
     setOpenAccordion(openAccordion === accordion ? null : accordion);
@@ -344,23 +261,22 @@ const CourseDetailsPage: React.FC = () => {
   // };
 
   const handleApply = async () => {
-    await fetchStudents();
     setShowConfirmModal(true);
   };
 
-  const handleConfirmApplication = async (studentId: number) => {
+  const handleConfirmApplication = async () => {
     try {
       setIsApplying(true);
       
       // Replace with your actual application submission API
-      const response = await fetch(`${BASE_URL}/agent/application`, {
+      const response = await fetch(`${BASE_URL}/agent/student/application/add`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          student_user_id: studentId,
+          student_user_id: studentUserId,
           course_id: courseId,
           
           intake_id: courseData?.intakes[0]?.intake_id,
@@ -705,9 +621,6 @@ const CourseDetailsPage: React.FC = () => {
         onConfirm={handleConfirmApplication}
         course={courseData}
         loading={isApplying}
-        students={students}
-        isFetchingStudents={isFetchingStudents}
-        studentError={studentError}
       />
     </div>
   );

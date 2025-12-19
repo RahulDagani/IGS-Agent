@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "@/context/SidebarContext";
 import {
   ChevronDownIcon,
@@ -17,7 +17,10 @@ import {
   Mail,
   Wallet,
   Settings,
+
+  ArrowLeft,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 
 
@@ -84,6 +87,8 @@ const accountItems: NavItem[] = [
 
 
 const AppSidebar: React.FC = () => {
+  const router = useRouter();
+
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
 
@@ -94,6 +99,38 @@ const AppSidebar: React.FC = () => {
     if (!path) return false;
     return pathname === path;
   }, [pathname]);
+
+  const {adminToken, login} = useAuth();
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  const handleAdminReLogin = async () =>{
+    try {
+      const response = await fetch(`${BASE_URL}/agent/admin/login`, {
+        headers:{
+        "Authorization" : `Bearer ${adminToken}`
+      }
+      });
+      
+      const data = await response.json();
+
+      if (data.status == "success") {
+        const { user, token } = data.data;
+        login(user, token);
+        
+        router.push("/admin/partners/agents");
+      }
+
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed");
+      }
+
+      // Redirect to intended page or admin dashboard
+      
+    } catch (error) {
+      alert("Login failed");
+    }     
+  }
 
   // Recursive component for nested menu items
  const NavItemComponent: React.FC<{ 
@@ -186,7 +223,25 @@ const AppSidebar: React.FC = () => {
 
   const renderMainMenuItems = () => (
     <ul className="flex flex-col gap-4">
-      {navItems.map((item) => (
+      {adminToken && <li>
+       {
+           <div
+              onClick={handleAdminReLogin}
+             className={`menu-item group cursor-pointer`}
+             style={{ paddingLeft: `16px` }}
+           >
+             <span className={"menu-item-icon-inactive"}>
+               <ArrowLeft size={19}/>
+             </span>
+             
+               <span className="menu-item-text dark:text-white">{"Go To Admin Panel"}</span>
+            
+           </div>
+         
+       }
+     </li>}
+        
+     {navItems.map((item) => (
         <NavItemComponent key={item.name} item={item} />
       ))}
     </ul>

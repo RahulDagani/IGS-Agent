@@ -10,6 +10,8 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { LogIn } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface ApiAgent {
   user_id: number;
@@ -36,6 +38,8 @@ type SortField = keyof Agent | "";
 type SortDirection = "asc" | "desc";
 
 export default function AgentTable() {
+  const router = useRouter();
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +48,11 @@ export default function AgentTable() {
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  const [errors, setErrors] = useState<string>("");
+
+
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-  const {token} = useAuth();
+  const {token, adminAgentLogin} = useAuth();
 
   // Fetch agents from API
   useEffect(() => {
@@ -93,6 +100,38 @@ export default function AgentTable() {
 
     fetchAgents();
   }, []);
+
+  const handleAgentAccess = async (agentId: number) =>{
+
+    try {
+      const response = await fetch(`${BASE_URL}/tenant/agent/login/${agentId}`, {
+        headers:{
+        "Authorization" : `Bearer ${token}`
+      }
+      });
+      
+      const data = await response.json();
+
+      if (data.success) {
+        const { user, token, admin_token } = data.data;
+        adminAgentLogin(user, token, admin_token);
+        
+        router.push("/partner");
+      }
+
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed");
+      }
+
+      // Redirect to intended page or admin dashboard
+      
+    } catch (error) {
+      setErrors("Login failed");
+    } 
+    
+    
+  }
 
   // Helper function to determine status based on verification flags
   const getAgentStatus = (isAgentVerified: number, isPaymentVerified: number): Agent["status"] => {
@@ -258,6 +297,8 @@ export default function AgentTable() {
       { key: "status", label: "Status" },
       { key: "isPaymentVerified", label: "Payment" }, // Changed from "payment" to "isPaymentVerified"
       { key: "students", label: "Students" },
+      { key: "login", label: "Login" },
+
     ].map(({ key, label }) => (
       <TableCell
         key={key}
@@ -340,6 +381,9 @@ export default function AgentTable() {
                           View 
                         </Link>
                         
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-blue-500 text-start text-theme-sm dark:text-blue-400">
+                        <LogIn size={18} className="cursor-pointer" onClick={() => handleAgentAccess(agent.id)}/>                        
                       </TableCell>
                     </TableRow>
                   ))
