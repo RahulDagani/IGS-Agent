@@ -100,7 +100,10 @@ const AppSidebar: React.FC = () => {
     return pathname === path;
   }, [pathname]);
 
-  const {adminToken, login} = useAuth();
+  const {adminToken, adminReLoginFromAgent, user} = useAuth();
+
+  const isAgent = user ? user.role == "agent" : false;
+
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
   const handleAdminReLogin = async () =>{
@@ -115,7 +118,7 @@ const AppSidebar: React.FC = () => {
 
       if (data.status == "success") {
         const { user, token } = data.data;
-        login(user, token);
+        adminReLoginFromAgent(user, token);
         
         router.push("/admin/partners/agents");
       }
@@ -223,6 +226,7 @@ const AppSidebar: React.FC = () => {
 
   const renderMainMenuItems = () => (
     <ul className="flex flex-col gap-4">
+      
       {adminToken && <li>
        {
            <div
@@ -249,7 +253,7 @@ const AppSidebar: React.FC = () => {
 
   const renderStudentItems = () => (
   <ul className="flex flex-col gap-4">
-    {studentItems.map((item) => (
+    {studentItems.filter((item)=>item.name != "Wallet").map((item) => (
       <NavItemComponent key={item.name} item={item} section="" />
     ))}
   </ul>
@@ -377,7 +381,7 @@ const AppSidebar: React.FC = () => {
             </div>
           
 
-
+          
           <div className="">
                         <h2
                           className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -394,8 +398,8 @@ const AppSidebar: React.FC = () => {
                         </h2>
                         {renderStudentItems()}
                       </div>
-
-                      <div className="">
+                          {isAgent && <>
+                       <div className="">
                         <h2
                           className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
                             !isExpanded && !isHovered
@@ -410,7 +414,7 @@ const AppSidebar: React.FC = () => {
                           )}
                         </h2>
                         {renderAccountItems()}
-                      </div>
+                      </div></>}
 
                       </div>
         </nav>

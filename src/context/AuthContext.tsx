@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
 
 interface User {
   id: number;
@@ -15,6 +16,7 @@ interface AuthContextType {
   token: string | null;
   login: (user: User, token: string) => void;
   adminAgentLogin: (user: User, token: string, adminToken: string) => void;
+  adminReLoginFromAgent: (user: User, token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean; // ✅ added
@@ -27,6 +29,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); // ✅ added
+
+  const router = useRouter();
 
   //For admin Re-Login from Agent panel
   const [adminToken, setAdminToken] = useState<string | null>(null);
@@ -56,12 +60,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.set("token", jwt, { expires: 7 });
   };
 
+  const adminReLoginFromAgent = (userData: User, jwt:string) => {
+    setUser(userData);
+    setToken(jwt);
+    Cookies.set("user", JSON.stringify(userData), {expires: 7});
+    Cookies.set("token", jwt, {expires: 7});
+    Cookies.remove("adminToken");
+  }
+
   const adminAgentLogin = (userData: User, jwt:string, adminToken: string) => {
     setUser(userData);
     setToken(jwt);
     Cookies.set("user", JSON.stringify(userData), {expires: 7});
     Cookies.set("token", jwt, {expires: 7});
     Cookies.set("adminToken", adminToken, {expires: 7});
+    router.push("/partner");
   }
 
   const logout = () => {
@@ -88,6 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     login,
     logout,
     adminAgentLogin,
+    adminReLoginFromAgent,
     isAuthenticated: !!token,
     loading,
   };
