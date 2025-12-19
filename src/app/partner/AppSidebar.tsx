@@ -253,9 +253,14 @@ const AppSidebar: React.FC = () => {
 
   const renderStudentItems = () => (
   <ul className="flex flex-col gap-4">
-    {studentItems.filter((item)=>item.name != "Wallet").map((item) => (
+    {isAgent 
+    ? studentItems.map((item) => (
       <NavItemComponent key={item.name} item={item} section="" />
-    ))}
+    ))
+    : studentItems.filter((item)=>item.name != "Wallet").map((item) => (
+      <NavItemComponent key={item.name} item={item} section="" />
+    ))
+    }
   </ul>
 );
 
