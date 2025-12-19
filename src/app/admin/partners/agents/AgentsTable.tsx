@@ -115,7 +115,6 @@ export default function AgentTable() {
       if (data.success) {
         const { user, token, admin_token } = data.data;
         adminAgentLogin(user, token, admin_token);
-        
         router.push("/partner");
       }
 
