@@ -237,8 +237,12 @@ const AppSidebar: React.FC = () => {
              <span className={"menu-item-icon-inactive"}>
                <ArrowLeft size={19}/>
              </span>
-             
+
+             {(isExpanded || isHovered || isMobileOpen) && (
                <span className="menu-item-text dark:text-white">{"Go To Admin Panel"}</span>
+             )}
+             
+               
             
            </div>
          
