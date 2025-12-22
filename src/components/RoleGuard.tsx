@@ -66,7 +66,7 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen text-blue-600">
         <p>Checking permissions...</p>
       </div>
     );

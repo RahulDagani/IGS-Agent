@@ -69,12 +69,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const adminAgentLogin = (userData: User, jwt:string, adminToken: string) => {
+    setLoading(true);
     setUser(userData);
     setToken(jwt);
     Cookies.set("user", JSON.stringify(userData), {expires: 7});
     Cookies.set("token", jwt, {expires: 7});
     Cookies.set("adminToken", adminToken, {expires: 7});
-    router.push("/partner");
+    setTimeout(()=>{
+      setLoading(false);
+      router.push("/partner");
+    },2000)
+    
   }
 
   const logout = () => {
@@ -84,6 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     Cookies.remove("user");
     Cookies.remove("token");
+    Cookies.remove("adminToken");
     if(role == "agent"){
       window.location.href = '/signin/agent';
 
