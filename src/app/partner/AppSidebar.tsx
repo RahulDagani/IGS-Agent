@@ -107,6 +107,7 @@ const AppSidebar: React.FC = () => {
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
   const handleAdminReLogin = async () =>{
+   
     try {
       const response = await fetch(`${BASE_URL}/agent/admin/login`, {
         headers:{
@@ -237,8 +238,12 @@ const AppSidebar: React.FC = () => {
              <span className={"menu-item-icon-inactive"}>
                <ArrowLeft size={19}/>
              </span>
-             
+
+             {(isExpanded || isHovered || isMobileOpen) && (
                <span className="menu-item-text dark:text-white">{"Go To Admin Panel"}</span>
+             )}
+             
+               
             
            </div>
          

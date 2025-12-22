@@ -24,7 +24,7 @@ function PartnerLayout({ children }: PartnerLayoutProps) {
     : "lg:ml-[90px]";
 
   return (
-    <RoleGuard allowedRoles={["agent","counsellor"]}>
+    // <RoleGuard allowedRoles={["agent","counsellor"]}>
     <div className="min-h-screen xl:flex">
       {/* Sidebar and Backdrop */}
       <AppSidebar />
@@ -39,7 +39,7 @@ function PartnerLayout({ children }: PartnerLayoutProps) {
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
       </div>
     </div>
-    </RoleGuard>
+    // </RoleGuard>
   );
 }
 
