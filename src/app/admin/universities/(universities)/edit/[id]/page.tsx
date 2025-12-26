@@ -18,7 +18,7 @@ interface UniversityFormData {
   email: string | null;
   address: string | null;
   map_url: string | null;
-  location_url: string | null;
+  website_url: string | null;
   
   // Media - Now as Files or URLs
   logo: File | string | null;
@@ -67,7 +67,7 @@ interface UniversityData {
     city_code: string;
     address: string | null;
     map_url: string | null;
-    location_url: string | null;
+    website_url: string | null;
     kind_of_partner_id: number | null;
     type_of_university_id: number | null;
     collaboration_type_id: number | null;
@@ -134,7 +134,7 @@ export default function EditUniversity() {
     email: null,
     address: null,
     map_url: null,
-    location_url: null,
+    website_url: null,
     
     // Media
     logo: null,
@@ -202,7 +202,7 @@ export default function EditUniversity() {
           email: data.university.email,
           address: data.university.address,
           map_url: data.university.map_url,
-          location_url: data.university.location_url,
+          website_url: data.university.website_url,
           logo: data.university.logo,
           image: data.university.image,
           brochure: data.university.brochure,
@@ -378,7 +378,7 @@ export default function EditUniversity() {
       if (formData.email) formDataToSend.append('email', formData.email);
       if (formData.address) formDataToSend.append('address', formData.address);
       if (formData.map_url) formDataToSend.append('map_url', formData.map_url);
-      if (formData.location_url) formDataToSend.append('location_url', formData.location_url);
+      if (formData.website_url) formDataToSend.append('website_url', formData.website_url);
       
       // Append additional info
       if (formData.video_link) formDataToSend.append('video_link', formData.video_link);
@@ -640,8 +640,8 @@ export default function EditUniversity() {
 
       {/* Location URL */}
       <div>
-        <label htmlFor="location_url" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-          Location URL
+        <label htmlFor="website_url" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+          University Website URL
         </label>
         <div className="relative">
           <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
@@ -649,9 +649,9 @@ export default function EditUniversity() {
           </span>
           <input
             type="url"
-            id="location_url"
-            name="location_url"
-            value={formData.location_url || ""}
+            id="website_url"
+            name="website_url"
+            value={formData.website_url || ""}
             onChange={handleInputChange}
             placeholder="https://university.edu/location"
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
@@ -659,25 +659,7 @@ export default function EditUniversity() {
         </div>
       </div>
 
-      {/* Map Preview */}
-      {formData.map_url && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Map Preview
-          </label>
-          <div className="rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
-            <iframe
-              src={formData.map_url}
-              width="100%"
-              height="200"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 

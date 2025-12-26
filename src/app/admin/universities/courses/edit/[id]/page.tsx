@@ -322,7 +322,7 @@ useEffect(() => {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success === "2" && data.data) {
+        if (data.data) {
           setDisciplines(data.data);
         } else {
           setDisciplines([]);
@@ -419,12 +419,12 @@ useEffect(() => {
   }
 
   // Validate intakes
-  // for (const intake of formData.intakes) {
-  //   if (!intake.intake_year || !intake.intake_id || !intake.submission_deadline) {
-  //     showMessage('error', 'Please fill in all intake dates');
-  //     return false;
-  //   }
-  // }
+  for (const intake of formData.intakes) {
+    if (!intake.intake_year || !intake.intake_id || !intake.submission_deadline) {
+      showMessage('error', 'Please fill in all intake Info');
+      return false;
+    }
+  }
 
   return true;
 };
@@ -503,7 +503,6 @@ function formatDate(dateString: string) {
       }
 
       const result = await response.json();
-      console.log("Course updated successfully:", result);
       
       showMessage('success', 'Course updated successfully!');
       
@@ -1130,6 +1129,11 @@ function formatDate(dateString: string) {
                 }
                 dateFormat="yyyy-MM-dd"
                 placeholderText="Select date"
+                showYearDropdown
+  showMonthDropdown
+  dropdownMode="select"
+  yearDropdownItemNumber={50}
+  scrollableYearDropdown
                 className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               />
             </div>

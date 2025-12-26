@@ -26,7 +26,7 @@ interface Course {
   createdAt: string;
 }
 
-// API Response Interface
+// API Response Interface for Course List
 interface ApiCourse {
   id: number;
   tenant_id: number;
@@ -66,7 +66,7 @@ interface ApiCourse {
   university_logo_url: string;
 }
 
-interface ApiResponse {
+interface ApiCourseResponse {
   success: boolean;
   page: number;
   limit: number;
@@ -75,6 +75,10 @@ interface ApiResponse {
   hasNextPage: boolean;
   hasPrevPage: boolean;
   data: ApiCourse[];
+}
+
+// API Response Interface for Dynamic Filters
+interface FiltersData {
   filters: {
     studyLevels: Array<{
       id: number;
@@ -96,11 +100,19 @@ interface ApiResponse {
       states: Array<{ state_code: string }>;
       cities: Array<{ city_code: string }>;
     };
-    tuitionRange: {
-      min: string;
-      max: string;
-    };
+    intakes: Array<{
+      id: number;
+      intake: string;
+    }>;
+    intakeYears: Array<{
+      intake_year: number;
+    }>;
   };
+}
+
+interface ApiFiltersResponse {
+  success: boolean;
+  data: FiltersData;
 }
 
 type SortField = keyof Course | "";
@@ -108,20 +120,28 @@ type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
   discipline_ids: number[];
-  study_level_id: number | null; // Changed from array to single value
+  study_level_id: number | null;
+  intake_id: number | null;
+  intake_year: number | null;
   university_ids: number[];
   country_codes: string[];
   state_codes: string[];
   city_codes: string[];
-  // Removed popular and externalEvaluation filters
+}
+
+interface IntakeOption {
+  id: number;
+  intake: string;
 }
 
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onFilterChange: (filters: FilterOptions) => void;
-  filtersData: ApiResponse['filters'] | null;
+  onApplyFilters: (filters: FilterOptions) => void;
+  filtersData: FiltersData | null;
   appliedFilters: FilterOptions;
+  intakeOptions: IntakeOption[];
+  onFilterChange: (filters: FilterOptions) => void; // New prop for real-time filter changes
 }
 
 const getCountryName = (code: string | undefined | null) => {
@@ -139,96 +159,148 @@ const getStateName = (code: string | undefined | null) => {
 const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
-  onFilterChange,
+  onApplyFilters,
   filtersData,
   appliedFilters,
+  intakeOptions,
+  onFilterChange // New prop
 }) => {
-  const [localFilters, setLocalFilters] = useState<FilterOptions>(appliedFilters);
+  const [tempFilters, setTempFilters] = useState<FilterOptions>(appliedFilters);
 
-  // Initialize local filters when modal opens
+  // Initialize temp filters when modal opens
   useEffect(() => {
     if (isOpen) {
-      setLocalFilters(appliedFilters);
+      setTempFilters(appliedFilters);
     }
   }, [isOpen, appliedFilters]);
 
-  const handleFilterChange = (newFilters: FilterOptions) => {
-    setLocalFilters(newFilters);
+  const handleDisciplineChange = (disciplineId: number) => {
+    const newDisciplineIds = tempFilters.discipline_ids.includes(disciplineId)
+      ? tempFilters.discipline_ids.filter(id => id !== disciplineId)
+      : [...tempFilters.discipline_ids, disciplineId];
+    
+    const newFilters = {
+      ...tempFilters,
+      discipline_ids: newDisciplineIds
+    };
+    
+    setTempFilters(newFilters);
+    // Call onFilterChange immediately when checkbox changes
     onFilterChange(newFilters);
   };
 
-  const handleDisciplineChange = (disciplineId: number) => {
-    const newDisciplineIds = localFilters.discipline_ids.includes(disciplineId)
-      ? localFilters.discipline_ids.filter(id => id !== disciplineId)
-      : [...localFilters.discipline_ids, disciplineId];
+  const handleStudyLevelChange = (studyLevelId: number | null) => {
+    const newFilters = {
+      ...tempFilters,
+      study_level_id: studyLevelId
+    };
     
-    handleFilterChange({
-      ...localFilters,
-      discipline_ids: newDisciplineIds
-    });
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
   };
 
-  const handleStudyLevelChange = (studyLevelId: number | null) => {
-    handleFilterChange({
-      ...localFilters,
-      study_level_id: studyLevelId
-    });
+  const handleIntakeChange = (intakeId: number | null) => {
+    const newFilters = {
+      ...tempFilters,
+      intake_id: intakeId
+    };
+    
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  const handleIntakeYearChange = (intakeYear: number | null) => {
+    const newFilters = {
+      ...tempFilters,
+      intake_year: intakeYear
+    };
+    
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
   };
 
   const handleUniversityChange = (universityId: number) => {
-    const newUniversityIds = localFilters.university_ids.includes(universityId)
-      ? localFilters.university_ids.filter(id => id !== universityId)
-      : [...localFilters.university_ids, universityId];
+    const newUniversityIds = tempFilters.university_ids.includes(universityId)
+      ? tempFilters.university_ids.filter(id => id !== universityId)
+      : [...tempFilters.university_ids, universityId];
     
-    handleFilterChange({
-      ...localFilters,
+    const newFilters = {
+      ...tempFilters,
       university_ids: newUniversityIds
-    });
+    };
+    
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
   };
 
   const handleCountryChange = (countryCode: string) => {
-    const newCountryCodes = localFilters.country_codes.includes(countryCode)
-      ? localFilters.country_codes.filter(code => code !== countryCode)
-      : [...localFilters.country_codes, countryCode];
+    const newCountryCodes = tempFilters.country_codes.includes(countryCode)
+      ? tempFilters.country_codes.filter(code => code !== countryCode)
+      : [...tempFilters.country_codes, countryCode];
     
-    handleFilterChange({
-      ...localFilters,
+    const newFilters = {
+      ...tempFilters,
       country_codes: newCountryCodes
-    });
+    };
+    
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
   };
 
   const handleStateChange = (stateCode: string) => {
-    const newStateCodes = localFilters.state_codes.includes(stateCode)
-      ? localFilters.state_codes.filter(code => code !== stateCode)
-      : [...localFilters.state_codes, stateCode];
+    const newStateCodes = tempFilters.state_codes.includes(stateCode)
+      ? tempFilters.state_codes.filter(code => code !== stateCode)
+      : [...tempFilters.state_codes, stateCode];
     
-    handleFilterChange({
-      ...localFilters,
+    const newFilters = {
+      ...tempFilters,
       state_codes: newStateCodes
-    });
+    };
+    
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
   };
 
   const handleCityChange = (cityCode: string) => {
-    const newCityCodes = localFilters.city_codes.includes(cityCode)
-      ? localFilters.city_codes.filter(code => code !== cityCode)
-      : [...localFilters.city_codes, cityCode];
+    const newCityCodes = tempFilters.city_codes.includes(cityCode)
+      ? tempFilters.city_codes.filter(code => code !== cityCode)
+      : [...tempFilters.city_codes, cityCode];
     
-    handleFilterChange({
-      ...localFilters,
+    const newFilters = {
+      ...tempFilters,
       city_codes: newCityCodes
-    });
+    };
+    
+    setTempFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  const handleApplyFilters = () => {
+    // Apply filters and close modal
+    onApplyFilters(tempFilters);
+    onClose();
   };
 
   const handleReset = () => {
     const resetFilters: FilterOptions = {
       discipline_ids: [],
       study_level_id: null,
+      intake_id: null,
+      intake_year: null,
       university_ids: [],
       country_codes: [],
       state_codes: [],
       city_codes: [],
     };
-    handleFilterChange(resetFilters);
+    setTempFilters(resetFilters);
+    // Also trigger filter change with reset filters
+    onFilterChange(resetFilters);
+  };
+
+  const handleClose = () => {
+    // Reset temp filters to applied filters when closing without applying
+    setTempFilters(appliedFilters);
+    onClose();
   };
 
   if (!isOpen || !filtersData) return null;
@@ -241,7 +313,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             Filter Courses
           </h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +329,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               Study Levels
             </label>
             <select
-              value={localFilters.study_level_id ?? ""}
+              value={tempFilters.study_level_id ?? ""}
               onChange={(e) => {
                 const value = e.target.value ? Number(e.target.value) : null;
                 handleStudyLevelChange(value);
@@ -265,7 +337,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               className="w-full rounded-md border border-gray-300 bg-white p-2 text-sm text-gray-700 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
             >
               <option value="">Select study level</option>
-              {filtersData.studyLevels.map((level) => (
+              {filtersData.filters.studyLevels.map((level) => (
                 <option key={level.id} value={level.id}>
                   {level.name}
                 </option>
@@ -279,12 +351,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
               Disciplines
             </label>
             <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
-              {filtersData.disciplines.map((discipline) => (
+              {filtersData.filters.disciplines.map((discipline) => (
                 <div key={discipline.id} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`discipline-${discipline.id}`}
-                    checked={localFilters.discipline_ids.includes(discipline.id)}
+                    checked={tempFilters.discipline_ids.includes(discipline.id)}
                     onChange={() => handleDisciplineChange(discipline.id)}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
@@ -299,20 +371,18 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           </div>
 
-          
-
           {/* Countries Filter */}
           <div>
             <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Countries
             </label>
             <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
-              {filtersData.locations.countries.map((country) => (
+              {filtersData.filters.locations.countries.map((country) => (
                 <div key={country.country_code} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`country-${country.country_code}`}
-                    checked={localFilters.country_codes.includes(country.country_code)}
+                    checked={tempFilters.country_codes.includes(country.country_code)}
                     onChange={() => handleCountryChange(country.country_code)}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
@@ -333,12 +403,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
               States
             </label>
             <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
-              {filtersData.locations.states.map((state) => (
+              {filtersData.filters.locations.states.map((state) => (
                 <div key={state.state_code} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`state-${state.state_code}`}
-                    checked={localFilters.state_codes.includes(state.state_code)}
+                    checked={tempFilters.state_codes.includes(state.state_code)}
                     onChange={() => handleStateChange(state.state_code)}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
@@ -353,19 +423,18 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           </div>
 
-
           {/* Universities Filter */}
           <div>
             <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
               Universities
             </label>
             <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
-              {filtersData.universities.map((university) => (
+              {filtersData.filters.universities.map((university) => (
                 <div key={university.id} className="flex items-center">
                   <input
                     type="checkbox"
                     id={`university-${university.id}`}
-                    checked={localFilters.university_ids.includes(university.id)}
+                    checked={tempFilters.university_ids.includes(university.id)}
                     onChange={() => handleUniversityChange(university.id)}
                     className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                   />
@@ -380,31 +449,56 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           </div>
 
-          {/* Cities Filter */}
-          {/* <div>
-            <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Cities
-            </label>
-            <div className="grid grid-cols-2 gap-6 max-h-40 overflow-y-auto">
-              {filtersData.locations.cities.map((city) => (
-                <div key={city.city_code} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`city-${city.city_code}`}
-                    checked={localFilters.city_codes.includes(city.city_code)}
-                    onChange={() => handleCityChange(city.city_code)}
-                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                  />
-                  <label
-                    htmlFor={`city-${city.city_code}`}
-                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-                  >
-                    {city.city_code}
-                  </label>
-                </div>
+          {/* Intake Year */}
+          <div>
+            <label
+              htmlFor={`intake_year`}
+              className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
+            >
+              Intake Year *
+            </label>    
+            <select
+              value={tempFilters.intake_year ?? ""}
+              onChange={(e) => {
+                const value = e.target.value ? Number(e.target.value) : null;
+                handleIntakeYearChange(value);
+              }}
+              className="w-full rounded-md border border-gray-300 bg-white p-2 text-sm text-gray-700 focus:border-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            >
+              <option value="">Select Intake Year</option>
+              {filtersData.filters.intakeYears.map((yearData) => (
+                <option key={yearData.intake_year} value={yearData.intake_year}>
+                  {yearData.intake_year}
+                </option>
               ))}
-            </div>
-          </div> */}
+            </select>
+          </div>
+
+          {/* Intake Selection */}
+          <div>
+            <label
+              htmlFor={`intake_id`}
+              className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
+            >
+              Intake *
+            </label>
+            <select
+              id={`intake_id`}
+              value={tempFilters.intake_id ?? ""}
+              onChange={(e) => {
+                const value = e.target.value ? Number(e.target.value) : null;
+                handleIntakeChange(value);
+              }}
+              className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+            >
+              <option value="">Select intake</option>
+              {filtersData.filters.intakes.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.intake}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -415,10 +509,16 @@ const FilterModal: React.FC<FilterModalProps> = ({
             Reset All
           </button>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex-1 px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 focus:outline-hidden focus:ring-2 focus:ring-gray-500/10"
           >
-            Close
+            Cancel
+          </button>
+          <button
+            onClick={handleApplyFilters}
+            className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10"
+          >
+            Apply Filters
           </button>
         </div>
       </div>
@@ -426,30 +526,112 @@ const FilterModal: React.FC<FilterModalProps> = ({
   );
 };
 
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
 export default function CoursesTable() {
   const { token } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
-  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
+  const [filtersData, setFiltersData] = useState<FiltersData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+  
   const [filters, setFilters] = useState<FilterOptions>({
     discipline_ids: [],
     study_level_id: null,
+    intake_id: null,
+    intake_year: null,
     university_ids: [],
     country_codes: [],
     state_codes: [],
     city_codes: [],
   });
+  
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [limit] = useState<number>(10);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [apiCourseResponse, setApiCourseResponse] = useState<ApiCourseResponse | null>(null);
+  const [tempFilters, setTempFilters] = useState<FilterOptions>(filters); // For modal changes
 
-  // Build query string from filters
-  const buildQueryString = useCallback(() => {
+  // Fetch dynamic filters
+  const fetchDynamicFilters = useCallback(async (params?: string) => {
+    if (!token) return;
+
+    try {
+      let url = `${BASE_URL}/tenant/course/filters/dynamic`;
+      if (params) {
+        url += `?${params}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: ApiFiltersResponse = await response.json();
+      
+      if (result.success && result.data) {
+        setFiltersData(result.data);
+      } else {
+        setFiltersData(null);
+      }
+    } catch (err) {
+      console.error('Error fetching filters:', err);
+      setFiltersData(null);
+    }
+  }, [token]);
+
+  // Build query string for dynamic filters API
+  const buildFiltersQueryString = useCallback((filterOptions: FilterOptions) => {
+    const params = new URLSearchParams();
+    
+    // Add selected filters as query parameters for dynamic filters API
+    if (filterOptions.study_level_id) {
+      params.append('study_level_id', filterOptions.study_level_id.toString());
+    }
+    
+    filterOptions.discipline_ids.forEach(id => {
+      params.append('discipline_id', id.toString());
+    });
+
+    filterOptions.university_ids.forEach(id => {
+      params.append('university_id', id.toString());
+    });
+
+    filterOptions.country_codes.forEach(code => {
+      params.append('country_code', code);
+    });
+
+    filterOptions.state_codes.forEach(code => {
+      params.append('state_code', code);
+    });
+
+    filterOptions.city_codes.forEach(code => {
+      params.append('city_code', code);
+    });
+
+    if (filterOptions.intake_id) {
+      params.append('intake_id', filterOptions.intake_id.toString());
+    }
+
+    if (filterOptions.intake_year) {
+      params.append('intake_year', filterOptions.intake_year.toString());
+    }
+
+    return params.toString();
+  }, []);
+
+  // Build query string for course list API
+  const buildCourseListQueryString = useCallback(() => {
     const params = new URLSearchParams();
     
     // Add pagination
@@ -461,18 +643,38 @@ export default function CoursesTable() {
       params.append('search', searchTerm);
     }
     
-    // Add array parameters
-    filters.discipline_ids.forEach(id => params.append('discipline_id', id.toString()));
+    // Add filters as query parameters
+    filters.discipline_ids.forEach(id => {
+      params.append('discipline_id', id.toString());
+    });
     
-    // Add single study level parameter (not array)
     if (filters.study_level_id) {
       params.append('study_level_id', filters.study_level_id.toString());
     }
+
+    if (filters.intake_id) {
+      params.append('intake_id', filters.intake_id.toString());
+    }
+
+    if (filters.intake_year) {
+      params.append('intake_year', filters.intake_year.toString());
+    }
     
-    filters.university_ids.forEach(id => params.append('university_id', id.toString()));
-    filters.country_codes.forEach(code => params.append('country_code', code));
-    filters.state_codes.forEach(code => params.append('state_code', code));
-    filters.city_codes.forEach(code => params.append('city_code', code));
+    filters.university_ids.forEach(id => {
+      params.append('university_id', id.toString());
+    });
+    
+    filters.country_codes.forEach(code => {
+      params.append('country_code', code);
+    });
+    
+    filters.state_codes.forEach(code => {
+      params.append('state_code', code);
+    });
+    
+    filters.city_codes.forEach(code => {
+      params.append('city_code', code);
+    });
     
     return params.toString();
   }, [filters, currentPage, limit, searchTerm]);
@@ -488,9 +690,8 @@ export default function CoursesTable() {
     try {
       setIsLoading(true);
       setError(null);
-      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
       
-      const queryString = buildQueryString();
+      const queryString = buildCourseListQueryString();
       const url = `${BASE_URL}/tenant/course/list${queryString ? `?${queryString}` : ''}`;
       
       const response = await fetch(url, {
@@ -504,7 +705,7 @@ export default function CoursesTable() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: ApiResponse = await response.json();
+      const result: ApiCourseResponse = await response.json();
       
       if (result.success && result.data) {
         // Transform API data to match Course interface
@@ -515,34 +716,53 @@ export default function CoursesTable() {
           discipline: apiCourse.discipline_name,
           studyLevel: apiCourse.study_level_name,
           applicationFee: `${apiCourse.currency_code} ${apiCourse.application_fee}`,
-          externalEvaluation: "no", // Default value since not in API
+          externalEvaluation: "no",
           popular: apiCourse.is_popular === 1 ? "yes" : "no",
           status: apiCourse.is_deleted === 0 ? "active" : "inactive",
           createdAt: apiCourse.created_at,
         }));
 
         setCourses(transformedCourses);
-        setApiResponse(result);
-        // Update current page from API response
+        setApiCourseResponse(result);
         setCurrentPage(result.page);
       } else {
         setCourses([]);
-        setApiResponse(null);
+        setApiCourseResponse(null);
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
       setError('Failed to load courses. Please try again.');
       setCourses([]);
-      setApiResponse(null);
+      setApiCourseResponse(null);
     } finally {
       setIsLoading(false);
     }
-  }, [token, buildQueryString]);
+  }, [token, buildCourseListQueryString]);
 
-  // Initial fetch
+  // Initial fetch of filters and courses
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    const fetchInitialData = async () => {
+      await fetchDynamicFilters();
+      await fetchCourses();
+    };
+    
+    fetchInitialData();
+  }, []);
+
+  // Handle real-time filter changes from modal
+  const handleTempFilterChange = useCallback((newFilters: FilterOptions) => {
+    setTempFilters(newFilters);
+    // Fetch dynamic filters immediately with new filter values
+    const filtersQueryString = buildFiltersQueryString(newFilters);
+    fetchDynamicFilters(filtersQueryString);
+  }, [buildFiltersQueryString, fetchDynamicFilters]);
+
+  // Handle applying filters (when Apply Filters button is clicked)
+  const handleApplyFilters = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+    // Course list will be fetched in the next useEffect
+  };
 
   // Handle search with debounce
   useEffect(() => {
@@ -553,7 +773,7 @@ export default function CoursesTable() {
     const timeout = setTimeout(() => {
       setCurrentPage(1);
       fetchCourses();
-    }, 500); // 500ms debounce
+    }, 500);
 
     setSearchTimeout(timeout);
 
@@ -563,12 +783,6 @@ export default function CoursesTable() {
       }
     };
   }, [searchTerm]);
-
-  // Handle filter changes
-  const handleFilterChange = (newFilters: FilterOptions) => {
-    setFilters(newFilters);
-    setCurrentPage(1);
-  };
 
   // Type-safe filter removal functions
   const handleRemoveDisciplineFilter = (id: number) => {
@@ -619,10 +833,22 @@ export default function CoursesTable() {
     setCurrentPage(1);
   };
 
+  const handleRemoveIntakeFilter = () => {
+    setFilters(prev => ({ ...prev, intake_id: null }));
+    setCurrentPage(1);
+  };
+
+  const handleRemoveIntakeYearFilter = () => {
+    setFilters(prev => ({ ...prev, intake_year: null }));
+    setCurrentPage(1);
+  };
+
   const clearAllFilters = () => {
     setFilters({
       discipline_ids: [],
       study_level_id: null,
+      intake_id: null,
+      intake_year: null,
       university_ids: [],
       country_codes: [],
       state_codes: [],
@@ -632,8 +858,6 @@ export default function CoursesTable() {
   };
 
   const filteredAndSortedData = useMemo(() => {
-    // With real-time API filtering, we don't need client-side filtering anymore
-    // We can just return the courses from API
     if (sortField) {
       return [...courses].sort((a, b) => {
         let aValue = a[sortField];
@@ -701,7 +925,6 @@ export default function CoursesTable() {
   const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this course?")) {
       try {
-        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
         const response = await fetch(`${BASE_URL}/tenant/course/delete/${id}`, {
           method: 'DELETE',
           headers: {
@@ -710,7 +933,6 @@ export default function CoursesTable() {
         });
         
         if (response.ok) {
-          // Refresh the courses list
           fetchCourses();
         } else {
           throw new Error('Failed to delete course');
@@ -729,6 +951,8 @@ export default function CoursesTable() {
   const hasActiveFilters = 
     filters.discipline_ids.length > 0 ||
     filters.study_level_id !== null ||
+    filters.intake_id !== null ||
+    filters.intake_year !== null ||
     filters.university_ids.length > 0 ||
     filters.country_codes.length > 0 ||
     filters.state_codes.length > 0 ||
@@ -736,15 +960,15 @@ export default function CoursesTable() {
 
   // Helper function to get filter name by ID
   const getFilterName = (type: 'discipline' | 'studyLevel' | 'university', id: number): string => {
-    if (!apiResponse?.filters) return '';
+    if (!filtersData?.filters) return '';
     
     switch (type) {
       case 'discipline':
-        return apiResponse.filters.disciplines.find(d => d.id === id)?.name || '';
+        return filtersData.filters.disciplines.find(d => d.id === id)?.name || '';
       case 'studyLevel':
-        return apiResponse.filters.studyLevels.find(s => s.id === id)?.name || '';
+        return filtersData.filters.studyLevels.find(s => s.id === id)?.name || '';
       case 'university':
-        return apiResponse.filters.universities.find(u => u.id === id)?.university || '';
+        return filtersData.filters.universities.find(u => u.id === id)?.university || '';
       default:
         return '';
     }
@@ -752,22 +976,14 @@ export default function CoursesTable() {
 
   // Helper to get study level name
   const getStudyLevelName = (id: number): string => {
-    if (!apiResponse?.filters) return '';
-    return apiResponse.filters.studyLevels.find(s => s.id === id)?.name || '';
+    if (!filtersData?.filters) return '';
+    return filtersData.filters.studyLevels.find(s => s.id === id)?.name || '';
   };
 
   // Fetch courses when filters or page change
   useEffect(() => {
     fetchCourses();
-  }, [filters, currentPage, fetchCourses]);
-
-  // if (isLoading && currentPage === 1) {
-  //   return (
-  //     <div className="flex justify-center items-center h-64">
-  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
-  //     </div>
-  //   );
-  // }
+  }, [filters, currentPage]);
 
   if (error && currentPage === 1) {
     return (
@@ -790,7 +1006,7 @@ export default function CoursesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Total Courses</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {apiResponse?.total || 0}
+            {apiCourseResponse?.total || 0}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
@@ -808,7 +1024,7 @@ export default function CoursesTable() {
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">Universities</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {apiResponse?.filters?.universities.length || 0}
+            {filtersData?.filters?.universities.length || 0}
           </div>
         </div>
       </div>
@@ -816,7 +1032,7 @@ export default function CoursesTable() {
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search Input */}
-        {/* <div className="flex-1 max-w-md">
+        <div className="flex-1 max-w-md">
           <div className="relative">
             <input
               type="text"
@@ -841,7 +1057,7 @@ export default function CoursesTable() {
               </svg>
             </div>
           </div>
-        </div> */}
+        </div>
 
         {/* Filter Button and Active Filters */}
         <div className="flex items-center gap-3">
@@ -942,6 +1158,28 @@ export default function CoursesTable() {
               </button>
             </Badge>
           ))}
+          {filters.intake_id !== null && filtersData?.filters?.intakes && (
+            <Badge key={`intake-${filters.intake_id}`} size="sm" color="primary">
+              Intake: {filtersData.filters.intakes.find(i => i.id === filters.intake_id)?.intake || ''}
+              <button 
+                onClick={handleRemoveIntakeFilter}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
+            </Badge>
+          )}
+          {filters.intake_year !== null && (
+            <Badge key={`intake-year-${filters.intake_year}`} size="sm" color="primary">
+              Intake Year: {filters.intake_year}
+              <button 
+                onClick={handleRemoveIntakeYearFilter}
+                className="ml-1 text-xs"
+              >
+                ×
+              </button>
+            </Badge>
+          )}
         </div>
       )}
 
@@ -949,9 +1187,9 @@ export default function CoursesTable() {
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
           <div className="min-w-[1400px]">
-            {isLoading && currentPage > 1 ? (
-              <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+            {isLoading && currentPage === 1 ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
               </div>
             ) : (
               <Table>
@@ -1112,28 +1350,28 @@ export default function CoursesTable() {
       {/* Results Count and Pagination Info */}
       <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
         <div>
-          Showing {filteredAndSortedData.length} of {apiResponse?.total || 0} courses
-          {apiResponse && (
+          Showing {filteredAndSortedData.length} of {apiCourseResponse?.total || 0} courses
+          {apiCourseResponse && (
             <span className="ml-2">
-              (Page {apiResponse.page} of {apiResponse.totalPages})
+              (Page {apiCourseResponse.page} of {apiCourseResponse.totalPages})
             </span>
           )}
         </div>
-        {apiResponse && apiResponse.totalPages > 1 && (
+        {apiCourseResponse && apiCourseResponse.totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
-              disabled={!apiResponse.hasPrevPage}
+              disabled={!apiCourseResponse.hasPrevPage}
               className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
             >
               Previous
             </button>
             <span className="px-3 py-1">
-              {currentPage} / {apiResponse.totalPages}
+              {currentPage} / {apiCourseResponse.totalPages}
             </span>
             <button
               onClick={() => handlePageChange(currentPage + 1)}
-              disabled={!apiResponse.hasNextPage}
+              disabled={!apiCourseResponse.hasNextPage}
               className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
             >
               Next
@@ -1146,9 +1384,11 @@ export default function CoursesTable() {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onFilterChange={handleFilterChange}
-        filtersData={apiResponse?.filters || null}
+        onApplyFilters={handleApplyFilters}
+        onFilterChange={handleTempFilterChange} // New prop for real-time changes
+        filtersData={filtersData}
         appliedFilters={filters}
+        intakeOptions={filtersData?.filters?.intakes || []}
       />
     </div>
   );

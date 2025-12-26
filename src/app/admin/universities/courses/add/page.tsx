@@ -70,12 +70,14 @@ export default function AddCourse() {
   const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
 
   const [intakeOptions, setIntakeOptions] = useState<IntakeOption[]>([]);
+
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  
   
   // Options state
   const [universities, setUniversities] = useState<University[]>([]);
   const [studyLevels, setStudyLevels] = useState<Option[]>([]);
   const [disciplines, setDisciplines] = useState<Option[]>([]);
-
   const [formData, setFormData] = useState<CourseFormData>({
     // Basics
     university_id: "",
@@ -112,6 +114,13 @@ export default function AddCourse() {
       submission_deadline: "",
     }],
   });
+
+
+  // Show message and auto-hide after 5 seconds
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 5000);
+  };
 
         const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -212,7 +221,7 @@ export default function AddCourse() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success === "2" && data.data) {
+        if (data.data) {
           setDisciplines(data.data);
         } else {
           setDisciplines([]);
@@ -292,13 +301,44 @@ export default function AddCourse() {
     }
   };
 
+    const validateForm = () => {
+  const requiredFields = [
+    'university_id', 'study_level_id', 'discipline_id', 
+    'course_name', 'tuition_fee', 
+    'currency_code', 'application_fee', 'about_course', 
+    'admission_requirements'
+  ];
+
+  // for (const field of requiredFields) {
+  //   if (!formData[field as keyof CourseFormData]) {
+  //     showMessage('error', `Please fill in all required fields`);
+  //     return false;
+  //   }
+  // }
+
+  // Validate intakes
+  for (const intake of formData.intakes) {
+    if (!intake.intake_year || !intake.intake_id || !intake.submission_deadline) {
+      showMessage('error', 'Please fill Intake Info');
+      return false;
+    }
+  }
+
+  return true;
+};
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+    return;
+  }
     
     if (!token) {
-      alert("Please log in to add a course");
+      showMessage('error', "Please log in to update the course");
       return;
     }
+
 
     setIsSubmitting(true);
 
@@ -348,7 +388,6 @@ export default function AddCourse() {
       }
 
       const result = await response.json();
-      console.log("Course added successfully:", result);
       
       // Redirect back to courses list
       router.push('/admin/universities/courses');
@@ -910,6 +949,11 @@ export default function AddCourse() {
                 }
                 dateFormat="yyyy-MM-dd"
                 placeholderText="Select date"
+                showYearDropdown
+  showMonthDropdown
+  dropdownMode="select"
+  yearDropdownItemNumber={50}
+  scrollableYearDropdown
                 className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               />
             </div>
@@ -941,6 +985,15 @@ export default function AddCourse() {
   );
 
   return (
+    <>{message && (
+        <div className={`p-4 rounded-lg mb-3 ${
+          message.type === 'success' 
+            ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300' 
+            : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+        }`}>
+          {message.text}
+        </div>
+      )}
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="px-5 py-4 sm:px-6 sm:py-5">
         <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
@@ -1057,5 +1110,6 @@ export default function AddCourse() {
         </form>
       </div>
     </div>
+    </>
   );
 }

@@ -20,7 +20,7 @@ interface UniversityFormData {
   email: string;
   address: string;
   map_url: string;
-  location_url: string;
+  website_url: string;
   
   // Media - File objects
   logo: File | null;
@@ -71,7 +71,7 @@ export default function AddUniversity() {
     email: "",
     address: "",
     map_url: "",
-    location_url: "",
+    website_url: "",
     
     // Media - initialize with null
     logo: null,
@@ -253,7 +253,7 @@ export default function AddUniversity() {
       formDataToSend.append('email', formData.email);
       formDataToSend.append('address', formData.address);
       formDataToSend.append('map_url', formData.map_url);
-      formDataToSend.append('location_url', formData.location_url);
+      formDataToSend.append('website_url', formData.website_url);
       formDataToSend.append('video_link', formData.video_link);
       formDataToSend.append('tuition_url', formData.tuition_url);
 
@@ -559,7 +559,7 @@ export default function AddUniversity() {
 
       {/* Location URL */}
       <div>
-        <label htmlFor="location_url" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+        <label htmlFor="website_url" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
           University Website URL
         </label>
         <div className="relative">
@@ -568,9 +568,9 @@ export default function AddUniversity() {
           </span>
           <input
             type="url"
-            id="location_url"
-            name="location_url"
-            value={formData.location_url}
+            id="website_url"
+            name="website_url"
+            value={formData.website_url}
             onChange={handleInputChange}
             placeholder="https://www.stanford.edu"
             className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
