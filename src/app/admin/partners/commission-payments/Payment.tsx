@@ -964,7 +964,7 @@ export default function ApplicationsTable() {
                         {formatDate(application.created_at)}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300 font-medium">
-                        <Link href={`/partner/editProfile`}>
+                        <Link href={`/partner/editProfile/1`}>
                         {application.student_name}
                         </Link>
                       </TableCell>

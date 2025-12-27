@@ -697,7 +697,7 @@ export default function StudentTable() {
                         {formatDate(student.created_at)}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
-                        <Link href={'/partner/editProfile'}>
+                        <Link href={'/partner/editProfile/1'}>
                         {getFullName(student)}
                         </Link>
                       </TableCell>

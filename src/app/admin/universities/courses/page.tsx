@@ -1197,7 +1197,7 @@ export default function CoursesTable() {
                 <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                   <TableRow>
                     {[
-                      { key: "id", label: "ID" },
+                      // { key: "id", label: "ID" },
                       { key: "courseName", label: "Course Name" },
                       { key: "universityName", label: "University" },
                       { key: "discipline", label: "Discipline" },
@@ -1231,11 +1231,11 @@ export default function CoursesTable() {
                   {filteredAndSortedData.length > 0 ? (
                     filteredAndSortedData.map((course) => (
                       <TableRow key={course.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <TableCell className="px-5 py-4 text-start">
+                        {/* <TableCell className="px-5 py-4 text-start">
                           <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                             #{course.id}
                           </div>
-                        </TableCell>
+                        </TableCell> */}
                         <TableCell className="px-5 py-4 text-start">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
