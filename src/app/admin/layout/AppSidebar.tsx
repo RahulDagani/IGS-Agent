@@ -188,11 +188,16 @@ const universityAndCoursesItems: NavItem[] = [
         path: "/universities/disciplines",
         icon: <GraduationCap size={18} />,
       },
-      // {
-      //   name: "Intakes",
-      //   path: "/universities/intakes",
-      //   icon: <GraduationCap size={18} />,
-      // },
+      {
+        name: "Intakes",
+        path: "/universities/intakes",
+        icon: <GraduationCap size={18} />,
+      },
+      {
+        name: "Deadline Types",
+        path: "/universities/deadline-types",
+        icon: <GraduationCap size={18} />,
+      },
       
     ],
   },
