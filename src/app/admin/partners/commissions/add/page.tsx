@@ -68,6 +68,11 @@ interface StudyLevel {
   slug: string;
 }
 
+interface UniversityType {
+  id: number;
+  university: string;
+}
+
 export default function AddCommission() {
   const router = useRouter();
   const [formData, setFormData] = useState<CommissionFormData>({
@@ -80,7 +85,7 @@ export default function AddCommission() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
-  const [universities, setUniversities] = useState<University[]>([]);
+  const [universities, setUniversities] = useState<UniversityType[]>([]);
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +109,7 @@ export default function AddCommission() {
           name: country.name
         }));
 
-        const response = await fetch(`${BASE_URL}/tenant/university/list`, {
+        const response = await fetch(`${BASE_URL}/tenant/university/names`, {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -116,9 +121,9 @@ export default function AddCommission() {
           throw new Error(`Failed to fetch universities: ${response.status}`);
         }
 
-        const data: ApiResponse = await response.json();
+        const data = await response.json();
 
-        const universities: University[] = data.data.universities;
+        const universities: UniversityType[] = data.data;
 
         const responseStudylevels = await fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
         method: 'GET',

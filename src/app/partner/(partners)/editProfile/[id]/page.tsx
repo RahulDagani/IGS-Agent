@@ -23,23 +23,10 @@ type Program = {
 };
 
 interface Student {
-  id: number;
   name: string;
   email: string;
   phone: string;
-  student_platform_link: string;
-  created_at: string;
-  passport_number: string;
-  dob: string;
-  country: string;
-  study_level: string;
-  address: string;
-  city: string;
-  state: string;
-  zip_code: string;
-  nationality: string;
-  gender: string;
-  status: string;
+
 }
 
 interface Application {
@@ -88,7 +75,7 @@ export default function StudentDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
   
-  const params = useParams();
+  const {id: studentId} = useParams();
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -98,31 +85,32 @@ export default function StudentDetailsPage() {
     fetchDocuments();
   }, []);
 
+  
+
   const fetchStudentDetails = async () => {
     try {
       setLoading(true);
+        const response = await fetch(`${BASE_URL}/agent/student/${studentId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const { data } = await response.json();
       // Mock data for now
-      const mockStudent: Student = {
-        id: 1,
-        name: "Monisha Katam",
-        email: "monishakataminvicta@gmail.com",
-        phone: "+917386424422",
-        student_platform_link: "https://app.coursefinder.ai/student-platform/b3c83c35/6whq0qlxazo/login",
-        created_at: "2024-01-15T10:30:00Z",
-        passport_number: "A12345678",
-        dob: "1995-05-15",
-        country: "India",
-        study_level: "Undergraduate",
-        address: "123 Main Street",
-        city: "Mumbai",
-        state: "Maharashtra",
-        zip_code: "400001",
-        nationality: "Indian",
-        gender: "Female",
-        status: "Active"
+      const mockStudent = {
+        name: data.first_name + data.last_name,
+        email: data.email,
+        phone: data.phone,
       };
       
       setStudent(mockStudent);
+
+      } else {
+          
+          console.error('Failed to fetch student data');
+        }
     } catch (error) {
       console.error("Error fetching student details:", error);
     } finally {
@@ -219,18 +207,7 @@ export default function StudentDetailsPage() {
     }
   };
 
-  const copyToClipboard = () => {
-    if (student?.student_platform_link) {
-      navigator.clipboard.writeText(student.student_platform_link)
-        .then(() => {
-          setCopySuccess(true);
-          setTimeout(() => setCopySuccess(false), 2000);
-        })
-        .catch(err => {
-          console.error('Failed to copy:', err);
-        });
-    }
-  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

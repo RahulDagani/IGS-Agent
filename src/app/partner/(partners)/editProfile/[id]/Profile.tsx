@@ -83,7 +83,7 @@ export default function ProfileForm() {
     const fetchStudentData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/student/1`, {
+        const response = await fetch(`${BASE_URL}/agent/student/${studentId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -315,7 +315,7 @@ export default function ProfileForm() {
         emergency_c_phone: formData.emergency_c_phone,
       };
 
-      const response = await fetch(`${BASE_URL}/agent/student/${"jk"}`, {
+      const response = await fetch(`${BASE_URL}/agent/student/${studentId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

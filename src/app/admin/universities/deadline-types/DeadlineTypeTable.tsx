@@ -11,7 +11,7 @@ import Badge from "@/components/ui/badge/Badge";
 import { Edit, Trash, Plus, Calendar } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-interface IntakeType {
+interface DeadlineType {
   id: number;
   name: string;
   slug: string;
@@ -21,19 +21,19 @@ interface IntakeType {
 
 interface ApiResponse {
   success: boolean;
-  data: IntakeType[];
+  data: DeadlineType[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
 }
 
-interface AddEditIntakeModalProps {
+interface AddEditTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (intakeData: { name: string }) => void;
+  onSave: (typeData: { name: string }) => void;
   mode: "add" | "edit";
-  initialData?: IntakeType;
+  initialData?: DeadlineType;
 }
 
 interface PaginationControlsProps {
@@ -142,7 +142,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   );
 };
 
-const AddEditIntakeModal: React.FC<AddEditIntakeModalProps> = ({
+const AddEditTypeModal: React.FC<AddEditTypeModalProps> = ({
   isOpen,
   onClose,
   onSave,
@@ -175,7 +175,7 @@ const AddEditIntakeModal: React.FC<AddEditIntakeModalProps> = ({
       await onSave(formData);
       onClose();
     } catch (error) {
-      console.error('Error saving intake:', error);
+      console.error('Error saving deadline type:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -195,7 +195,7 @@ const AddEditIntakeModal: React.FC<AddEditIntakeModalProps> = ({
       <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md">
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            {mode === "add" ? "Add New Intake" : "Edit Intake"}
+            {mode === "add" ? "Add New Deadline Type" : "Edit Deadline Type"}
           </h3>
           <button
             onClick={handleClose}
@@ -209,10 +209,10 @@ const AddEditIntakeModal: React.FC<AddEditIntakeModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-4">
-            {/* Intake Name */}
+            {/* Deadline Type Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Intake Name *
+                Deadline Type Name *
               </label>
               <div className="relative">
                 <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
@@ -223,13 +223,13 @@ const AddEditIntakeModal: React.FC<AddEditIntakeModalProps> = ({
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., January, February, Fall 2024, Spring 2025"
+                  placeholder="e.g., Application Deadline, Payment Deadline"
                   required
                   className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Enter the intake period name
+                The slug will be automatically generated from the name
               </p>
             </div>
           </div>
@@ -252,11 +252,11 @@ const AddEditIntakeModal: React.FC<AddEditIntakeModalProps> = ({
                   <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                  </svg>
                   {mode === "add" ? "Adding..." : "Updating..."}
                 </div>
               ) : (
-                mode === "add" ? "Add Intake" : "Update Intake"
+                mode === "add" ? "Add Type" : "Update Type"
               )}
             </button>
           </div>
@@ -270,14 +270,14 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 type SortDirection = "asc" | "desc";
 
-export default function IntakesTable() {
+export default function DeadlineTypesTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [sortField, setSortField] = useState<keyof IntakeType>("id");
+  const [sortField, setSortField] = useState<keyof DeadlineType>("id");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
-  const [selectedIntake, setSelectedIntake] = useState<IntakeType | null>(null);
-  const [intakes, setIntakes] = useState<IntakeType[]>([]);
+  const [selectedType, setSelectedType] = useState<DeadlineType | null>(null);
+  const [deadlineTypes, setDeadlineTypes] = useState<DeadlineType[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
@@ -288,8 +288,8 @@ export default function IntakesTable() {
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
 
-  // Fetch intakes from API with pagination
-  const fetchIntakes = async (page: number = currentPage, limit: number = itemsPerPage) => {
+  // Fetch deadline types from API with pagination
+  const fetchDeadlineTypes = async (page: number = currentPage, limit: number = itemsPerPage) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -305,29 +305,29 @@ export default function IntakesTable() {
         queryParams.append('search', searchTerm);
       }
       
-      // Add sorting parameters if needed
+      // Add sorting parameters
       if (sortField) {
         queryParams.append('sortBy', sortField);
         queryParams.append('sortOrder', sortDirection);
       }
 
       const response = await fetch(
-        `${BASE_URL}/tenant/option/apply_tenant_intakes?${queryParams}`,
+        `${BASE_URL}/tenant/option/apply_tenant_deadline_types?${queryParams}`,
         {
           headers: { 'Authorization': `Bearer ${token}` },
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch intakes: ${response.status}`);
+        throw new Error(`Failed to fetch deadline types: ${response.status}`);
       }
 
       const result: ApiResponse = await response.json();
       
       if (result.success) {
-        setIntakes(result.data);
+        setDeadlineTypes(result.data);
         
-        // Update pagination meta if available
+        // Update pagination meta
         if (result) {
           setTotalItems(result.total);
           setCurrentPage(result.page);
@@ -337,11 +337,11 @@ export default function IntakesTable() {
           }
         } 
       } else {
-        throw new Error('Failed to fetch intakes');
+        throw new Error('Failed to fetch deadline types');
       }
     } catch (err) {
-      console.error('Error fetching intakes:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch intakes');
+      console.error('Error fetching deadline types:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch deadline types');
     } finally {
       setIsLoading(false);
     }
@@ -356,22 +356,22 @@ export default function IntakesTable() {
     
     // Use debounce for search to avoid too many API calls
     const timeoutId = setTimeout(() => {
-      fetchIntakes(currentPage, itemsPerPage);
-    }, 300);
+      fetchDeadlineTypes(currentPage, itemsPerPage);
+    }, 300); // 300ms delay
 
     return () => clearTimeout(timeoutId);
   }, [currentPage, itemsPerPage, searchTerm, sortField, sortDirection]);
 
   // Filter data client-side for current page
   const filteredData = useMemo(() => {
-    return intakes.filter((intake) => {
+    return deadlineTypes.filter((type) => {
       const matchesSearch = 
-        intake.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (intake.slug && intake.slug.toLowerCase().includes(searchTerm.toLowerCase()));
+        type.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (type.slug && type.slug.toLowerCase().includes(searchTerm.toLowerCase()));
       
       return matchesSearch;
     });
-  }, [intakes, searchTerm]);
+  }, [deadlineTypes, searchTerm]);
 
   // Sort data client-side
   const filteredAndSortedData = useMemo(() => {
@@ -400,7 +400,7 @@ export default function IntakesTable() {
     return dataToSort;
   }, [filteredData, sortField, sortDirection]);
 
-  const handleSort = (field: keyof IntakeType) => {
+  const handleSort = (field: keyof DeadlineType) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -409,99 +409,90 @@ export default function IntakesTable() {
     }
   };
 
-  const getSortIcon = (field: keyof IntakeType) => {
+  const getSortIcon = (field: keyof DeadlineType) => {
     if (sortField !== field) return "↕️";
     return sortDirection === "asc" ? "↑" : "↓";
   };
 
-  const getIntakeColor = (name: string) => {
-    const intakeName = name.toLowerCase();
-    if (['january', 'february', 'march'].includes(intakeName)) {
-      return "primary";
-    } else if (['april', 'may', 'june'].includes(intakeName)) {
-      return "success";
-    } else if (['july', 'august', 'september'].includes(intakeName)) {
-      return "warning";
-    } else if (['october', 'november', 'december'].includes(intakeName)) {
-      return "info";
-    } else if (['fall', 'autumn'].includes(intakeName)) {
-      return "error";
-    } else if (['spring'].includes(intakeName)) {
-      return "success";
-    } else if (['summer'].includes(intakeName)) {
-      return "warning";
-    } else if (['winter'].includes(intakeName)) {
-      return "info";
-    } else {
-      return "primary";
-    }
+  const getTypeColor = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('application')) return 'primary';
+    if (lowerName.includes('payment')) return 'success';
+    if (lowerName.includes('deadline')) return 'warning';
+    if (lowerName.includes('enrollment')) return 'info';
+    if (lowerName.includes('visa')) return 'error';
+    if (lowerName.includes('course')) return 'primary';
+    if (lowerName.includes('offer')) return 'success';
+    if (lowerName.includes('cas')) return 'warning';
+    if (lowerName.includes('gs')) return 'info';
+    return 'primary';
   };
 
-  const handleAddIntake = async (intakeData: { name: string }) => {
+  const handleAddType = async (typeData: { name: string }) => {
     try {
-      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes`, {
+      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_deadline_types`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(intakeData),
+        body: JSON.stringify(typeData),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to add intake: ${response.status}`);
+        throw new Error(`Failed to add deadline type: ${response.status}`);
       }
 
       const result = await response.json();
       
       if (result.success) {
-        // Refresh the intakes list
-        await fetchIntakes(currentPage, itemsPerPage);
+        // Refresh the deadline types list
+        await fetchDeadlineTypes(currentPage, itemsPerPage);
       } else {
-        throw new Error('Failed to add intake');
+        throw new Error('Failed to add deadline type');
       }
     } catch (error) {
-      console.error('Error adding intake:', error);
+      console.error('Error adding deadline type:', error);
       throw error;
     }
   };
 
-  const handleEditIntake = async (intakeData: { name: string }) => {
-    if (!selectedIntake) return;
+  const handleEditType = async (typeData: { name: string }) => {
+    if (!selectedType) return;
 
     try {
-      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes/${selectedIntake.id}`, {
+      const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_deadline_types/${selectedType.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(intakeData),
+        body: JSON.stringify(typeData),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to update intake: ${response.status}`);
+        throw new Error(`Failed to update deadline type: ${response.status}`);
       }
 
       const result = await response.json();
       
       if (result.success) {
-        // Refresh the intakes list
-        await fetchIntakes(currentPage, itemsPerPage);
-        setSelectedIntake(null);
+        // Refresh the deadline types list
+        await fetchDeadlineTypes(currentPage, itemsPerPage);
+        setSelectedType(null);
       } else {
-        throw new Error('Failed to update intake');
+        throw new Error('Failed to update deadline type');
       }
     } catch (error) {
-      console.error('Error updating intake:', error);
+      console.error('Error updating deadline type:', error);
       throw error;
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this intake? This action cannot be undone.")) {
+    if (confirm("Are you sure you want to delete this deadline type? This action cannot be undone.")) {
       try {
-        const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes/${id}`, {
+        const response = await fetch(`${BASE_URL}/tenant/option/apply_tenant_deadline_types/${id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -509,32 +500,41 @@ export default function IntakesTable() {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to delete intake: ${response.status}`);
+          throw new Error(`Failed to delete deadline type: ${response.status}`);
         }
 
         const result = await response.json();
         
         if (result.success) {
-          // Refresh the intakes list
-          await fetchIntakes(currentPage, itemsPerPage);
+          // Refresh the deadline types list
+          await fetchDeadlineTypes(currentPage, itemsPerPage);
         } else {
-          throw new Error('Failed to delete intake');
+          throw new Error('Failed to delete deadline type');
         }
       } catch (error) {
-        console.error('Error deleting intake:', error);
-        alert('Failed to delete intake. Please try again.');
+        console.error('Error deleting deadline type:', error);
+        alert('Failed to delete deadline type. Please try again.');
       }
     }
   };
 
-  const handleEditClick = (intake: IntakeType) => {
-    setSelectedIntake(intake);
+  const handleEditClick = (type: DeadlineType) => {
+    setSelectedType(type);
     setIsEditModalOpen(true);
   };
 
   const handleAddClick = () => {
-    setSelectedIntake(null);
+    setSelectedType(null);
     setIsAddModalOpen(true);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   if (isLoading) {
@@ -545,7 +545,7 @@ export default function IntakesTable() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span className="text-gray-600 dark:text-gray-400">Loading intakes...</span>
+          <span className="text-gray-600 dark:text-gray-400">Loading deadline types...</span>
         </div>
       </div>
     );
@@ -555,10 +555,10 @@ export default function IntakesTable() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="text-red-500 text-lg mb-2">Error Loading Intakes</div>
+          <div className="text-red-500 text-lg mb-2">Error Loading Deadline Types</div>
           <div className="text-gray-600 dark:text-gray-400 mb-4">{error}</div>
           <button
-            onClick={() => fetchIntakes(currentPage, itemsPerPage)}
+            onClick={() => fetchDeadlineTypes(currentPage, itemsPerPage)}
             className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
           >
             Try Again
@@ -573,27 +573,27 @@ export default function IntakesTable() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Intakes</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Total Types</div>
           <div className="text-2xl font-bold text-gray-800 dark:text-white">
             {totalItems}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Quarter 1 (Jan-Mar)</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Application Types</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {intakes.filter(d => ['january', 'february', 'march'].includes(d.name.toLowerCase())).length}
+            {deadlineTypes.filter(d => d.name.toLowerCase().includes('application')).length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Quarter 2 (Apr-Jun)</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Payment Types</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {intakes.filter(d => ['april', 'may', 'june'].includes(d.name.toLowerCase())).length}
+            {deadlineTypes.filter(d => d.name.toLowerCase().includes('payment')).length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Other Intakes</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Other Types</div>
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {intakes.filter(d => !['january', 'february', 'march', 'april', 'may', 'june'].includes(d.name.toLowerCase())).length}
+            {deadlineTypes.filter(d => !d.name.toLowerCase().includes('application') && !d.name.toLowerCase().includes('payment')).length}
           </div>
         </div>
       </div>
@@ -605,7 +605,7 @@ export default function IntakesTable() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by intake name..."
+              placeholder="Search by deadline type name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
@@ -635,7 +635,7 @@ export default function IntakesTable() {
             className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2"
           >
             <Plus size={18} />
-            Add Intake
+            Add Deadline Type
           </button>
         </div>
       </div>
@@ -643,27 +643,29 @@ export default function IntakesTable() {
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[600px]">
+          <div className="min-w-[800px]">
             <Table>
               {/* Table Header */}
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
-                    { key: "name", label: "Intake Name" },
+                    // { key: "id", label: "ID" },
+                    { key: "name", label: "Deadline Type" },
                     { key: "slug", label: "Slug" },
-                    { key: "created_at", label: "Created" },
+                    { key: "created_at", label: "Created At" },
+                    { key: "updated_at", label: "Updated At" },
                     { key: "action", label: "Action" },
                   ].map(({ key, label }) => (
                     <TableCell
                       key={key}
                       isHeader
                       className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => key !== "action" ? handleSort(key as keyof IntakeType) : undefined}
+                      onClick={() => key !== "action" ? handleSort(key as keyof DeadlineType) : undefined}
                     >
                       <div className="flex items-center gap-1">
                         {label}
                         {key !== "action" && (
-                          <span className="text-xs">{getSortIcon(key as keyof IntakeType)}</span>
+                          <span className="text-xs">{getSortIcon(key as keyof DeadlineType)}</span>
                         )}
                       </div>
                     </TableCell>
@@ -674,48 +676,58 @@ export default function IntakesTable() {
               {/* Table Body */}
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                 {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((intake) => (
-                    <TableRow key={intake.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  filteredAndSortedData.map((type) => (
+                    <TableRow key={type.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      {/* <TableCell className="px-5 py-4 text-start">
+                        <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                          #{type.id}
+                        </div>
+                      </TableCell> */}
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                             <Calendar size={16} className="text-gray-600 dark:text-gray-400" />
                           </div>
                           <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {intake.name}
+                            {type.name}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getIntakeColor(intake.name)}
-                        >
-                          {intake.slug || "N/A"}
-                        </Badge>
+                        {type.slug ? (
+                          <Badge
+                            size="sm"
+                            color={getTypeColor(type.name)}
+                          >
+                            {type.slug}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {new Date(intake.created_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
+                          {formatDate(type.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {formatDate(type.updated_at)}
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleEditClick(intake)}
+                            onClick={() => handleEditClick(type)}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            title="Edit Intake"
+                            title="Edit Deadline Type"
                           >
                             <Edit size={18} />
                           </button>
                           <button
-                            onClick={() => handleDelete(intake.id)}
+                            onClick={() => handleDelete(type.id)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                            title="Delete Intake"
+                            title="Delete Deadline Type"
                           >
                             <Trash size={18} />
                           </button>
@@ -725,8 +737,8 @@ export default function IntakesTable() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell  className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400">
-                      {searchTerm ? "No intakes found matching your search." : "No intakes available."}
+                    <TableCell className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400">
+                      {searchTerm ? "No deadline types found matching your search." : "No deadline types available."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -738,7 +750,7 @@ export default function IntakesTable() {
 
       {/* Results Count */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
-        Page {currentPage} of {totalPages} • Showing {filteredAndSortedData.length} of {intakes.length} intakes on this page
+        Page {currentPage} of {totalPages} • Showing {filteredAndSortedData.length} of {deadlineTypes.length} deadline types on this page
       </div>
 
       {/* Pagination Controls */}
@@ -750,28 +762,28 @@ export default function IntakesTable() {
         onPageChange={setCurrentPage}
         onItemsPerPageChange={(value) => {
           setItemsPerPage(value);
-          setCurrentPage(1);
+          setCurrentPage(1); // Reset to first page when changing items per page
         }}
       />
 
       {/* Add Modal */}
-      <AddEditIntakeModal
+      <AddEditTypeModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSave={handleAddIntake}
+        onSave={handleAddType}
         mode="add"
       />
 
       {/* Edit Modal */}
-      <AddEditIntakeModal
+      <AddEditTypeModal
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
-          setSelectedIntake(null);
+          setSelectedType(null);
         }}
-        onSave={handleEditIntake}
+        onSave={handleEditType}
         mode="edit"
-        initialData={selectedIntake || undefined}
+        initialData={selectedType || undefined}
       />
     </div>
   );

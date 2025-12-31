@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import Programs from '../../programs/Programs';
 
 interface Application {
   id: number;
@@ -824,7 +825,7 @@ export default function Applications() {
                             Attach File
                           </button>
                           
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          {/* <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <input
                               type="checkbox"
                               checked={hideFromCounselor}
@@ -833,7 +834,7 @@ export default function Applications() {
                               disabled={chatUploadState.isUploading}
                             />
                             <span>Hide this message and attachment from counselor</span>
-                          </div>
+                          </div> */}
                         </div>
                         
                         <button
@@ -1048,100 +1049,8 @@ export default function Applications() {
           )}
         </div>
       ) : (
-        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-6 relative">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-xl font-semibold text-blue-600 dark:text-blue-400">
-              Quick Add Program
-            </h1>
-
-            <button className="flex items-center gap-2 border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30">
-              <Search size={16} />
-              Search Program
-            </button>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-6">
-            <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-5xl">
-              We only show eligible programs for this student for the selected intake,
-              year and university. To understand why certain programs are not eligible
-              for this student, please go to Search Program.
-            </p>
-
-            <div className="grid grid-cols-12 gap-4 items-center">
-              <div className="col-span-3">
-                <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 px-4 py-3 rounded-md cursor-pointer">
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                    <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
-                    Select Year
-                  </div>
-                  <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
-                </div>
-              </div>
-
-              <div className="col-span-3">
-                <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 px-4 py-3 rounded-md cursor-pointer">
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                    <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
-                    Select Intake
-                  </div>
-                  <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
-                </div>
-              </div>
-
-              <div className="col-span-3">
-                <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 px-4 py-3 rounded-md cursor-pointer">
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                    <School size={18} className="text-blue-600 dark:text-blue-400" />
-                    Select University
-                  </div>
-                  <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
-                </div>
-              </div>
-
-              <div className="col-span-2">
-                <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 px-4 py-3 rounded-md cursor-pointer">
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                    <GraduationCap size={18} className="text-blue-600 dark:text-blue-400" />
-                    Select Program
-                  </div>
-                  <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
-                </div>
-              </div>
-
-              <div className="col-span-1">
-                <button className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 py-3 rounded-md">
-                  <Plus size={16} />
-                  Add
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 mt-6 p-6 min-h-[420px] flex flex-col">
-            <h2 className="text-lg font-semibold mb-2 dark:text-white">
-              Selected Programs{' '}
-              <span className="text-gray-500 dark:text-gray-400 font-normal text-sm">
-                (Max 10 programs)
-              </span>
-            </h2>
-
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <div className="w-56 h-40 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center mb-6">
-                <span className="text-blue-400 dark:text-blue-300 text-sm">
-                  Illustration Placeholder
-                </span>
-              </div>
-
-              <p className="text-gray-600 dark:text-gray-400 text-lg">
-                Let's get started, add programs to proceed with applications.
-              </p>
-            </div>
-          </div>
-
-          <button className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-lg flex items-center gap-2 shadow-lg">
-            <FileUp size={18} />
-            Upload documents
-          </button>
+        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 relative">
+          <Programs />
         </div>
       )}
 

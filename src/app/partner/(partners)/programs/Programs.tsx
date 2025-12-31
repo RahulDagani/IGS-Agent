@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Badge from "@/components/ui/badge/Badge";
-import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar, Book, Building2, Star, X } from "lucide-react";
+import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar, Book, Building2, Star, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -9,18 +9,56 @@ import { Country, State } from "country-state-city";
 import Image from "next/image";
 
 // Interfaces matching the API response structure
+interface StudyLevel {
+  id: number;
+  name: string;
+}
+
+interface Discipline {
+  id: number;
+  name: string;
+}
+
+interface University {
+  id: number;
+  university: string;
+  country_code: string;
+  state_code: string;
+  city_code: string;
+}
+
+interface LocationCountry {
+  country_code: string;
+}
+
+interface LocationState {
+  state_code: string;
+}
+
+interface LocationCity {
+  city_code: string;
+}
+
 interface Intake {
-  intake_id: number;
-  course_id: number;
-  start_date: string;
-  open_date: string;
-  submission_deadline: string;
-  seat_availability: string;
-  turnaround_time: string;
-  conversion_rate: string;
-  overall_score_label: string;
-  overall_score_intent: string;
-  intake_created_at: string;
+  id: number;
+  intake: string;
+}
+
+interface IntakeYear {
+  intake_year: number;
+}
+
+interface FiltersData {
+  studyLevels: StudyLevel[];
+  disciplines: Discipline[];
+  universities: University[];
+  locations: {
+    countries: LocationCountry[];
+    states: LocationState[];
+    cities: LocationCity[];
+  };
+  intakes: Intake[];
+  intakeYears: IntakeYear[];
 }
 
 interface Course {
@@ -29,9 +67,6 @@ interface Course {
   university_id: number;
   study_level_id: number;
   discipline_id: number;
-  partner_type_id: number;
-  collaboration_type_id: number;
-  university_type_id: number;
   course_name: string;
   course_slug: string;
   is_popular: number;
@@ -52,19 +87,16 @@ interface Course {
   gpa_score: string | null;
   about_course: string;
   admission_requirements: string;
+  is_deleted: number;
   created_at: string;
   updated_at: string;
   university_name: string;
-  study_level_name: string;
-  discipline_name: string;
-  partner_type_name: string;
-  university_type_name: string;
-  collaboration_type_name: string;
-  intakes: Intake[];
   country_code: string;
   state_code: string;
   city_code: string;
   university_logo: string;
+  study_level_name: string;
+  discipline_name: string;
   university_logo_url: string;
 }
 
@@ -77,42 +109,18 @@ interface ApiResponse {
   hasNextPage: boolean;
   hasPrevPage: boolean;
   data: Course[];
-  filters: {
-    studyLevels: Array<{
-      id: number;
-      name: string;
-    }>;
-    disciplines: Array<{
-      id: number;
-      name: string;
-    }>;
-    universities: Array<{
-      id: number;
-      university: string;
-      country_code: string;
-      state_code: string;
-      city_code: string;
-    }>;
-    locations: {
-      countries: Array<{ country_code: string }>;
-      states: Array<{ state_code: string }>;
-      cities: Array<{ city_code: string }>;
-    };
-    tuitionRange: {
-      min: string;
-      max: string;
-    };
-  };
 }
 
 // Filter Options Interface for Student Portal
 interface FilterOptions {
-  discipline: string | number;
-  study_level_id: string | number;
-  university: string | number;
-  country_code: string | number;
-  state_code: string | number;
-  city_code: string | number;
+  disciplines: number[];
+  studyLevels: number[];
+  universities: number[];
+  countries: string[];
+  states: string[];
+  cities: string[];
+  intakes: number[];
+  intakeYears: number[];
   search?: string;
 }
 
@@ -121,16 +129,7 @@ interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onFilterApply: (filters: FilterOptions) => void;
-  filterOptions: {
-    studyLevels: Array<{ id: number; name: string }>;
-    disciplines: Array<{ id: number; name: string }>;
-    universities: Array<{ id: number; university: string }>;
-    locations: {
-      countries: Array<{ country_code: string }>;
-      states: Array<{ state_code: string }>;
-      cities: Array<{ city_code: string }>;
-    };
-  } | null;
+  filterOptions: FiltersData | null;
   appliedFilters: FilterOptions;
   onFiltersChange: (filters: FilterOptions) => void;
 }
@@ -156,6 +155,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
   onFiltersChange,
 }) => {
   const [localFilters, setLocalFilters] = useState<FilterOptions>(appliedFilters);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    disciplines: true,
+    locations: true,
+    universities: true,
+    studyLevels: true,
+    intakes: true,
+    intakeYears: true,
+  });
 
   // Initialize local filters when modal opens
   useEffect(() => {
@@ -164,23 +171,66 @@ const FilterModal: React.FC<FilterModalProps> = ({
     }
   }, [isOpen, appliedFilters]);
 
-  const handleSelectChange = (key: keyof FilterOptions, value: string | number) => {
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // Handle checkbox changes for arrays
+  const handleCheckboxChange = (key: keyof FilterOptions, value: number | string, checked: boolean) => {
+    setLocalFilters(prev => {
+      const currentArray = prev[key] as (number | string)[];
+      let newArray: (number | string)[];
+      
+      if (checked) {
+        // Add value to array
+        newArray = [...currentArray, value];
+      } else {
+        // Remove value from array
+        newArray = currentArray.filter(item => item !== value);
+      }
+      
+      const newFilters = {
+        ...prev,
+        [key]: newArray
+      };
+      
+      // Update parent component
+      onFiltersChange(newFilters);
+      return newFilters;
+    });
+  };
+
+  // Handle select changes for arrays (multi-select)
+  const handleMultiSelectChange = (key: keyof FilterOptions, e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedOptions = Array.from(e.target.selectedOptions, option => {
+      if (key === 'intakes' || key === 'intakeYears' || key === 'studyLevels') {
+        return Number(option.value);
+      }
+      return option.value;
+    });
+    
     const newFilters = {
       ...localFilters,
-      [key]: value
+      [key]: selectedOptions
     };
+    
     setLocalFilters(newFilters);
     onFiltersChange(newFilters);
   };
 
   const handleReset = () => {
     const resetFilters: FilterOptions = {
-      discipline: "all",
-      study_level_id: "all",
-      university: "all",
-      country_code: "all",
-      state_code: "all",
-      city_code: "all",
+      disciplines: [],
+      studyLevels: [],
+      universities: [],
+      countries: [],
+      states: [],
+      cities: [],
+      intakes: [],
+      intakeYears: [],
     };
     setLocalFilters(resetFilters);
     onFiltersChange(resetFilters);
@@ -191,11 +241,17 @@ const FilterModal: React.FC<FilterModalProps> = ({
     onClose();
   };
 
+  // Check if a value is selected in an array
+  const isSelected = (key: keyof FilterOptions, value: number | string) => {
+    const array = localFilters[key] as (number | string)[];
+    return array.includes(value);
+  };
+
   if (!isOpen || !filterOptions) return null;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[800px] max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Programs
@@ -208,120 +264,311 @@ const FilterModal: React.FC<FilterModalProps> = ({
           </button>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Study Level Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Study Level
-            </label>
-            <select
-              value={localFilters.study_level_id}
-              onChange={(e) => handleSelectChange('study_level_id', e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        <div className="p-6 space-y-6">
+          {/* Study Levels Filter - Keep as Multi-Select */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('studyLevels')}
+              className="flex items-center justify-between w-full text-left"
             >
-              <option value="all">All Study Levels</option>
-              {filterOptions.studyLevels.map((level) => (
-                <option key={level.id} value={level.id}>
-                  {level.name}
-                </option>
-              ))}
-            </select>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Study Levels
+              </h4>
+              {expandedSections.studyLevels ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.studyLevels && (
+              <select
+                value={localFilters.studyLevels.map(String)}
+                onChange={(e) => handleMultiSelectChange('studyLevels', e)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              >
+                {filterOptions.studyLevels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {localFilters.studyLevels.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.studyLevels.length} study level(s)
+              </p>
+            )}
           </div>
 
-          {/* Discipline Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Discipline
-            </label>
-            <select
-              value={localFilters.discipline}
-              onChange={(e) => handleSelectChange('discipline', e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          {/* Disciplines Filter - Changed to Checkboxes */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('disciplines')}
+              className="flex items-center justify-between w-full text-left"
             >
-              <option value="all">All Disciplines</option>
-              {filterOptions.disciplines.map((discipline) => (
-                <option key={discipline.id} value={discipline.id}>
-                  {discipline.name}
-                </option>
-              ))}
-            </select>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Disciplines
+              </h4>
+              {expandedSections.disciplines ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.disciplines && (
+              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto p-2">
+                {filterOptions.disciplines.map((discipline) => (
+                  <label
+                    key={discipline.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected('disciplines', discipline.id)}
+                      onChange={(e) => handleCheckboxChange('disciplines', discipline.id, e.target.checked)}
+                      className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {discipline.name}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {localFilters.disciplines.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.disciplines.length} discipline(s)
+              </p>
+            )}
           </div>
 
-          {/* University Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              University
-            </label>
-            <select
-              value={localFilters.university}
-              onChange={(e) => handleSelectChange('university', e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          {/* Universities Filter - Changed to Checkboxes */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('universities')}
+              className="flex items-center justify-between w-full text-left"
             >
-              <option value="all">All Universities</option>
-              {filterOptions.universities.map((university) => (
-                <option key={university.id} value={university.id}>
-                  {university.university}
-                </option>
-              ))}
-            </select>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Universities
+              </h4>
+              {expandedSections.universities ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.universities && (
+              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto p-2">
+                {filterOptions.universities.map((university) => (
+                  <label
+                    key={university.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected('universities', university.id)}
+                      onChange={(e) => handleCheckboxChange('universities', university.id, e.target.checked)}
+                      className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {university.university}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {localFilters.universities.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.universities.length} university(ies)
+              </p>
+            )}
           </div>
 
-          {/* Country Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Country
-            </label>
-            <select
-              value={localFilters.country_code}
-              onChange={(e) => handleSelectChange('country_code', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          {/* Locations Filter - Changed to Checkboxes */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('locations')}
+              className="flex items-center justify-between w-full text-left"
             >
-              <option value="all">All Countries</option>
-              {filterOptions.locations.countries.map((country) => (
-                <option key={country.country_code} value={country.country_code}>
-                  {getCountryName(country.country_code)}
-                </option>
-              ))}
-            </select>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Locations
+              </h4>
+              {expandedSections.locations ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.locations && (
+              <div className="space-y-4">
+                {/* Countries */}
+                <div className="space-y-2">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Countries
+                  </h5>
+                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto p-2">
+                    {filterOptions.locations.countries.map((country) => (
+                      <label
+                        key={country.country_code}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('countries', country.country_code)}
+                          onChange={(e) => handleCheckboxChange('countries', country.country_code, e.target.checked)}
+                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {getCountryName(country.country_code)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* States */}
+                <div className="space-y-2">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    States
+                  </h5>
+                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto p-2">
+                    {filterOptions.locations.states.map((state) => (
+                      <label
+                        key={state.state_code}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('states', state.state_code)}
+                          onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
+                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                         {state.state_code}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cities */}
+                {/* <div className="space-y-2">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Cities
+                  </h5>
+                  <div className="space-y-2 max-h-32 overflow-y-auto p-2">
+                    {filterOptions.locations.cities.map((city) => (
+                      <label
+                        key={city.city_code}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('cities', city.city_code)}
+                          onChange={(e) => handleCheckboxChange('cities', city.city_code, e.target.checked)}
+                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {city.city_code}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div> */}
+              </div>
+            )}
+            {(localFilters.countries.length > 0 || localFilters.states.length > 0 || localFilters.cities.length > 0) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.countries.length + localFilters.states.length + localFilters.cities.length} location(s)
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+             {/* Intakes Filter - Keep as Multi-Select */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('intakes')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Intakes
+              </h4>
+              {expandedSections.intakes ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.intakes && (
+              <select
+                value={localFilters.intakes.map(String)}
+                onChange={(e) => handleMultiSelectChange('intakes', e)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                
+              >
+                {filterOptions.intakes.map((intake) => (
+                  <option key={intake.id} value={intake.id}>
+                    {intake.intake}
+                  </option>
+                ))}
+              </select>
+            )}
+            {localFilters.intakes.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.intakes.length} intake(s)
+              </p>
+            )}
           </div>
 
-          {/* State Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              State
-            </label>
-            <select
-              value={localFilters.state_code}
-              onChange={(e) => handleSelectChange('state_code', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          {/* Intake Years Filter - Keep as Multi-Select */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('intakeYears')}
+              className="flex items-center justify-between w-full text-left"
             >
-              <option value="all">All States</option>
-              {filterOptions.locations.states.map((state) => (
-                <option key={state.state_code} value={state.state_code}>
-                  {getStateName(state.state_code)}
-                </option>
-              ))}
-            </select>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Intake Years
+              </h4>
+              {expandedSections.intakeYears ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.intakeYears && (
+              <select
+                value={localFilters.intakeYears.map(String)}
+                onChange={(e) => handleMultiSelectChange('intakeYears', e)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                
+              >
+                {filterOptions.intakeYears.map((year) => (
+                  <option key={year.intake_year} value={year.intake_year}>
+                    {year.intake_year}
+                  </option>
+                ))}
+              </select>
+            )}
+            {localFilters.intakeYears.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.intakeYears.length} year(s)
+              </p>
+            )}
           </div>
-
-          {/* City Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              City
-            </label>
-            <select
-              value={localFilters.city_code}
-              onChange={(e) => handleSelectChange('city_code', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Cities</option>
-              {filterOptions.locations.cities.map((city) => (
-                <option key={city.city_code} value={city.city_code}>
-                  {city.city_code}
-                </option>
-              ))}
-            </select>
           </div>
+         
         </div>
 
         <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
@@ -512,32 +759,6 @@ const CourseCard: React.FC<{
     return `${currency} ${parseFloat(fee).toLocaleString()}`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getAvailabilityColor = (availability: string) => {
-    switch (availability.toLowerCase()) {
-      case 'very high':
-        return 'text-green-600 bg-green-50 dark:bg-green-900/20';
-      case 'high':
-        return 'text-green-500 bg-green-50 dark:bg-green-900/20';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20';
-      case 'low':
-        return 'text-orange-600 bg-orange-50 dark:bg-orange-900/20';
-      case 'very low':
-        return 'text-red-600 bg-red-50 dark:bg-red-900/20';
-      default:
-        return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20';
-    }
-  };
-
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow duration-300">
       {/* Top Section */}
@@ -630,33 +851,6 @@ const CourseCard: React.FC<{
             </strong>
           </div>
         </div>
-
-        {/* Intakes */}
-        {course.intakes && course.intakes.length > 0 && (
-          <div className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <Calendar size={18}/>
-            <div className="flex-1">
-              <span className="block">Available Intakes</span>
-              <div className="mt-1 space-y-1">
-                {course.intakes.slice(0, 2).map((intake) => (
-                  <div key={intake.intake_id} className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800 dark:text-white">
-                      {formatDate(intake.start_date)}
-                    </span>
-                    <span className={`px-2 py-1 text-xs rounded-full ${getAvailabilityColor(intake.seat_availability)}`}>
-                      {intake.seat_availability}
-                    </span>
-                  </div>
-                ))}
-                {course.intakes.length > 2 && (
-                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                    +{course.intakes.length - 2} more intakes
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Entry Requirements */}
@@ -703,13 +897,12 @@ const CourseCard: React.FC<{
         <Link
           href={`/partner/programs/${course.id}`}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
-          
         >
           View Course Details
         </Link>
         {/* <button
           onClick={() => onApply(course)}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
+          className="flex-1 bg-green-600 hover:bg-green-700 text-center dark:bg-green-700 dark:hover:bg-green-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
           Apply Now
         </button> */}
@@ -723,7 +916,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 export default function StudentProgramsPage() {
   const { token, logout } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
-  const [filtersData, setFiltersData] = useState<ApiResponse['filters'] | null>(null);
+  const [filtersData, setFiltersData] = useState<FiltersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -740,14 +933,16 @@ export default function StudentProgramsPage() {
   const [alertMessage, setAlertMessage] = useState('');
   const [isApplying, setIsApplying] = useState(false);
 
-  // Filters for Student Portal
+  // Filters for Student Portal - Updated to use arrays
   const [filters, setFilters] = useState<FilterOptions>({
-    discipline: "all",
-    study_level_id: "all",
-    university: "all",
-    country_code: "all",
-    state_code: "all",
-    city_code: "all",
+    disciplines: [],
+    studyLevels: [],
+    universities: [],
+    countries: [],
+    states: [],
+    cities: [],
+    intakes: [],
+    intakeYears: [],
   });
 
   // Track modal filters separately
@@ -764,10 +959,30 @@ export default function StudentProgramsPage() {
   const buildFilterQueryString = useCallback((filtersToBuild: FilterOptions) => {
     const params = new URLSearchParams();
     
-    // Add all filters that are not "all"
+    // Add all array filters (multiple params with same key)
     Object.entries(filtersToBuild).forEach(([key, value]) => {
-      if (value !== "all" && value !== undefined && value !== null && value !== "" && key !== 'search') {
-        params.append(key, value.toString());
+      if (Array.isArray(value) && value.length > 0) {
+        value.forEach((val) => {
+          if (key === "studyLevels") {
+            params.append("study_level_id", val.toString());
+          } else if (key === "disciplines") {
+            params.append("discipline_id", val.toString());
+          } else if (key === "universities") {
+            params.append("university_id", val.toString());
+          } else if (key === "countries") {
+            params.append("country_code", val.toString());
+          } else if (key === "states") {
+            params.append("state_code", val.toString());
+          } else if (key === "cities") {
+            params.append("city_code", val.toString());
+          } else if (key === "intakes") {
+            params.append("intake_id", val.toString());
+          } else if (key === "intakeYears") {
+            params.append("intake_year", val.toString());
+          } else {
+            params.append(key, val.toString());
+          }
+        });
       }
     });
     
@@ -811,28 +1026,41 @@ export default function StudentProgramsPage() {
     }
   }, [token, logout, buildFilterQueryString, filters]);
 
-  // Build query string for courses API
-  const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: FilterOptions) => {
-    const params = new URLSearchParams();
-    
-    // Add page parameter
-    params.append('page', page.toString());
-    params.append('limit', '10');
-    
-    // Add all filters that are not "all"
-    Object.entries(filtersToBuild).forEach(([key, value]) => {
-      if (value !== "all" && value !== undefined && value !== null && value !== "") {
-        params.append(key, value.toString());
-      }
-    });
-    
-    // Add search term
-    if (searchTerm) {
-      params.append('search', searchTerm);
+// Build query string for courses API
+const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: FilterOptions) => {
+  const params = new URLSearchParams();
+  
+  // Add page parameter
+  params.append('page', page.toString());
+  params.append('limit', '10');
+  
+  // Add all array filters (multiple params with same key)
+  Object.entries(filtersToBuild).forEach(([key, value]) => {
+    if (Array.isArray(value) && value.length > 0) {
+      value.forEach((val) => {
+        // Map filter keys to API parameter names
+        let paramKey = key;
+        if (key === 'studyLevels') paramKey = 'study_level_id';
+        else if (key === 'disciplines') paramKey = 'discipline_id';
+        else if (key === 'universities') paramKey = 'university_id';
+        else if (key === 'countries') paramKey = 'country_code';
+        else if (key === 'states') paramKey = 'state_code';
+        else if (key === 'cities') paramKey = 'city_code';
+        else if (key === 'intakes') paramKey = 'intake_id';
+        else if (key === 'intakeYears') paramKey = 'intake_year';
+        
+        params.append(paramKey, val.toString());
+      });
     }
-    
-    return params.toString();
-  }, [searchTerm]);
+  });
+  
+  // Add search term
+  if (searchTerm) {
+    params.append('search', searchTerm);
+  }
+  
+  return params.toString();
+}, [searchTerm]);
 
   // Fetch courses from API
   const fetchCourses = useCallback(async (page: number = 1, loadMore: boolean = false, filtersToUse?: FilterOptions) => {
@@ -1018,11 +1246,18 @@ export default function StudentProgramsPage() {
   };
 
   // Handle remove filter
-  const handleRemoveFilter = (key: keyof FilterOptions) => {
-    const newFilters = {
-      ...filters,
-      [key]: "all"
-    };
+  const handleRemoveFilter = (key: keyof FilterOptions, value?: number | string) => {
+    const newFilters = { ...filters };
+    
+    if (value) {
+      // Remove specific value from array
+      const array = newFilters[key] as (number | string)[];
+      newFilters[key] = array.filter(item => item !== value) as any;
+    } else {
+      // Clear entire array
+      newFilters[key] = [] as any;
+    }
+    
     setFilters(newFilters);
     setModalFilters(newFilters);
     setCurrentPage(1);
@@ -1031,12 +1266,14 @@ export default function StudentProgramsPage() {
 
   const clearAllFilters = () => {
     const resetFilters: FilterOptions = {
-      discipline: "all",
-      study_level_id: "all",
-      university: "all",
-      country_code: "all",
-      state_code: "all",
-      city_code: "all",
+      disciplines: [],
+      studyLevels: [],
+      universities: [],
+      countries: [],
+      states: [],
+      cities: [],
+      intakes: [],
+      intakeYears: [],
     };
     setFilters(resetFilters);
     setModalFilters(resetFilters);
@@ -1045,32 +1282,47 @@ export default function StudentProgramsPage() {
   };
 
   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
-    return value !== "all" && value !== "" && value !== undefined && value !== null && key !== 'search';
+    return Array.isArray(value) && value.length > 0 && key !== 'search';
   });
 
   // Get filter display name
-  const getFilterDisplayName = (key: keyof FilterOptions, value: string | number) => {
-    if (!filtersData || value === "all") return '';
+  const getFilterDisplayName = (key: keyof FilterOptions, value: number | string) => {
+    if (!filtersData) return '';
     
     switch (key) {
-      case 'study_level_id':
+      case 'studyLevels':
         const level = filtersData.studyLevels.find(opt => opt.id === value);
         return level?.name || '';
-      case 'discipline':
+      case 'disciplines':
         const discipline = filtersData.disciplines.find(opt => opt.id === value);
         return discipline?.name || '';
-      case 'university':
+      case 'universities':
         const university = filtersData.universities.find(opt => opt.id === value);
         return university?.university || '';
-      case 'country_code':
+      case 'countries':
         return getCountryName(value.toString());
-      case 'state_code':
+      case 'states':
         return getStateName(value.toString());
-      case 'city_code':
+      case 'cities':
+        return value.toString();
+      case 'intakes':
+        const intake = filtersData.intakes.find(opt => opt.id === value);
+        return intake?.intake || '';
+      case 'intakeYears':
         return value.toString();
       default:
         return '';
     }
+  };
+
+  // Helper to get filter count
+  const getFilterCount = () => {
+    return Object.values(filters).reduce((total, value) => {
+      if (Array.isArray(value)) {
+        return total + value.length;
+      }
+      return total;
+    }, 0);
   };
 
   if (loading && !isLoadingMore) {
@@ -1138,20 +1390,7 @@ export default function StudentProgramsPage() {
 
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        {/* <div className="relative">
-          <input
-            type="text"
-            placeholder="Search programs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-64 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/10"
-          />
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div> */}
+        
 
         {/* Filter Button */}
         <div className="flex items-center gap-3">
@@ -1174,7 +1413,7 @@ export default function StudentProgramsPage() {
             Filter Programs
             {hasActiveFilters && (
               <span className="ml-1 bg-brand-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {Object.values(filters).filter(v => v !== "all" && v !== "" && v !== undefined && v !== null && v !== filters.search).length}
+                {getFilterCount()}
               </span>
             )}
           </button>
@@ -1184,23 +1423,25 @@ export default function StudentProgramsPage() {
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          {Object.entries(filters).map(([key, value]) => {
-            if (value === "all" || value === "" || value === undefined || value === null || key === 'search') return null;
+          {Object.entries(filters).map(([key, values]) => {
+            if (!Array.isArray(values) || values.length === 0) return null;
             
-            const displayName = getFilterDisplayName(key as keyof FilterOptions, value);
-            if (!displayName) return null;
-            
-            return (
-              <Badge key={key} size="sm" color="primary">
-                {key.replace('_', ' ')}: {displayName}
-                <button 
-                  onClick={() => handleRemoveFilter(key as keyof FilterOptions)}
-                  className="ml-1 text-xs hover:text-red-500"
-                >
-                  ×
-                </button>
-              </Badge>
-            );
+            return values.map((value) => {
+              const displayName = getFilterDisplayName(key as keyof FilterOptions, value);
+              if (!displayName) return null;
+              
+              return (
+                <Badge key={`${key}-${value}`} size="sm" color="primary">
+                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}: {displayName}
+                  <button 
+                    onClick={() => handleRemoveFilter(key as keyof FilterOptions, value)}
+                    className="ml-1 text-xs hover:text-red-500"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              );
+            });
           })}
         </div>
       )}
@@ -1262,15 +1503,7 @@ export default function StudentProgramsPage() {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onFilterApply={handleFilterApply}
-        filterOptions={filtersData ? {
-          studyLevels: filtersData.studyLevels,
-          disciplines: filtersData.disciplines,
-          universities: filtersData.universities.map(u => ({
-            id: u.id,
-            university: u.university
-          })),
-          locations: filtersData.locations
-        } : null}
+        filterOptions={filtersData}
         appliedFilters={modalFilters}
         onFiltersChange={handleModalFiltersChange}
       />
