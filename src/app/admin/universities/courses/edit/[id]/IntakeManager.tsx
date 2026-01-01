@@ -67,100 +67,91 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-// Fetch intakes data
-const fetchIntakes = async (deadlineTypes: DeadlineTypeOption[] = deadlineTypeOptions) => {
-  if (!token || !courseId) return;
+  // Fetch intakes data
+  const fetchIntakes = async (deadlineTypes: DeadlineTypeOption[] = deadlineTypeOptions) => {
+    if (!token || !courseId) return;
 
-  try {
-    setIsLoading(true);
-    const response = await fetch(`${BASE_URL}/tenant/course/${courseId}/intakes`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    const result = await response.json();
-    
-    if (result.success && result.data) {
-      const apiIntakes: CourseIntakeAPI[] = result.data;
-      const formattedIntakes: Intake[] = apiIntakes.map(intake => {
-        console.log("API deadlines:", intake.deadlines);
-        
-        // Create a map of existing deadlines for this intake
-        const existingDeadlinesMap = new Map(
-          intake.deadlines.map(d => [d.deadline_type_id.toString(), d])
-        );
-        
-        console.log("Existing deadlines:", deadlineTypes);
-
-        
-        // For each deadline type option, create a deadline object
-        // Use existing data if available, otherwise create empty one
-        const deadlines = deadlineTypes.map(deadlineType => {
-          const existingDeadline = existingDeadlinesMap.get(deadlineType.id.toString());
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${BASE_URL}/tenant/course/${courseId}/intakes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const apiIntakes: CourseIntakeAPI[] = result.data;
+        const formattedIntakes: Intake[] = apiIntakes.map(intake => {
+          // Create a map of existing deadlines for this intake
+          const existingDeadlinesMap = new Map(
+            intake.deadlines.map(d => [d.deadline_type_id.toString(), d])
+          );
           
+          // For each deadline type option, create a deadline object
+          // Use existing data if available, otherwise create empty one
+          const deadlines = deadlineTypes.map(deadlineType => {
+            const existingDeadline = existingDeadlinesMap.get(deadlineType.id.toString());
+            return {
+              id: existingDeadline?.id,
+              deadline_type_id: deadlineType.id.toString(),
+              deadline_date: existingDeadline?.deadline_date?.split('T')[0] || "",
+              notes: existingDeadline?.notes || ""
+            };
+          });
+
           return {
-            id: existingDeadline?.id,
-            deadline_type_id: deadlineType.id.toString(),
-            deadline_date: existingDeadline?.deadline_date?.split('T')[0] || "",
-            notes: existingDeadline?.notes || ""
+            id: intake.id,
+            course_id: intake.course_id,
+            intake_id: intake.intake_id.toString(),
+            intake_year: intake.intake_year.toString(),
+            is_active: true, // Assuming active if it exists
+            deadlines
           };
         });
-
-        console.log("Formatted deadlines:", deadlines);
-
-        return {
-          id: intake.id,
-          course_id: intake.course_id,
-          intake_id: intake.intake_id.toString(),
-          intake_year: intake.intake_year.toString(),
-          is_active: true,
-          deadlines
-        };
-      });
-      setIntakes(formattedIntakes);
-    } else {
-      // If no intakes exist yet, create empty array
-      setIntakes([]);
-    }
-  } catch (error) {
-    console.error('Error fetching intakes:', error);
-    showMessage('error', 'Failed to load intakes');
-    setIntakes([]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
-// Fetch options
-const fetchOptions = async () => {
-  try {
-    const [intakesRes, deadlineTypesRes] = await Promise.all([
-      fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }),
-      fetch(`${BASE_URL}/tenant/option/apply_tenant_course_intake_deadline_types`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-    ]);
-
-    const [intakesData, deadlineTypesData] = await Promise.all([
-      intakesRes.json(),
-      deadlineTypesRes.json()
-    ]);
-
-    if (intakesData.success) setIntakeOptions(intakesData.data);
-    if (deadlineTypesData.success) {
-      setDeadlineTypeOptions(deadlineTypesData.data);
-      
-      // After loading deadline types, fetch intakes and pass the deadline types
-      if (courseId) {
-        fetchIntakes(deadlineTypesData.data); // Pass deadline types directly
+        setIntakes(formattedIntakes);
+      } else {
+        // If no intakes exist yet, create empty array
+        setIntakes([]);
       }
+    } catch (error) {
+      console.error('Error fetching intakes:', error);
+      showMessage('error', 'Failed to load intakes');
+      setIntakes([]);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching options:', error);
-  }
-};
+  };
+
+  // Fetch options
+  const fetchOptions = async () => {
+    try {
+      const [intakesRes, deadlineTypesRes] = await Promise.all([
+        fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${BASE_URL}/tenant/option/apply_tenant_course_intake_deadline_types`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+
+      const [intakesData, deadlineTypesData] = await Promise.all([
+        intakesRes.json(),
+        deadlineTypesRes.json()
+      ]);
+
+      if (intakesData.success) setIntakeOptions(intakesData.data);
+      if (deadlineTypesData.success) {
+        setDeadlineTypeOptions(deadlineTypesData.data);
+        
+        // After loading deadline types, fetch intakes and pass the deadline types
+        if (courseId) {
+          fetchIntakes(deadlineTypesData.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching options:', error);
+    }
+  };
 
   useEffect(() => {
     if (token && courseId) {
@@ -236,14 +227,6 @@ const fetchOptions = async () => {
       return;
     }
 
-    // Validate each deadline that has a date
-    for (const deadline of deadlinesToSave) {
-      if (!deadline.deadline_type_id) {
-        showMessage('error', 'Deadline type is missing for one or more deadlines');
-        return;
-      }
-    }
-
     try {
       setSavingIntakeId(intake.id || index);
       
@@ -279,7 +262,7 @@ const fetchOptions = async () => {
       
       if (result.success) {
         showMessage('success', 'Intake saved successfully');
-        fetchIntakes(); // Refresh intakes list
+        fetchIntakes(deadlineTypeOptions);
       } else {
         throw new Error(result.message || 'Failed to save intake');
       }
@@ -315,7 +298,7 @@ const fetchOptions = async () => {
       
       if (result.success) {
         showMessage('success', 'Intake deleted successfully');
-        fetchIntakes(); // Refresh intakes list
+        fetchIntakes(deadlineTypeOptions);
       } else {
         throw new Error(result.message || 'Failed to delete intake');
       }
@@ -358,7 +341,144 @@ const fetchOptions = async () => {
             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Intake {intakeIndex + 1} {intake.id && `(ID: ${intake.id})`}
             </h4>
-            <div className="flex gap-2">
+
+            
+            
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {/* Intake Year */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                Intake Year *
+              </label>
+              <select
+                value={intake.intake_year || ""}
+                onChange={(e) => updateIntake(intakeIndex, "intake_year", e.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              >
+                <option value="">Select year</option>
+                {[2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Intake Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                Intake *
+              </label>
+              <select
+                value={intake.intake_id || ""}
+                onChange={(e) => updateIntake(intakeIndex, "intake_id", e.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+              >
+                <option value="">Select intake</option>
+                {intakeOptions?.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            
+          </div>
+
+          {/* Deadlines Section - Updated UI without deadline type select */}
+          <div className="mt-4">
+            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Deadlines
+            </h5>
+            {intake.deadlines.map((deadline, deadlineIndex) => {
+              const deadlineType = deadlineTypeOptions.find(
+                option => option.id.toString() === deadline.deadline_type_id
+              );
+              
+              return (
+                <div key={deadlineIndex} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
+                  {/* <div className="flex justify-between items-center md:col-span-4">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {deadlineType?.name || `Deadline Type ${deadlineIndex + 1}`}
+                      {deadline.id && ` (ID: ${deadline.id})`}
+                    </span>
+                  </div> */}
+
+                  <div className="">
+                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
+                      Deadline Type
+                    </label>
+                    <input
+                      type="text"
+                      value={deadlineType?.name || ""}
+                      disabled
+                      placeholder="Optional notes"
+                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
+                    />
+                  </div>
+                  
+                  {/* Deadline Date */}
+                  <div className="">
+                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
+                      Deadline Date *
+                    </label>
+                    <DatePicker
+                      selected={deadline.deadline_date ? new Date(deadline.deadline_date) : null}
+                      onChange={(date) =>
+                        updateDeadline(
+                          intakeIndex,
+                          deadlineIndex,
+                          "deadline_date",
+                          date?.toISOString().split("T")[0] || ""
+                        )
+                      }
+                      dateFormat="yyyy-MM-dd"
+                      placeholderText="Select date"
+                      showYearDropdown
+                      showMonthDropdown
+                      dropdownMode="select"
+                      yearDropdownItemNumber={50}
+                      scrollableYearDropdown
+                      isClearable
+                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="">
+                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
+                      Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={deadline.notes || ""}
+                      onChange={(e) => updateDeadline(intakeIndex, deadlineIndex, "notes", e.target.value)}
+                      placeholder="Optional notes"
+                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Note about deadlines */}
+            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex gap-2 justify-end">
+                    {/* Is Active */}
+            <div className="flex items-center">
+              {/* <input
+                type="checkbox"
+                checked={intake.is_active}
+                onChange={(e) => updateIntake(intakeIndex, "is_active", e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 bg-transparent text-brand-600 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-800 dark:checked:bg-brand-500"
+              />
+              <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                Active
+              </label> */}
+            </div>
               <button
                 type="button"
                 onClick={() => saveIntake(intake, intakeIndex)}
@@ -408,151 +528,8 @@ const fetchOptions = async () => {
                 Remove
               </button> */}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            {/* Intake Year */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Intake Year *
-              </label>
-              <select
-                value={intake.intake_year || ""}
-                onChange={(e) => updateIntake(intakeIndex, "intake_year", e.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select year</option>
-                {[2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
+              {/* <p>Note: All deadline types are displayed. Set dates for applicable deadlines, leave empty if not applicable.</p> */}
             </div>
-
-            {/* Intake Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Intake *
-              </label>
-              <select
-                value={intake.intake_id || ""}
-                onChange={(e) => updateIntake(intakeIndex, "intake_id", e.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select intake</option>
-                {intakeOptions?.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Is Active */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={intake.is_active}
-                onChange={(e) => updateIntake(intakeIndex, "is_active", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 bg-transparent text-brand-600 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-800 dark:checked:bg-brand-500"
-              />
-              <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Active
-              </label>
-            </div>
-          </div>
-
-          {/* Deadlines Section */}
-          <div className="mt-4">
-            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Deadlines
-              <span className="ml-2 text-xs font-normal text-gray-500">
-                (Set dates for relevant deadlines, leave empty if not applicable)
-              </span>
-            </h5>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {intake.deadlines.map((deadline, deadlineIndex) => {
-                const deadlineType = deadlineTypeOptions.find(
-                  option => option.id.toString() === deadline.deadline_type_id
-                );
-                
-                return (
-                  <div 
-                    key={deadlineIndex} 
-                    className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded border border-gray-200 dark:border-gray-700"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          {deadlineType?.name || `Deadline Type ${deadlineIndex + 1}`}
-                        </span>
-                        {deadline.id && (
-                          <span className="ml-2 text-xs text-gray-500">
-                            (ID: {deadline.id})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-                          Date {deadlineIndex === 0 && "*"}
-                        </label>
-                        <DatePicker
-                          selected={deadline.deadline_date ? new Date(deadline.deadline_date) : null}
-                          onChange={(date) =>
-                            updateDeadline(
-                              intakeIndex,
-                              deadlineIndex,
-                              "deadline_date",
-                              date?.toISOString().split("T")[0] || ""
-                            )
-                          }
-                          dateFormat="yyyy-MM-dd"
-                          placeholderText="Select date (optional)"
-                          isClearable
-                          showYearDropdown
-                          showMonthDropdown
-                          dropdownMode="select"
-                          yearDropdownItemNumber={50}
-                          scrollableYearDropdown
-                          className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Leave empty if not applicable
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-                          Notes
-                        </label>
-                        <input
-                          type="text"
-                          value={deadline.notes || ""}
-                          onChange={(e) => updateDeadline(intakeIndex, deadlineIndex, "notes", e.target.value)}
-                          placeholder="Optional notes"
-                          className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-              <p className="font-medium">Note:</p>
-              <ul className="list-disc pl-5 mt-1 space-y-1">
-                <li>All available deadline types are displayed</li>
-                <li>Only set dates for deadlines that apply to this intake</li>
-                <li>Empty date fields will not be saved</li>
-                <li>At least one deadline date must be set to save the intake</li>
-              </ul>
-            </div> */}
           </div>
         </div>
       ))}
@@ -560,7 +537,7 @@ const fetchOptions = async () => {
       <button
         type="button"
         onClick={addNewIntake}
-        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg"
+        className="flex items-center gap-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm font-medium"
       >
         <Plus size={16} />
         Add New Intake
