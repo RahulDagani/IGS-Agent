@@ -469,7 +469,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
                 <div className="flex gap-2 justify-end">
                     {/* Is Active */}
             <div className="flex items-center">
-              <input
+              {/* <input
                 type="checkbox"
                 checked={intake.is_active}
                 onChange={(e) => updateIntake(intakeIndex, "is_active", e.target.checked)}
@@ -477,7 +477,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
               />
               <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                 Active
-              </label>
+              </label> */}
             </div>
               <button
                 type="button"
