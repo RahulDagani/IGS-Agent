@@ -399,16 +399,29 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
               );
               
               return (
-                <div key={deadlineIndex} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
-                  <div className="flex justify-between items-center md:col-span-4">
+                <div key={deadlineIndex} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
+                  {/* <div className="flex justify-between items-center md:col-span-4">
                     <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {deadlineType?.name || `Deadline Type ${deadlineIndex + 1}`}
                       {deadline.id && ` (ID: ${deadline.id})`}
                     </span>
+                  </div> */}
+
+                  <div className="">
+                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
+                      Deadline Type
+                    </label>
+                    <input
+                      type="text"
+                      value={deadlineType?.name || ""}
+                      disabled
+                      placeholder="Optional notes"
+                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
+                    />
                   </div>
                   
                   {/* Deadline Date */}
-                  <div className="md:col-span-2">
+                  <div className="">
                     <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
                       Deadline Date *
                     </label>
@@ -435,7 +448,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
                   </div>
 
                   {/* Notes */}
-                  <div className="md:col-span-2">
+                  <div className="">
                     <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
                       Notes
                     </label>
