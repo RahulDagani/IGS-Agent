@@ -265,6 +265,88 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
+
+           <div className="grid grid-cols-2 gap-6">
+             {/* Intakes Filter - Keep as Multi-Select */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('intakes')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Intakes
+              </h4>
+              {expandedSections.intakes ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.intakes && (
+              <select
+                value={localFilters.intakes.map(String)}
+                onChange={(e) => handleMultiSelectChange('intakes', e)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                
+              >
+                <option key="all" value={""}>All</option>
+                {filterOptions.intakes.map((intake) => (
+                  <option key={intake.id} value={intake.id}>
+                    {intake.intake}
+                  </option>
+                ))}
+              </select>
+            )}
+            {localFilters.intakes.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.intakes.length} intake(s)
+              </p>
+            )}
+          </div>
+
+          {/* Intake Years Filter - Keep as Multi-Select */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('intakeYears')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Intake Years
+              </h4>
+              {expandedSections.intakeYears ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.intakeYears && (
+              <select
+                value={localFilters.intakeYears.map(String)}
+                onChange={(e) => handleMultiSelectChange('intakeYears', e)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                
+              >
+                
+                {filterOptions.intakeYears.map((year) => (
+                  <option key={year.intake_year} value={year.intake_year}>
+                    {year.intake_year}
+                  </option>
+                ))}
+              </select>
+            )}
+            {localFilters.intakeYears.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.intakeYears.length} year(s)
+              </p>
+            )}
+          </div>
+          </div>
+
+
           {/* Study Levels Filter - Keep as Multi-Select */}
           <div className="space-y-3">
             <button
@@ -491,83 +573,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-6">
-             {/* Intakes Filter - Keep as Multi-Select */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('intakes')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Intakes
-              </h4>
-              {expandedSections.intakes ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.intakes && (
-              <select
-                value={localFilters.intakes.map(String)}
-                onChange={(e) => handleMultiSelectChange('intakes', e)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                
-              >
-                {filterOptions.intakes.map((intake) => (
-                  <option key={intake.id} value={intake.id}>
-                    {intake.intake}
-                  </option>
-                ))}
-              </select>
-            )}
-            {localFilters.intakes.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.intakes.length} intake(s)
-              </p>
-            )}
-          </div>
-
-          {/* Intake Years Filter - Keep as Multi-Select */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('intakeYears')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Intake Years
-              </h4>
-              {expandedSections.intakeYears ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.intakeYears && (
-              <select
-                value={localFilters.intakeYears.map(String)}
-                onChange={(e) => handleMultiSelectChange('intakeYears', e)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                
-              >
-                {filterOptions.intakeYears.map((year) => (
-                  <option key={year.intake_year} value={year.intake_year}>
-                    {year.intake_year}
-                  </option>
-                ))}
-              </select>
-            )}
-            {localFilters.intakeYears.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.intakeYears.length} year(s)
-              </p>
-            )}
-          </div>
-          </div>
+         
          
         </div>
 
@@ -976,7 +982,11 @@ export default function StudentProgramsPage() {
           } else if (key === "cities") {
             params.append("city_code", val.toString());
           } else if (key === "intakes") {
-            params.append("intake_id", val.toString());
+            if(val == 0 || !val || val == ""){
+              params.append("intake_id", "");
+            }else{
+              params.append("intake_id", val.toString());
+            }
           } else if (key === "intakeYears") {
             params.append("intake_year", val.toString());
           } else {

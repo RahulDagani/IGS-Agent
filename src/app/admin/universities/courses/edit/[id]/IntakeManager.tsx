@@ -358,11 +358,14 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
                 className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               >
                 <option value="">Select year</option>
-                {[2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
+                {Array.from({ length: 5 }, (_, i) => {
+      const year = new Date().getFullYear() + i;
+      return (
+        <option key={year} value={year}>
+          {year}
+        </option>
+      );
+    })}
               </select>
             </div>
 

@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
         hostname: "api.applystore.org",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "api.applystore.org",
+        pathname: "/**",
+      },
     ],
   },
 };

@@ -743,3 +743,45 @@ span.flatpickr-weekday,
 .react-datepicker-wrapper {
   width: 100%;
 }
+
+
+
+/* Override react-select for dark mode */
+.dark .react-select__control {
+  background-color: #1d2939 !important;
+  border-color: #344054 !important;
+  border-radius: 0.5rem;
+}
+
+.dark .react-select__menu {
+  background-color: rgb(31 41 55) !important;
+  border-color: rgb(75 85 99) !important;
+}
+
+.dark .react-select__option {
+  color: rgb(243 244 246) !important;
+}
+
+.dark .react-select__option--is-focused {
+  background-color: rgb(55 65 81) !important;
+}
+
+.dark .react-select__multi-value {
+  background-color: rgb(55 65 81) !important;
+}
+
+.dark .react-select__multi-value__label {
+  color: rgb(243 244 246) !important;
+}
+
+.dark .react-select__input {
+  color: rgb(243 244 246) !important;
+}
+
+.dark .react-select__single-value {
+  color: rgb(243 244 246) !important;
+}
+
+.dark .react-select__placeholder {
+  color: rgb(156 163 175) !important;
+}

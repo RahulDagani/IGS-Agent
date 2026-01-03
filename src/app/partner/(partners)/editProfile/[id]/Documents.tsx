@@ -382,9 +382,9 @@ export default function DocumentsPage() {
               : 'text-gray-500 dark:text-gray-400'
           }`}
         >
-          Your Documents
+          Your Common Documents
         </button>
-        <button
+        {/* <button
           onClick={() => setActiveTab('Igs')}
           className={`pb-3 font-medium ${
             activeTab === 'Igs'
@@ -393,7 +393,7 @@ export default function DocumentsPage() {
           }`}
         >
           Igs Documents
-        </button>
+        </button> */}
       </div>
 
       {activeTab === 'your' && (
