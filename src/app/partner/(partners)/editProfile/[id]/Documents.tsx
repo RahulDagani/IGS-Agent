@@ -11,24 +11,47 @@ import {
   Minus,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Building,
+  GraduationCap
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-interface CommonDocument {
+interface BaseDocument {
   id: number;
   agent_id: number;
   student_id: number;
-  study_level_id: number;
   document_name: string;
   is_mandatory: number;
   file_url: string | null;
   uploaded_at: string | null;
   uploaded_by: number | null;
-  status: 'uploaded' | 'pending';
+  status: 'uploaded' | 'pending' | string;
   remarks: string | null;
   is_deleted: number;
   created_at: string;
+}
+
+interface CommonDocument extends BaseDocument {
+  study_level_id: number;
+}
+
+interface SpecificDocument extends BaseDocument {
+  tenant_id: number;
+  application_id: number;
+  document_type: string;
+  course_name: string;
+  university_name: string;
+}
+
+interface Document extends BaseDocument {
+  study_level_id?: number;
+  tenant_id?: number;
+  application_id?: number;
+  document_type?: string;
+  course_name?: string;
+  university_name?: string;
+  is_common?: boolean;
 }
 
 interface ApiResponse {
@@ -36,6 +59,10 @@ interface ApiResponse {
   data: {
     common_documents: {
       list: CommonDocument[];
+      status: string;
+    };
+    specific_documents: {
+      list: SpecificDocument[];
       status: string;
     };
   };
@@ -60,7 +87,7 @@ export default function DocumentsPage() {
   const [activeTab, setActiveTab] = useState<'your' | 'Igs'>('your');
   const [mandatoryOpen, setMandatoryOpen] = useState(true);
   const [nonMandatoryOpen, setNonMandatoryOpen] = useState(true);
-  const [documents, setDocuments] = useState<CommonDocument[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<UploadState>({});
@@ -90,7 +117,19 @@ export default function DocumentsPage() {
         const data: ApiResponse = await response.json();
         
         if (data.success) {
-          setDocuments(data.data.common_documents.list);
+          // Combine common and specific documents
+          const commonDocs = data.data.common_documents.list.map(doc => ({
+            ...doc,
+            is_common: true
+          }));
+          
+          const specificDocs = data.data.specific_documents.list.map(doc => ({
+            ...doc,
+            is_common: false
+          }));
+          
+          // Merge both lists
+          setDocuments([...commonDocs, ...specificDocs]);
         } else {
           throw new Error('Failed to fetch documents');
         }
@@ -107,7 +146,7 @@ export default function DocumentsPage() {
     }
   }, [studentId, token, refreshTrigger]);
 
-  // Filter documents by mandatory status
+  // Group documents by mandatory status and type
   const mandatoryDocuments = documents.filter(doc => doc.is_mandatory === 1);
   const nonMandatoryDocuments = documents.filter(doc => doc.is_mandatory === 0);
 
@@ -161,8 +200,8 @@ export default function DocumentsPage() {
     }
   };
 
-  // Upload file function
-  const uploadFile = async (documentId: number) => {
+  // Upload file function - handles both common and specific documents
+  const uploadFile = async (documentId: number, isCommon: boolean, applicationId: number | null) => {
     const file = selectedFile[documentId];
     if (!file) {
       setUploadErrors(prev => ({ 
@@ -210,7 +249,12 @@ export default function DocumentsPage() {
         xhr.onerror = () => reject(new Error('Network error occurred'));
       });
 
-      xhr.open('PUT', `${BASE_URL}/agent/application/upload/common/document/${studentId}`);
+      // Use different endpoint for common vs specific documents
+      const endpoint = isCommon 
+        ? `${BASE_URL}/agent/application/upload/common/document/${studentId}`
+        : `${BASE_URL}/agent/application/upload/document/${applicationId}`;
+      
+      xhr.open('PUT', endpoint);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.send(formData);
 
@@ -234,35 +278,13 @@ export default function DocumentsPage() {
     }
   };
 
-  // Delete file function
-  // const deleteFile = async (documentId: number) => {
-  //   if (!confirm('Are you sure you want to delete this file?')) return;
-
-  //   try {
-  //     const response = await fetch(
-  //       `${BASE_URL}/agent/application/delete/common/document/${studentId}?document_id=${documentId}`,
-  //       {
-  //         method: 'DELETE',
-  //         headers: {
-  //           'Authorization': `Bearer ${token}`
-  //         }
-  //       }
-  //     );
-
-  //     if (response.ok) {
-  //       // Refresh documents
-  //       setRefreshTrigger(prev => prev + 1);
-  //     } else {
-  //       throw new Error('Failed to delete file');
-  //     }
-  //   } catch (err) {
-  //     alert('Failed to delete file: ' + (err instanceof Error ? err.message : 'Unknown error'));
-  //     console.error('Delete error:', err);
-  //   }
-  // };
-
   // File input component
-  const FileInput = ({ documentId, currentFileName }: { documentId: number, currentFileName?: string }) => {
+  const FileInput = ({ documentId, isCommon, currentFileName, applicationId = null }: { 
+    documentId: number, 
+    isCommon: boolean,
+    currentFileName?: string,
+    applicationId?: number | null,
+  }) => {
     const isUploading = uploading[documentId];
     const progress = uploadProgress[documentId];
     const fileError = uploadErrors[documentId];
@@ -290,7 +312,7 @@ export default function DocumentsPage() {
           </label>
           
           <button
-            onClick={() => uploadFile(documentId)}
+            onClick={() => uploadFile(documentId, isCommon, applicationId)}
             disabled={isUploading || !selectedFileForDoc}
             className={`flex items-center gap-2 px-4 py-2 rounded-md ${
               isUploading || !selectedFileForDoc
@@ -342,6 +364,99 @@ export default function DocumentsPage() {
     );
   };
 
+  // Document card component
+  const DocumentCard = ({ doc }: { doc: Document }) => {
+    const statusConfig = getStatusIcon(doc.status, doc.is_mandatory);
+    const fileName = doc.file_url ? doc.file_url.split('/').pop() : 'No file uploaded';
+    const isCommon = doc.is_common === true;
+
+    return (
+      <div 
+        className={`border-l-4 ${statusConfig.borderColor} ${statusConfig.bgColor} p-5 rounded-md mb-4`}
+      >
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              {statusConfig.icon}
+              <span className="font-semibold dark:text-white">
+                {doc.document_name} {doc.is_mandatory === 1 && '*'}
+              </span>
+              {!isCommon && (
+                <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+                  Specific
+                </span>
+              )}
+            </div>
+
+            {/* University and course info for specific documents */}
+            {!isCommon && doc.university_name && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                <Building size={14} />
+                <span className="font-medium">{doc.university_name}</span>
+                {doc.course_name && (
+                  <>
+                    <span className="mx-1">•</span>
+                    <GraduationCap size={14} />
+                    <span>{doc.course_name}</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <p>
+                <strong className="dark:text-gray-200">Status:</strong>{' '}
+                <span className={`capitalize ${doc.status === 'uploaded' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {doc.status}
+                </span>
+              </p>
+              {doc.uploaded_at && (
+                <p>
+                  <strong className="dark:text-gray-200">Uploaded On:</strong>{' '}
+                  {formatDate(doc.uploaded_at)}
+                </p>
+              )}
+              {doc.uploaded_by && (
+                <p>
+                  <strong className="dark:text-gray-200">Uploaded By:</strong>{' '}
+                  User ID: {doc.uploaded_by}
+                </p>
+              )}
+              {isCommon && doc.study_level_id && (
+                <p>
+                  <strong className="dark:text-gray-200">Study Level ID:</strong>{' '}
+                  {doc.study_level_id}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="ml-4">
+            <FileInput 
+              documentId={doc.id} 
+              isCommon={isCommon}
+              currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
+              applicationId={!isCommon ? doc.application_id : null}
+            />
+          </div>
+        </div>
+
+        {doc.file_url && (
+          <div className="mt-4 flex items-center gap-3">
+            <a
+              href={doc.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white dark:bg-gray-800 border dark:border-gray-600 px-3 py-1 rounded-md text-sm dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              {fileName}
+            </a>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -382,9 +497,9 @@ export default function DocumentsPage() {
               : 'text-gray-500 dark:text-gray-400'
           }`}
         >
-          Your Common Documents
+          Your Documents
         </button>
-        {/* <button
+        <button
           onClick={() => setActiveTab('Igs')}
           className={`pb-3 font-medium ${
             activeTab === 'Igs'
@@ -393,7 +508,7 @@ export default function DocumentsPage() {
           }`}
         >
           Igs Documents
-        </button> */}
+        </button>
       </div>
 
       {activeTab === 'your' && (
@@ -419,86 +534,15 @@ export default function DocumentsPage() {
             </div>
 
             {mandatoryOpen && (
-              <div className="px-6 pb-6 space-y-6">
+              <div className="px-6 pb-6">
                 {mandatoryDocuments.length === 0 ? (
                   <p className="text-gray-500 dark:text-gray-400 text-center py-4">
                     No mandatory documents found
                   </p>
                 ) : (
-                  mandatoryDocuments.map((doc) => {
-                    const statusConfig = getStatusIcon(doc.status, doc.is_mandatory);
-                    const fileName = doc.file_url ? doc.file_url.split('/').pop() : 'No file uploaded';
-                    
-                    return (
-                      <div 
-                        key={doc.id}
-                        className={`border-l-4 ${statusConfig.borderColor} ${statusConfig.bgColor} p-5 rounded-md`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 font-semibold dark:text-white">
-                              {statusConfig.icon}
-                              {doc.document_name} {doc.is_mandatory === 1 && '*'}
-                            </div>
-
-                            <div className="mt-3 text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                              <p>
-                                <strong className="dark:text-gray-200">Status:</strong>{' '}
-                                <span className={`capitalize ${doc.status === 'uploaded' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                  {doc.status}
-                                </span>
-                              </p>
-                              {doc.uploaded_at && (
-                                <p>
-                                  <strong className="dark:text-gray-200">Uploaded On:</strong>{' '}
-                                  {formatDate(doc.uploaded_at)}
-                                </p>
-                              )}
-                              {doc.uploaded_by && (
-                                <p>
-                                  <strong className="dark:text-gray-200">Uploaded By:</strong>{' '}
-                                  User ID: {doc.uploaded_by}
-                                </p>
-                              )}
-                              <p>
-                                <strong className="dark:text-gray-200">Study Level ID:</strong>{' '}
-                                {doc.study_level_id}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="ml-4">
-                            <FileInput 
-                              documentId={doc.id} 
-                              currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
-                            />
-                          </div>
-                        </div>
-
-                        {doc.file_url && (
-                          <div className="mt-4 flex items-center gap-3">
-                            <a
-                              href={doc.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white dark:bg-gray-800 border dark:border-gray-600 px-3 py-1 rounded-md text-sm dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              {fileName}
-                            </a>
-                            {/* {doc.file_url && (
-                              <button
-                                onClick={() => deleteFile(doc.id)}
-                                className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 cursor-pointer p-1"
-                                title="Delete file"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            )} */}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                  mandatoryDocuments.map((doc) => (
+                    <DocumentCard key={doc.id} doc={doc} />
+                  ))
                 )}
               </div>
             )}
@@ -521,73 +565,15 @@ export default function DocumentsPage() {
             </div>
 
             {nonMandatoryOpen && (
-              <div className="px-6 pb-6 space-y-4">
+              <div className="px-6 pb-6">
                 {nonMandatoryDocuments.length === 0 ? (
                   <p className="text-gray-500 dark:text-gray-400 text-center py-4">
                     No non-mandatory documents found
                   </p>
                 ) : (
-                  nonMandatoryDocuments.map((doc) => {
-                    const statusConfig = getStatusIcon(doc.status, doc.is_mandatory);
-                    const fileName = doc.file_url ? doc.file_url.split('/').pop() : 'No file uploaded';
-                    
-                    return (
-                      <div 
-                        key={doc.id}
-                        className={`border-l-4 ${statusConfig.borderColor} ${statusConfig.bgColor} p-5 rounded-md`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex-1">
-                            <p className="font-semibold dark:text-white">
-                              {doc.document_name}
-                              {doc.is_mandatory === 1 && ' *'}
-                            </p>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                              <strong className="dark:text-gray-200">Status:</strong>{' '}
-                              <span className={`capitalize ${doc.status === 'uploaded' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                                {doc.status}
-                              </span>
-                            </p>
-                            {doc.uploaded_at && (
-                              <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                                <strong className="dark:text-gray-200">Uploaded On:</strong>{' '}
-                                {formatDate(doc.uploaded_at)}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="ml-4">
-                            <FileInput 
-                              documentId={doc.id} 
-                              currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
-                            />
-                          </div>
-                        </div>
-
-                        {doc.file_url && (
-                          <div className="mt-4 flex items-center gap-3">
-                            <a
-                              href={doc.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white dark:bg-gray-800 border dark:border-gray-600 px-3 py-1 rounded-md text-sm dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              {fileName}
-                            </a>
-                            {/* {doc.file_url && (
-                              <button
-                                onClick={() => deleteFile(doc.id)}
-                                className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 cursor-pointer p-1"
-                                title="Delete file"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            )} */}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                  nonMandatoryDocuments.map((doc) => (
+                    <DocumentCard key={doc.id} doc={doc} />
+                  ))
                 )}
               </div>
             )}

@@ -3,15 +3,28 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import Badge from "@/components/ui/badge/Badge";
 import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar, Book, Building2, Star, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Country, State } from "country-state-city";
 import Image from "next/image";
+
 
 // Interfaces matching the API response structure
 interface StudyLevel {
   id: number;
   name: string;
+}
+
+interface Student {
+  user_id: number;
+  email: string;
+  phone: string;
+  status: string;
+  first_name: string;
+  last_name: string;
+  passport_number: string;
+  dob: string;
+  created_at: string;
 }
 
 interface Discipline {
@@ -39,9 +52,26 @@ interface LocationCity {
   city_code: string;
 }
 
+// interface Intake {
+//   id: number;
+//   intake: string;
+// }
+
+interface Deadline {
+  id: number;
+  deadline_type: string;
+  deadline_date: string;
+  extended_date: string | null;
+  is_closed: number;
+  notes: string | null;
+}
+
 interface Intake {
   id: number;
-  intake: string;
+  intake_id: number;
+  intake_name: string;
+  intake_year: number;
+  deadlines: Deadline[];
 }
 
 interface IntakeYear {
@@ -294,7 +324,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 <option key="all" value={""}>All</option>
                 {filterOptions.intakes.map((intake) => (
                   <option key={intake.id} value={intake.id}>
-                    {intake.intake}
+                    {intake.intake_name}
                   </option>
                 ))}
               </select>
@@ -600,9 +630,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (studentId: number, intakeId: number) => void;
   course: Course | null;
   loading: boolean;
+  students: Student[];
+  isFetchingStudents: boolean;
+  studentError: string | null;
+  courseId: string | string[];
+  token: string | null;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -611,51 +646,281 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   course,
   loading,
+  students,
+  isFetchingStudents,
+  studentError,
+  courseId,
+  token
 }) => {
+  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
+  const [selectedIntakeId, setSelectedIntakeId] = useState<number>(0);
+  const [intakes, setIntakes] = useState<Intake[]>([]);
+  const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
+  const [intakesError, setIntakesError] = useState<string | null>(null);
+  const [openIntakeDetails, setOpenIntakeDetails] = useState<number | null>(null);
+
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
   const formatFee = (fee: string, currency: string) => {
     if (!fee || fee === "0.00") return "Free";
     return `${currency} ${parseFloat(fee).toLocaleString()}`;
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Fetch intakes when modal opens
+  useEffect(() => {
+    if (isOpen && courseId && token) {
+      fetchIntakes();
+    }
+  }, [isOpen, courseId, token]);
+
+  const fetchIntakes = async () => {
+    try {
+      setIsFetchingIntakes(true);
+      setIntakesError(null);
+      
+      const response = await fetch(`${BASE_URL}/agent/course/intake/${courseId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch intakes: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setIntakes(data.data || []);
+        
+        // Select first open intake by default
+        const firstOpenIntake = data.data.find((intake: Intake) => 
+          intake.deadlines.some(deadline => deadline.is_closed === 0)
+        );
+        
+        if (firstOpenIntake) {
+          setSelectedIntakeId(firstOpenIntake.intake_id);
+        }
+      } else {
+        throw new Error(data.message || 'Failed to load intakes');
+      }
+    } catch (err) {
+      setIntakesError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error fetching intakes:', err);
+    } finally {
+      setIsFetchingIntakes(false);
+    }
+  };
+  
+  
   const handleSubmit = () => {
-    onConfirm();
+    if (selectedStudentId === 0) {
+      // Show error alert for missing student selection
+      alert("Please select a student");
+      return;
+    }
+    if (selectedIntakeId === 0) {
+      // Show error alert for missing intake selection
+      alert("Please select an intake");
+      return;
+    }
+    onConfirm(selectedStudentId, selectedIntakeId);
+  };
+
+  const toggleIntakeDetails = (intakeId: number) => {
+    setOpenIntakeDetails(openIntakeDetails === intakeId ? null : intakeId);
   };
 
   if (!isOpen || !course) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-2xl my-4">
         <div className="p-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
             Confirm Application
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
             Please review your application details before submitting:
           </p>
 
-          <div className="space-y-3 mb-6">
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Course:</span>
-              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.course_name}</span>
+          <div className="space-y-6">
+            {/* Course Details */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Course Details</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Course:</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-white text-right">{course.course_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">University:</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-white text-right">{course.university_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Study Level:</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-white text-right">{course.study_level_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Application Fee:</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-white text-right">
+                    {formatFee(course.application_fee, course.currency_code)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">University:</span>
-              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.university_name}</span>
+
+            {/* Intake Selection */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Select Intake</h4>
+              {isFetchingIntakes ? (
+                <div className="flex items-center justify-center p-4">
+                  <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading intakes...</span>
+                </div>
+              ) : intakesError ? (
+                <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded">
+                  Error loading intakes: {intakesError}
+                </div>
+              ) : intakes.length === 0 ? (
+                <div className="text-sm text-yellow-600 dark:text-yellow-400 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                  No intakes available for this course.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {intakes.map((intake) => {
+                    const isSelected = selectedIntakeId === intake.intake_id;
+                    
+                    return (
+                      <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <div className={`p-3 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                id={`intake-${intake.id}`}
+                                name="intake"
+                                value={intake.intake_id}
+                                checked={isSelected}
+                                onChange={(e) => setSelectedIntakeId(Number(e.target.value))}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                              />
+                              <div>
+                                <label 
+                                  htmlFor={`intake-${intake.id}`}
+                                  className={`font-medium text-gray-800 dark:text-white`}
+                                >
+                                  {intake.intake_name} {intake.intake_year}
+                                </label>
+                                
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleIntakeDetails(intake.id)}
+                              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                              <svg
+                                className={`w-5 h-5 transition-transform ${openIntakeDetails === intake.id ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {openIntakeDetails === intake.id && (
+                          <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-900">
+                            <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Deadlines:</h5>
+                            <div className="space-y-2">
+                              {intake.deadlines.map((deadline) => (
+                                <div key={deadline.id} className="text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">{deadline.deadline_type}:</span>
+                                    <span className="font-medium text-gray-800 dark:text-white">
+                                      {formatDate(deadline.deadline_date)}
+                                    </span>
+                                  </div>
+                                  {deadline.extended_date && (
+                                    <div className="flex justify-between mt-1">
+                                      <span className="text-gray-600 dark:text-gray-400">Extended Date:</span>
+                                      <span className="text-yellow-600 dark:text-yellow-400">
+                                        {formatDate(deadline.extended_date)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {deadline.notes && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
+                                      Note: {deadline.notes}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Study Level:</span>
-              <span className="text-sm font-medium text-gray-800 dark:text-white">{course.study_level_name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Application Fee:</span>
-              <span className="text-sm font-medium text-gray-800 dark:text-white">
-                {formatFee(course.application_fee, course.currency_code)}
-              </span>
+
+            {/* Student Selection Dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Student
+              </label>
+              {isFetchingStudents ? (
+                <div className="flex items-center justify-center p-4">
+                  <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading students...</span>
+                </div>
+              ) : studentError ? (
+                <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded">
+                  Error loading students: {studentError}
+                </div>
+              ) : students.length === 0 ? (
+                <div className="text-sm text-yellow-600 dark:text-yellow-400 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                  No students found. Please add students first.
+                </div>
+              ) : (
+                <select
+                  value={selectedStudentId}
+                  onChange={(e) => setSelectedStudentId(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  disabled={loading}
+                >
+                  <option value={0}>-- Select a student --</option>
+                  {students.map((student) => (
+                    <option key={student.user_id} value={student.user_id}>
+                      {student.first_name} {student.last_name} - {student.email}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
-          <div className="flex gap-3">
+          {/* Action Buttons */}
+          <div className="flex gap-3 mt-6">
             <button
               onClick={onClose}
               disabled={loading}
@@ -665,7 +930,16 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={
+                loading || 
+                isFetchingStudents || 
+                isFetchingIntakes || 
+                students.length === 0 || 
+                selectedStudentId === 0 || 
+                selectedIntakeId === 0 ||
+                intakes.length === 0 ||
+                intakesError !== null
+              }
               className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
@@ -771,7 +1045,7 @@ const CourseCard: React.FC<{
       <div className="flex items-start justify-between">
         {/* University Info */}
         <div className="flex items-start gap-3">
-          <div className="logo w-20 h-20">
+          <div className="logo w-20 h-20 flex justify-center items-center bg-white rounded-2xl">
             {course.university_logo_url ? (
               <Image 
                 src={course.university_logo_url} 
@@ -906,12 +1180,12 @@ const CourseCard: React.FC<{
         >
           View Course Details
         </Link>
-        {/* <button
+        <button
           onClick={() => onApply(course)}
           className="flex-1 bg-green-600 hover:bg-green-700 text-center dark:bg-green-700 dark:hover:bg-green-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
           Apply Now
-        </button> */}
+        </button>
       </div>
     </div>
   );
@@ -920,6 +1194,7 @@ const CourseCard: React.FC<{
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function StudentProgramsPage() {
+  const router = useRouter();
   const { token, logout } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [filtersData, setFiltersData] = useState<FiltersData | null>(null);
@@ -938,6 +1213,14 @@ export default function StudentProgramsPage() {
   const [alertType, setAlertType] = useState<'success' | 'error'>('success');
   const [alertMessage, setAlertMessage] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+
+    const [students, setStudents] = useState<Student[]>([]);
+    const [isFetchingStudents, setIsFetchingStudents] = useState(false);
+    const [studentError, setStudentError] = useState<string | null>(null);
+
+    
+    
+    
 
   // Filters for Student Portal - Updated to use arrays
   const [filters, setFilters] = useState<FilterOptions>({
@@ -1200,14 +1483,46 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
     };
   }, [hasMore, loading, isLoadingMore, currentPage, fetchCourses]);
 
+    // Fetch students
+  const fetchStudents = async () => {
+    try {
+      setIsFetchingStudents(true);
+      setStudentError(null);
+      
+      const response = await fetch(`${BASE_URL}/agent/student`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch students: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setStudents(data.data || []);
+      } else {
+        throw new Error(data.message || 'Failed to load students');
+      }
+    } catch (err) {
+      setStudentError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error fetching students:', err);
+    } finally {
+      setIsFetchingStudents(false);
+    }
+  };
+
   // Handle Apply button click
   const handleApplyClick = async (course: Course) => {
+    await fetchStudents();
     setSelectedCourse(course);
     setIsConfirmModalOpen(true);
   };
 
   // Handle application submission
-  const handleConfirmApplication = async () => {
+  const handleConfirmApplication = async (studentId: number, intakeId: number) => {
     if (!selectedCourse) return;
 
     setIsApplying(true);
@@ -1215,7 +1530,10 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
       const payload = {
         course_id: selectedCourse.id,
         study_level_id: selectedCourse.study_level_id,
-        remarks: "Interested in this program"
+        remarks: "Student wants to apply for this course",
+        student_user_id: studentId,
+        course_intake_id: intakeId,
+          
       };
 
       const response = await fetch(`${BASE_URL}/agent/application`, {
@@ -1227,15 +1545,21 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to submit application');
-      }
+      // if (!response.ok) {
+      //   throw new Error('Failed to submit application');
+      // }
 
       const result = await response.json();
       
+
       if (result.success) {
+        const app_id = result.application_id;
         setAlertType('success');
         setAlertMessage(`Your application for ${selectedCourse.course_name} at ${selectedCourse.university_name} has been submitted successfully!`);
+
+        setTimeout(()=>{
+          router.push(`/partner/editProfile/${studentId}?tab=applications&app=${app_id}`);
+        },2000)
       } else {
         throw new Error(result.message || 'Application failed');
       }
@@ -1317,7 +1641,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         return value.toString();
       case 'intakes':
         const intake = filtersData.intakes.find(opt => opt.id === value);
-        return intake?.intake || '';
+        return intake?.intake_name || '';
       case 'intakeYears':
         return value.toString();
       default:
@@ -1525,7 +1849,14 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         onConfirm={handleConfirmApplication}
         course={selectedCourse}
         loading={isApplying}
+        students={students}
+        isFetchingStudents={isFetchingStudents}
+        studentError={studentError}
+        courseId={String(selectedCourse?.id)}
+        token={token}
       />
+
+      
 
       {/* Alert Modal */}
       <AlertModal

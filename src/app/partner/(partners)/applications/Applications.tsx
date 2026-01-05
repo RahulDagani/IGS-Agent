@@ -114,6 +114,7 @@ type SortDirection = "asc" | "desc";
 export default function ApplicationsTable() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false); // New state for search button loading
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("");
@@ -323,6 +324,7 @@ export default function ApplicationsTable() {
       setError(err instanceof Error ? err.message : 'Failed to fetch applications');
     } finally {
       setLoading(false);
+      setSearchLoading(false); // Also stop search loading when fetch completes
     }
   };
 
@@ -342,7 +344,10 @@ export default function ApplicationsTable() {
   };
 
   // Handle search button click - apply filters to API
-  const handleSearch = () => {
+  const handleSearch = async () => {
+    // Set search loading to true
+    setSearchLoading(true);
+    
     // Set active filters from UI filters and reset to page 1
     setActiveFilters(uiFilters);
     setPagination(prev => ({ ...prev, page: 1 }));
@@ -513,7 +518,7 @@ export default function ApplicationsTable() {
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90">
           Applications ({pagination.totalRecords})
         </h2>
-        <span  className="d-block text-sm text-gray-800 dark:text-white/90">Manage your Students’ Applications.</span>
+        <span  className="d-block text-sm text-gray-800 dark:text-white/90">Manage your Students' Applications.</span>
         </div>
         
         <div className="flex items-center gap-3">
@@ -950,14 +955,41 @@ export default function ApplicationsTable() {
             <div className="form-group flex justify-end">
               <button
                 type="button"
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className={`px-6 py-2.5 rounded-lg transition-colors font-medium flex items-center justify-center min-w-[100px] ${
+                  searchLoading 
+                    ? 'bg-blue-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
                 onClick={handleSearch}
+                disabled={searchLoading}
               >
-                <span>Search</span>
+                {searchLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Searching...
+                  </>
+                ) : (
+                  'Search'
+                )}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Show table loading overlay when data is being fetched */}
+        {loading && (
+          <div className="relative">
+            <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Loading applications...</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Results Count */}
         <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -1003,7 +1035,7 @@ export default function ApplicationsTable() {
                     applications.map((application) => (
                       <TableRow key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300 font-medium">
-                          <Link href={`/partner/applications/${application.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                          <Link href={`/partner/editProfile/${application.student_user_id}?tab=applications&app=${application.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                             {application.acknowledgement_no}
                           </Link>
                         </TableCell>

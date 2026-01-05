@@ -1,11 +1,118 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import { Heart, DollarSign, Play, Download } from "lucide-react";
+import { Heart, DollarSign, Play, Download, Globe } from "lucide-react";
 import Badge from "@/components/ui/badge/Badge";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { City, Country, State } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
+
+
+// Add Alert Component at the top
+interface AlertProps {
+  type: 'success' | 'error' | 'info' | 'warning';
+  message: string;
+  onClose?: () => void;
+  autoClose?: boolean;
+  autoCloseDuration?: number;
+}
+
+const Alert: React.FC<AlertProps> = ({ 
+  type, 
+  message, 
+  onClose,
+  autoClose = true,
+  autoCloseDuration = 5000 
+}) => {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    if (autoClose && isVisible) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+        if (onClose) onClose();
+      }, autoCloseDuration);
+
+      return () => clearTimeout(timer);
+    }
+  }, [autoClose, autoCloseDuration, isVisible, onClose]);
+
+  if (!isVisible) return null;
+
+  const alertConfig = {
+    success: {
+      bg: 'bg-green-50 dark:bg-green-900',
+      border: 'border-green-200 dark:border-green-800',
+      text: 'text-green-800 dark:text-green-300',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      )
+    },
+    error: {
+      bg: 'bg-red-50 dark:bg-red-900',
+      border: 'border-red-200 dark:border-red-800',
+      text: 'text-white dark:text-white',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+      )
+    },
+    info: {
+      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      border: 'border-blue-200 dark:border-blue-800',
+      text: 'text-blue-800 dark:text-blue-300',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
+      )
+    },
+    warning: {
+      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      border: 'border-yellow-200 dark:border-yellow-800',
+      text: 'text-yellow-800 dark:text-yellow-300',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+      )
+    }
+  };
+
+  const config = alertConfig[type];
+
+  return (
+    <div className="fixed top-4 right-6 z-[999999] w-full max-w-md animate-slideIn">
+      <div className={`${config.bg} ${config.border} ${config.text} rounded-lg border p-4 shadow-lg`}>
+        <div className="flex items-start">
+          <div className="flex-shrink-0 pt-0.5">
+            {config.icon}
+          </div>
+          <div className="ml-3 flex-1">
+            <p className="text-sm font-medium">{message}</p>
+          </div>
+          <div className="ml-4 flex flex-shrink-0">
+            <button
+              onClick={() => {
+                setIsVisible(false);
+                if (onClose) onClose();
+              }}
+              className={`inline-flex rounded-md ${config.text} hover:opacity-75 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-offset-${type}-50 focus:ring-${type}-600`}
+            >
+              <span className="sr-only">Close</span>
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface Course {
   id: number;
@@ -168,15 +275,19 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       setIsFetchingIntakes(false);
     }
   };
+  
   if (!course) return null;
-  console.log(course)
+  
   let studyLevelId = course.study_level_id;
+  
   const handleSubmit = () => {
     if (selectedStudentId === 0) {
+      // Show error alert for missing student selection
       alert("Please select a student");
       return;
     }
     if (selectedIntakeId === 0) {
+      // Show error alert for missing intake selection
       alert("Please select an intake");
       return;
     }
@@ -364,11 +475,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   ))}
                 </select>
               )}
-              {/* {students.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {students.length} student(s) available
-                </p>
-              )} */}
             </div>
           </div>
 
@@ -450,8 +556,9 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, isOpen =
 const CourseDetailsPage: React.FC = () => {
   const params = useParams();
   const courseId = params?.id;
+  const router = useRouter();
   
-const [courseData, setCourseData] = useState<CourseDetailsResponse | null>(null);
+  const [courseData, setCourseData] = useState<CourseDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -460,9 +567,28 @@ const [courseData, setCourseData] = useState<CourseDetailsResponse | null>(null)
   const [isFetchingStudents, setIsFetchingStudents] = useState(false);
   const [studentError, setStudentError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  
+  // Add state for alerts
+  const [alert, setAlert] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+    show: boolean;
+  } | null>(null);
 
   const {token} = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  // Show alert function
+  const showAlert = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
+    setAlert({ type, message, show: true });
+    
+    // Auto-hide after 5 seconds for success/info, 8 seconds for errors/warnings
+    const duration = type === 'success' || type === 'info' ? 5000 : 8000;
+    
+    setTimeout(() => {
+      setAlert(null);
+    }, duration);
+  };
 
   // Fetch course data
   useEffect(() => {
@@ -537,11 +663,10 @@ const [courseData, setCourseData] = useState<CourseDetailsResponse | null>(null)
     setShowConfirmModal(true);
   };
 
-const handleConfirmApplication = async (studentId: number, intakeId: number, studyLevelId: number) => {
+  const handleConfirmApplication = async (studentId: number, intakeId: number, studyLevelId: number) => {
     try {
       setIsApplying(true);
       
-      // Replace with your actual application submission API
       const response = await fetch(`${BASE_URL}/agent/application`, {
         method: 'POST',
         headers: {
@@ -557,20 +682,26 @@ const handleConfirmApplication = async (studentId: number, intakeId: number, stu
         })
       });
       
-      if (!response.ok) {
-        throw new Error(`Application failed: ${response.status}`);
-      }
-      
       const data = await response.json();
-      
+
       if (data.success) {
-        alert('Application submitted successfully!');
+        const app_id = data.application_id;
+
+        showAlert('success', 'Application submitted successfully!');
         setShowConfirmModal(false);
+        setTimeout(()=>{
+          router.push(`/partner/editProfile/${studentId}?tab=applications&app=${app_id}`);
+        },2000)
       } else {
-        throw new Error(data.message || 'Application failed');
+        // Check if it's a duplicate application error
+        if (data.message && data.message.includes("already exists")) {
+          showAlert('error', `Application already exists! Application ID: ${data.existingApplicationId || 'N/A'}`);
+        } else {
+          showAlert('error', data.message || 'Application failed');
+        }
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Application failed');
+      showAlert('error', err instanceof Error ? err.message : 'Application failed');
       console.error('Error submitting application:', err);
     } finally {
       setIsApplying(false);
@@ -682,13 +813,22 @@ const handleConfirmApplication = async (studentId: number, intakeId: number, stu
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Alert Display */}
+      {alert && (
+        <Alert
+          type={alert.type}
+          message={alert.message}
+          onClose={() => setAlert(null)}
+        />
+      )}
+
       {/* Hero Section */}
       <section className="course-details-head bg-white dark:bg-gray-800 py-8">
         <div className="container mx-auto px-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* University Logo */}
-              <div className="lg:col-span-1 flex justify-center items-center p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="lg:col-span-1 flex justify-center items-center p-6 bg-white rounded-xl border border-gray-200 dark:border-gray-700">
                 <Image
                   width={500}
                   height={500}
@@ -751,31 +891,22 @@ const handleConfirmApplication = async (studentId: number, intakeId: number, stu
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
-                      <Play size={16} />
+                      <Globe size={16} />
                       University Website
                     </a>
                   )}
                   
-                  <button
-                    onClick={() => window.open(course.university_website, '_blank')}
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                  >
-                    <Download size={16} />
-                    Visit Website
-                  </button>
-                  
-                  <div className="hidden md:block col-span-2"></div>
-                </div>
-
-                {/* Action Button */}
-                <div className="pt-4">
-                  <button
+                 <button
                     onClick={handleApply}
                     className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
                   >
                     Apply Now
                   </button>
+                  
+                  <div className="hidden md:block col-span-2"></div>
                 </div>
+
+               
               </div>
             </div>
           </div>
@@ -789,8 +920,6 @@ const handleConfirmApplication = async (studentId: number, intakeId: number, stu
             <span className="mb-2">Course info</span>
             <span className="absolute top-6 left-0 w-6 h-1.5 bg-blue-500 rounded-full mt-1"></span>
           </h2>
-
-          
 
           {/* Intakes Section */}
           {courseData.intakes && courseData.intakes.length > 0 && (

@@ -18,9 +18,11 @@ import {
   Image as ImageIcon, 
   FileText 
 } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Programs from '../../programs/Programs';
+import { getStateByCodeAndCountry } from 'country-state-city/lib/state';
+import { Country, State } from 'country-state-city';
 
 interface Application {
   id: number;
@@ -143,6 +145,18 @@ interface ChatUploadState {
   isUploading: boolean;
 }
 
+const getCountryName = (code: string | undefined | null) => {
+  if (!code) return '';
+  const country = Country.getCountryByCode(code);
+  return country ? country.name : code;
+};
+
+const getStateName = (state_code: string | undefined | null, country_code: string | undefined | null) => {
+  if (!state_code || !country_code) return '';
+  const state = State.getStateByCodeAndCountry(state_code, country_code);
+  return state ? state.name : state_code;
+};
+
 export default function Applications() {
   const { id: studentId } = useParams();
   const [activeTab, setActiveTab] = useState<'applied' | 'apply'>('applied');
@@ -175,6 +189,9 @@ export default function Applications() {
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const searchParams = useSearchParams();
+  const activeProgramFromUrl = searchParams.get("app");
+
   const BASE_URL = 'https://api.applystore.org/api';
   const {token} = useAuth();
 
@@ -191,19 +208,25 @@ export default function Applications() {
   }, [applications]);
 
   useEffect(() => {
+    if (activeProgramFromUrl) {
+      setActiveProgram(Number(activeProgramFromUrl));
+    }
+  }, [activeProgramFromUrl]);
+
+  useEffect(() => {
     if (activeProgram) {
       fetchApplicationDetails(activeProgram);
       loadMessages(activeProgram);
     }
   }, [activeProgram]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // useEffect(() => {
+  //   scrollToBottom();
+  // }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // const scrollToBottom = () => {
+  //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // };
 
   const fetchApplications = async () => {
     try {
@@ -512,13 +535,7 @@ export default function Applications() {
             <MessageCircle size={24} className="text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-gray-500 dark:text-gray-400">No messages yet</p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-            {commentTab === 'Igs' 
-              ? 'No messages from IGS team' 
-              : commentTab === 'agent'
-              ? 'No messages'
-              : 'You haven\'t sent any messages'}
-          </p>
+         
         </div>
       );
     }
@@ -528,9 +545,7 @@ export default function Applications() {
       const isTenant = message.who_has_created === 'tenant';
       
       const senderName = message.created_by_name || 
-                        (isAgent ? 'You' : 
-                         isTenant ? 'IGS Team' : 
-                         'Student');
+                        (isAgent ? 'You' : 'IGS Team');
 
       return (
         <div key={message.id} className="flex gap-3 mb-6">
@@ -645,10 +660,10 @@ export default function Applications() {
                 </div>
 
                 <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
-                  <p><span className="font-medium dark:text-gray-200">ID:</span> {item.uuid}</p>
-                  <p><span className="font-medium dark:text-gray-200">Date:</span> {formatDate(item.created_at)}</p>
                   <p><span className="font-medium dark:text-gray-200">Course:</span> {item.course_name}</p>
                   <p><span className="font-medium dark:text-gray-200">University:</span> {item.university_name}</p>
+                  <p><span className="font-medium dark:text-gray-200">Acknowledgment Number:</span> {item.uuid}</p>
+                  <p><span className="font-medium dark:text-gray-200">Date:</span> {formatDate(item.created_at)}</p>
                 </div>
 
                 {activeProgram === item.id && (
@@ -666,23 +681,23 @@ export default function Applications() {
             <div className="col-span-8 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md p-6">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {/* <p className="text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(applicationDetail.created_at)}
-                  </p>
-                  <p className="text-lg font-semibold underline mt-1 dark:text-white">
-                    {applicationDetail.uuid}
-                  </p>
-                  <h2 className="text-xl font-semibold mt-2 dark:text-white">
+                  </p> */}
+                  <h2 className="text-2xl font-semibold mt-2 dark:text-white">
                     {applicationDetail.course_name}
                   </h2>
                   <p className="text-gray-500 dark:text-gray-400 mt-1">
                     {applicationDetail.university_name}
                   </p>
                   <p className="text-gray-500 dark:text-gray-400 mt-1">
-                    {applicationDetail.intake} {applicationDetail.intake_year}
+                    {applicationDetail.university_city}, {getStateName(applicationDetail.university_state, applicationDetail.university_country) }, {getCountryName(applicationDetail.university_country)}
                   </p>
-                  <p className="text-gray-500 dark:text-gray-400 mt-1">
-                    {applicationDetail.university_city}, {applicationDetail.university_state}, {applicationDetail.university_country}
+                  <p className="text-sm font-semibold underline mt-1 dark:text-white">
+                    {applicationDetail.uuid}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400 mt-4">
+                    Intake : {applicationDetail.intake} {applicationDetail.intake_year}
                   </p>
                 </div>
 
@@ -699,21 +714,21 @@ export default function Applications() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <p className="text-gray-500 dark:text-gray-400">
+              <div className="mt-2 flex gap-3">
+                <div className="text-gray-500 dark:text-gray-400">
                   Application Fee:{' '}
                   <span className="ml-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded text-sm font-medium">
                     {parseFloat(applicationDetail.application_fee) > 0 
                       ? `${applicationDetail.currency_code} ${applicationDetail.application_fee}`
                       : 'No Application Fee'}
                   </span>
-                </p>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">
+                </div>
+                <div className="text-gray-500 dark:text-gray-400 ">
                   Tuition Fee:{' '}
-                  <span className="ml-2 font-medium">
+                  <span className="ml-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded text-sm font-medium">
                     {applicationDetail.currency_code} {applicationDetail.tuition_fee}
                   </span>
-                </p>
+                </div>
               </div>
 
               <div className="mt-8">
@@ -726,19 +741,10 @@ export default function Applications() {
                         : 'text-gray-500 dark:text-gray-400'
                     }`}
                   >
-                    Igs Team Messages
+                    Comments
                   </button>
-                  <button
-                    onClick={() => setCommentTab('agent')}
-                    className={`pb-2 font-medium ${
-                      commentTab === 'agent'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-400 border-b-2'
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    Your Messages
-                  </button>
-                  <button
+                 
+                  {/* <button
                     onClick={() => setCommentTab('specific-doc')}
                     className={`pb-2 font-medium flex ${
                       commentTab === 'specific-doc'
@@ -750,7 +756,7 @@ export default function Applications() {
                     <span className="num ml-1 bg-red-700 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
                       {specificDocuments.filter(doc => !doc.file_url).length}
                     </span>
-                  </button>
+                  </button> */}
                 </div>
 
                 {(commentTab === 'Igs' || commentTab === 'agent') && (
@@ -1054,11 +1060,11 @@ export default function Applications() {
         </div>
       )}
 
-      <div className="fixed right-0 top-1/2 -translate-y-1/2">
+      {/* <div className="fixed right-0 top-1/2 -translate-y-1/2">
         <div className="bg-blue-600 dark:bg-blue-500 text-white px-3 py-2 rounded-l-md rotate-90 origin-bottom-right font-medium">
           What's new
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
