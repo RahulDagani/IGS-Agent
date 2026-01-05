@@ -154,31 +154,28 @@ export default function AddStudent() {
 
 
 
-    try {
-
-      console.log(formData);
-      
+    try {      
       // API call to create student
-      // const response = await fetch(`${BASE_URL}/agent/student/add`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify(formData)
-      // });
+      const response = await fetch(`${BASE_URL}/agent/student/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
 
-      // const result = await response.json();
+      const result = await response.json();
 
-      // if(!result.success){
-      //   setError(result.message)
-      //   setTimeout(()=>{setError("")},3000)
-      // }else{
-      //   setSuccess("Student created successfully!");
-      //   setTimeout(()=>{setSuccess("")},3000)
-      //   router.push('/partner/students');
-      //   router.refresh();
-      // }
+      if(!result.success){
+        setError(result.message)
+        setTimeout(()=>{setError("")},3000)
+      }else{
+        setSuccess("Student created successfully!");
+        setTimeout(()=>{setSuccess("")},3000)
+        router.push('/partner/students');
+        router.refresh();
+      }
       
     } catch (error) {
       console.error('Error creating student:', error);

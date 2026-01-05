@@ -207,7 +207,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   };
 
   // Upload file function - handles both common and specific documents
-  const uploadFile = async (documentId: number, isCommon: boolean, applicationId: number | null) => {
+  const uploadFile = async (documentId: number, isCommon: boolean, applicationId: number | null, agentId: number) => {
     const file = selectedFile[documentId];
     if (!file) {
       setUploadErrors(prev => ({ 
@@ -219,6 +219,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
 
     const formData = new FormData();
     formData.append('document_id', documentId.toString());
+    formData.append('agent_id', String(agentId));
     formData.append('file', file);
 
     setUploading(prev => ({ ...prev, [documentId]: true }));
@@ -288,11 +289,12 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   };
 
   // File input component
-  const FileInput = ({ documentId, isCommon, currentFileName, applicationId = null }: { 
+  const FileInput = ({ documentId, isCommon, currentFileName, applicationId = null, agentId }: { 
     documentId: number, 
     isCommon: boolean,
     currentFileName?: string,
     applicationId?: number | null,
+    agentId: number
   }) => {
     const isUploading = uploading[documentId];
     const progress = uploadProgress[documentId];
@@ -321,7 +323,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
           </label>
           
           <button
-            onClick={() => uploadFile(documentId, isCommon, applicationId)}
+            onClick={() => uploadFile(documentId, isCommon, applicationId, agentId)}
             disabled={isUploading || !selectedFileForDoc}
             className={`flex items-center gap-2 px-4 py-2 rounded-md ${
               isUploading || !selectedFileForDoc
@@ -446,6 +448,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
               isCommon={isCommon}
               currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
               applicationId={!isCommon ? doc.application_id : null}
+              agentId={doc.agent_id}
             />
           </div>
         </div>
