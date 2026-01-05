@@ -116,6 +116,9 @@ export default function ProfileForm() {
               emergency_c_email: data.emergency_c_email || "",
               emergency_c_phone: data.emergency_c_phone || "",
             }));
+
+            setSelectedCountry(data.country_code);
+            setSelectedState(data.state_code);
           }
         } else {
           setError('Failed to fetch student data');

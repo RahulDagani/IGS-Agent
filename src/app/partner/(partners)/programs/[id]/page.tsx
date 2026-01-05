@@ -186,7 +186,7 @@ interface Student {
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (studentId: number, intakeId: number, studyLevelId: number) => void;
+  onConfirm: (studentId: number, intakeId: number, studyLevelId: number, appLogin: string, appPassword: string) => void;
   course: Course | null;
   loading: boolean;
   students: Student[];
@@ -214,6 +214,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
   const [intakesError, setIntakesError] = useState<string | null>(null);
   const [openIntakeDetails, setOpenIntakeDetails] = useState<number | null>(null);
+
+  const [appLogin,setAppLogin] = useState<string>("");
+  const [appPassword,setAppPassword] = useState<string>("");
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -291,7 +294,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       alert("Please select an intake");
       return;
     }
-    onConfirm(selectedStudentId, selectedIntakeId, studyLevelId);
+    onConfirm(selectedStudentId, selectedIntakeId, studyLevelId, appLogin, appPassword);
   };
 
   const toggleIntakeDetails = (intakeId: number) => {
@@ -476,6 +479,38 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 </select>
               )}
             </div>
+
+            <div className="grid grid-cols-2  gap-4">
+              <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Application Login
+          </label>
+          <input
+            type="text"
+            value={appLogin}
+            onChange={(e)=>setAppLogin(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            placeholder="Enter application login"
+           
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Application Password
+          </label>
+          <input
+            type="text"
+            value={appPassword}
+            onChange={(e)=>setAppPassword(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            placeholder="Enter application password"
+            
+          />
+        </div>
+            </div>
+
+
           </div>
 
           {/* Action Buttons */}
@@ -663,7 +698,7 @@ const CourseDetailsPage: React.FC = () => {
     setShowConfirmModal(true);
   };
 
-  const handleConfirmApplication = async (studentId: number, intakeId: number, studyLevelId: number) => {
+  const handleConfirmApplication = async (studentId: number, intakeId: number, studyLevelId: number,  appLogin: string, appPassword: string) => {
     try {
       setIsApplying(true);
       
@@ -678,7 +713,9 @@ const CourseDetailsPage: React.FC = () => {
           course_id: courseId,
           course_intake_id: intakeId,
           study_level_id: studyLevelId,
-          remarks: "Student wants to apply for this course"
+          remarks: "Student wants to apply for this course",
+          application_login: appLogin,  
+          application_password: appPassword
         })
       });
       

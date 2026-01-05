@@ -449,9 +449,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2" >
+          {/* <div className="grid grid-cols-2 gap-2" >
 
-            {/* Intake Year */}
+           
             <div>
               <label
                 htmlFor={`intake_year`}
@@ -476,7 +476,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </select>
             </div>
 
-            {/* Intake Selection */}
+           
             <div>
               <label
                 htmlFor={`intake_id`}
@@ -502,7 +502,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </select>
             </div>
 
-          </div>
+          </div> */}
 
 
         </div>

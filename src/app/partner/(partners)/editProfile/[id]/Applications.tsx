@@ -87,6 +87,9 @@ interface ApplicationDetail {
   overall_score_intent: string | null;
   created_at: string;
   updated_at: string;
+
+  application_login: string;
+  application_password: string;
 }
 
 interface SpecificDocument {
@@ -185,6 +188,16 @@ export default function Applications() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
+  const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
+  const [editingCredentials, setEditingCredentials] = useState<{
+    application_login: string;
+    application_password: string;
+  }>({
+    application_login: '',
+    application_password: ''
+  });
+  const [isUpdatingCredentials, setIsUpdatingCredentials] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -227,6 +240,63 @@ export default function Applications() {
   // const scrollToBottom = () => {
   //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   // };
+
+  const handleLoginDetails = (applicationId?: number) => {
+  return () => {
+    if (applicationDetail) {
+      setEditingCredentials({
+        application_login: applicationDetail.application_login || '',
+        application_password: applicationDetail.application_password || ''
+      });
+      setShowCredentialsModal(true);
+    }
+  };
+};
+
+const updateCredentials = async () => {
+  if (!activeProgram || !editingCredentials.application_login || !editingCredentials.application_password) {
+    alert('Please fill in both login and password');
+    return;
+  }
+
+  try {
+    setIsUpdatingCredentials(true);
+    
+    const response = await fetch(`${BASE_URL}/agent/application/credentials/${activeProgram}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        application_login: editingCredentials.application_login,
+        application_password: editingCredentials.application_password
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      // Update the local state with new credentials
+      if (applicationDetail) {
+        setApplicationDetail({
+          ...applicationDetail,
+          application_login: editingCredentials.application_login,
+          application_password: editingCredentials.application_password
+        });
+      }
+      setShowCredentialsModal(false);
+      alert('Credentials updated successfully!');
+    } else {
+      alert(data.message || 'Failed to update credentials');
+    }
+  } catch (error) {
+    console.error('Error updating credentials:', error);
+    alert('Failed to update credentials. Please try again.');
+  } finally {
+    setIsUpdatingCredentials(false);
+  }
+};
 
   const fetchApplications = async () => {
     try {
@@ -731,7 +801,30 @@ export default function Applications() {
                 </div>
               </div>
 
-              <div className="mt-8">
+              <div className="mt-3 flex gap-3">
+                <div className="text-gray-500 dark:text-gray-400">
+                  Application Login:{' '}
+                  <span className="ml-2 rounded text-sm font-medium">
+                    {`${applicationDetail.application_login || "N/A"}`}
+                  </span>
+                </div>
+                <div className="text-gray-500 dark:text-gray-400 ">
+                  Application Password:{' '}
+                  <span className="ml-2 rounded text-sm font-medium">
+                    {`${applicationDetail.application_password || "N/A"}`}
+                  </span>
+                </div>
+                <div className="text-gray-500 dark:text-gray-400 " >
+                  {activeProgram ? <span 
+  onClick={handleLoginDetails(activeProgram)} 
+  className="ml-2 rounded text-sm font-medium text-blue-500 cursor-pointer underline hover:text-blue-600 dark:hover:text-blue-400"
+>
+  Edit
+</span> : null}
+                </div>
+              </div>
+
+              <div className="mt-2">
                 <div className="flex gap-6 border-b dark:border-gray-700">
                   <button
                     onClick={() => setCommentTab('Igs')}
@@ -1065,6 +1158,91 @@ export default function Applications() {
           What's new
         </div>
       </div> */}
+
+      {showCredentialsModal && (
+  <div className="fixed inset-0 bg-black/50  flex items-center justify-center z-99999 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+      <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+        <h3 className="text-lg font-semibold dark:text-white">
+          Edit Application Credentials
+        </h3>
+        <button
+          onClick={() => setShowCredentialsModal(false)}
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+          disabled={isUpdatingCredentials}
+        >
+          <X size={20} />
+        </button>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Application Login
+          </label>
+          <input
+            type="text"
+            value={editingCredentials.application_login}
+            onChange={(e) => setEditingCredentials(prev => ({
+              ...prev,
+              application_login: e.target.value
+            }))}
+            className="w-full px-4 py-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
+            placeholder="Enter application login"
+            disabled={isUpdatingCredentials}
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Application Password
+          </label>
+          <input
+            type="text"
+            value={editingCredentials.application_password}
+            onChange={(e) => setEditingCredentials(prev => ({
+              ...prev,
+              application_password: e.target.value
+            }))}
+            className="w-full px-4 py-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
+            placeholder="Enter application password"
+            disabled={isUpdatingCredentials}
+          />
+        </div>
+        
+       
+      </div>
+      
+      <div className="flex justify-end gap-3 p-6 border-t dark:border-gray-700">
+        <button
+          onClick={() => setShowCredentialsModal(false)}
+          className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+          disabled={isUpdatingCredentials}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={updateCredentials}
+          disabled={isUpdatingCredentials || !editingCredentials.application_login || !editingCredentials.application_password}
+          className={`px-4 py-2 rounded-md flex items-center gap-2 ${
+            isUpdatingCredentials || !editingCredentials.application_login || !editingCredentials.application_password
+              ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
+          }`}
+        >
+          {isUpdatingCredentials ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Updating...
+            </>
+          ) : (
+            'Update Credentials'
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

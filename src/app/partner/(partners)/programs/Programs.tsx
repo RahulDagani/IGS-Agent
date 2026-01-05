@@ -281,7 +281,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[800px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[700px] max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Programs
@@ -296,85 +296,85 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
         <div className="p-6 space-y-6">
 
-           <div className="grid grid-cols-2 gap-6">
-             {/* Intakes Filter - Keep as Multi-Select */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('intakes')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Intakes
-              </h4>
-              {expandedSections.intakes ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.intakes && (
-              <select
-                value={localFilters.intakes.map(String)}
-                onChange={(e) => handleMultiSelectChange('intakes', e)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                
+          {/* <div className="grid grid-cols-2 gap-6">
+             
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => toggleSection('intakes')}
+                className="flex items-center justify-between w-full text-left"
               >
-                <option key="all" value={""}>All</option>
-                {filterOptions.intakes.map((intake) => (
-                  <option key={intake.id} value={intake.id}>
-                    {intake.intake_name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {localFilters.intakes.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.intakes.length} intake(s)
-              </p>
-            )}
-          </div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Intakes
+                </h4>
+                {expandedSections.intakes ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+              
+              {expandedSections.intakes && (
+                <select
+                  value={localFilters.intakes.map(String)}
+                  onChange={(e) => handleMultiSelectChange('intakes', e)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  
+                >
+                  <option key="all" value={""}>All</option>
+                  {filterOptions.intakes.map((intake) => (
+                    <option key={intake.id} value={intake.id}>
+                      {intake.intake_name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {localFilters.intakes.length > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Selected: {localFilters.intakes.length} intake(s)
+                </p>
+              )}
+            </div>
 
-          {/* Intake Years Filter - Keep as Multi-Select */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('intakeYears')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Intake Years
-              </h4>
-              {expandedSections.intakeYears ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.intakeYears && (
-              <select
-                value={localFilters.intakeYears.map(String)}
-                onChange={(e) => handleMultiSelectChange('intakeYears', e)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                
+          
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => toggleSection('intakeYears')}
+                className="flex items-center justify-between w-full text-left"
               >
-                
-                {filterOptions.intakeYears.map((year) => (
-                  <option key={year.intake_year} value={year.intake_year}>
-                    {year.intake_year}
-                  </option>
-                ))}
-              </select>
-            )}
-            {localFilters.intakeYears.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.intakeYears.length} year(s)
-              </p>
-            )}
-          </div>
-          </div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Intake Years
+                </h4>
+                {expandedSections.intakeYears ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+              
+              {expandedSections.intakeYears && (
+                <select
+                  value={localFilters.intakeYears.map(String)}
+                  onChange={(e) => handleMultiSelectChange('intakeYears', e)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  
+                >
+                  
+                  {filterOptions.intakeYears.map((year) => (
+                    <option key={year.intake_year} value={year.intake_year}>
+                      {year.intake_year}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {localFilters.intakeYears.length > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Selected: {localFilters.intakeYears.length} year(s)
+                </p>
+              )}
+            </div>
+          </div> */}
 
 
           {/* Study Levels Filter - Keep as Multi-Select */}
@@ -384,7 +384,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               onClick={() => toggleSection('studyLevels')}
               className="flex items-center justify-between w-full text-left"
             >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
                 Study Levels
               </h4>
               {expandedSections.studyLevels ? (
@@ -398,7 +398,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               <select
                 value={localFilters.studyLevels.map(String)}
                 onChange={(e) => handleMultiSelectChange('studyLevels', e)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               >
                 {filterOptions.studyLevels.map((level) => (
                   <option key={level.id} value={level.id}>
@@ -421,7 +421,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               onClick={() => toggleSection('disciplines')}
               className="flex items-center justify-between w-full text-left"
             >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
                 Disciplines
               </h4>
               {expandedSections.disciplines ? (
@@ -432,7 +432,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </button>
             
             {expandedSections.disciplines && (
-              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto p-2">
+              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
                 {filterOptions.disciplines.map((discipline) => (
                   <label
                     key={discipline.id}
@@ -442,7 +442,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       type="checkbox"
                       checked={isSelected('disciplines', discipline.id)}
                       onChange={(e) => handleCheckboxChange('disciplines', discipline.id, e.target.checked)}
-                      className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       {discipline.name}
@@ -465,7 +465,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               onClick={() => toggleSection('universities')}
               className="flex items-center justify-between w-full text-left"
             >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
                 Universities
               </h4>
               {expandedSections.universities ? (
@@ -476,7 +476,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </button>
             
             {expandedSections.universities && (
-              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto p-2">
+              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
                 {filterOptions.universities.map((university) => (
                   <label
                     key={university.id}
@@ -486,7 +486,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       type="checkbox"
                       checked={isSelected('universities', university.id)}
                       onChange={(e) => handleCheckboxChange('universities', university.id, e.target.checked)}
-                      className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       {university.university}
@@ -509,7 +509,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               onClick={() => toggleSection('locations')}
               className="flex items-center justify-between w-full text-left"
             >
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
                 Locations
               </h4>
               {expandedSections.locations ? (
@@ -526,7 +526,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Countries
                   </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto p-2">
+                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
                     {filterOptions.locations.countries.map((country) => (
                       <label
                         key={country.country_code}
@@ -536,7 +536,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                           type="checkbox"
                           checked={isSelected('countries', country.country_code)}
                           onChange={(e) => handleCheckboxChange('countries', country.country_code, e.target.checked)}
-                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">
                           {getCountryName(country.country_code)}
@@ -551,7 +551,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     States
                   </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto p-2">
+                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
                     {filterOptions.locations.states.map((state) => (
                       <label
                         key={state.state_code}
@@ -561,7 +561,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                           type="checkbox"
                           checked={isSelected('states', state.state_code)}
                           onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
-                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">
                          {state.state_code}
@@ -630,7 +630,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (studentId: number, intakeId: number) => void;
+  onConfirm: (studentId: number, intakeId: number, appLogin: string, appPassword: string) => void;
   course: Course | null;
   loading: boolean;
   students: Student[];
@@ -658,6 +658,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
   const [intakesError, setIntakesError] = useState<string | null>(null);
   const [openIntakeDetails, setOpenIntakeDetails] = useState<number | null>(null);
+
+  const [appLogin,setAppLogin] = useState<string>("");
+  const [appPassword,setAppPassword] = useState<string>("");
+
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -732,7 +736,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       alert("Please select an intake");
       return;
     }
-    onConfirm(selectedStudentId, selectedIntakeId);
+    onConfirm(selectedStudentId, selectedIntakeId, appLogin, appPassword);
   };
 
   const toggleIntakeDetails = (intakeId: number) => {
@@ -916,6 +920,36 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   ))}
                 </select>
               )}
+            </div>
+
+            <div className="grid grid-cols-2  gap-4">
+              <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Application Login
+          </label>
+          <input
+            type="text"
+            value={appLogin}
+            onChange={(e)=>setAppLogin(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            placeholder="Enter application login"
+           
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Application Password
+          </label>
+          <input
+            type="text"
+            value={appPassword}
+            onChange={(e)=>setAppPassword(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            placeholder="Enter application password"
+            
+          />
+        </div>
             </div>
           </div>
 
@@ -1522,7 +1556,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
   };
 
   // Handle application submission
-  const handleConfirmApplication = async (studentId: number, intakeId: number) => {
+  const handleConfirmApplication = async (studentId: number, intakeId: number, appLogin: string, appPassword: string) => {
     if (!selectedCourse) return;
 
     setIsApplying(true);
@@ -1533,7 +1567,8 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         remarks: "Student wants to apply for this course",
         student_user_id: studentId,
         course_intake_id: intakeId,
-          
+        application_login: appLogin,  
+        application_password: appPassword
       };
 
       const response = await fetch(`${BASE_URL}/agent/application`, {

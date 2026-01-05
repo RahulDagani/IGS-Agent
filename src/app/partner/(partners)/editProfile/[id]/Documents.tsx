@@ -34,6 +34,7 @@ interface BaseDocument {
 
 interface CommonDocument extends BaseDocument {
   study_level_id: number;
+  study_level_name: string;
 }
 
 interface SpecificDocument extends BaseDocument {
@@ -46,6 +47,7 @@ interface SpecificDocument extends BaseDocument {
 
 interface Document extends BaseDocument {
   study_level_id?: number;
+  study_level_name?: string;
   tenant_id?: number;
   application_id?: number;
   document_type?: string;
@@ -80,7 +82,11 @@ interface UploadError {
   [key: number]: string;
 }
 
-export default function DocumentsPage() {
+interface DocumentsPageProps {
+  onDocumentUpload: () => void; // Optional if not always provided
+}
+
+export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) {
   const params = useParams();
   const studentId = params.id as string;
   
@@ -249,7 +255,7 @@ export default function DocumentsPage() {
         xhr.onerror = () => reject(new Error('Network error occurred'));
       });
 
-      // Use different endpoint for common vs specific documents
+      
       const endpoint = isCommon 
         ? `${BASE_URL}/agent/application/upload/common/document/${studentId}`
         : `${BASE_URL}/agent/application/upload/document/${applicationId}`;
@@ -260,10 +266,13 @@ export default function DocumentsPage() {
 
       await uploadPromise;
       
-      // Clear selected file
+      
       setSelectedFile(prev => ({ ...prev, [documentId]: null }));
       
-      // Refresh documents
+      
+      if (onDocumentUpload) {
+        onDocumentUpload(); // Call the callback if provided
+      }
       setRefreshTrigger(prev => prev + 1);
       
     } catch (err) {
@@ -422,10 +431,10 @@ export default function DocumentsPage() {
                   User ID: {doc.uploaded_by}
                 </p>
               )}
-              {isCommon && doc.study_level_id && (
+              {isCommon && doc.study_level_name && (
                 <p>
-                  <strong className="dark:text-gray-200">Study Level ID:</strong>{' '}
-                  {doc.study_level_id}
+                  <strong className="dark:text-gray-200">Study Level:</strong>{' '}
+                  {doc.study_level_name}
                 </p>
               )}
             </div>
@@ -619,14 +628,14 @@ export default function DocumentsPage() {
                   Visa Related Document
                 </div>
 
-                <div className="flex gap-3">
+                {/* <div className="flex gap-3">
                   <button className="border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30">
                     + Add all to Student Platform
                   </button>
                   <button className="border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30">
                     ⬇ Download All
                   </button>
-                </div>
+                </div> */}
               </div>
 
               {/* File Card */}
@@ -642,9 +651,9 @@ export default function DocumentsPage() {
                 </div>
 
                 <div className="flex gap-3">
-                  <button className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                  {/* <button className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
                     + Add to Student Platform
-                  </button>
+                  </button> */}
                   <button className="border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30">
                     ⬇ Download
                   </button>

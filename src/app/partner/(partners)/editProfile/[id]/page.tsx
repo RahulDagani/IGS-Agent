@@ -3,24 +3,10 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useParams, useSearchParams } from "next/navigation";
 
-import {
-  Pencil,
-  ChevronDown,
-  Paperclip,
-  Send
-} from 'lucide-react';
 import ProfileForm from "./Profile";
 import Applications from "./Applications";
 import DocumentsPage from "./Documents";
 
-type Program = {
-  id: string;
-  status: string;
-  ackNo: string;
-  date: string;
-  course: string;
-  university: string;
-};
 
 interface Student {
   name: string;
@@ -32,52 +18,17 @@ interface Student {
 
 }
 
-interface Application {
-  id: number;
-  acknowledge_no: string;
-  university_name: string;
-  program_name: string;
-  intake: string;
-  status: string;
-  created_at: string;
-}
 
-interface Document {
-  id: number;
-  name: string;
-  type: string;
-  uploaded_at: string;
-  size: string;
-  url: string;
-}
 
-const programs: Program[] = [
-  {
-    id: '1',
-    status: 'Pending from Partner – Academic Documents',
-    ackNo: '184065/25-26',
-    date: '16/12/2025 04:10 PM',
-    course: 'MBM (MSc) with specialization in Applied Artificial Intelligence',
-    university: 'Wittenborg University of Applied Sciences'
-  },
-  {
-    id: '2',
-    status: 'Pending from Partner',
-    ackNo: '184064/25-26',
-    date: '16/12/2025 04:10 PM',
-    course: 'Master of Business Administration (MBA) (ILEP: 0041/0127)',
-    university: 'Dublin Business School'
-  }
-];
 
 export default function StudentDetailsPage() {
   const [activeTab, setActiveTab] = useState<string>("profile");
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copySuccess, setCopySuccess] = useState(false);
   const searchParams = useSearchParams();
   const activeTabFromUrl = searchParams.get("tab");
-  
+
+  const [refreshDocuments, setRefreshDocuments] = useState(0);
   
   const {id: studentId} = useParams();
   const { token } = useAuth();
@@ -88,6 +39,10 @@ export default function StudentDetailsPage() {
   }, []);
 
   useEffect(() => {
+    fetchStudentDetails();
+  }, [refreshDocuments]);
+
+  useEffect(() => {
       if (activeTabFromUrl) {
         setActiveTab(activeTabFromUrl);
       }
@@ -96,6 +51,7 @@ export default function StudentDetailsPage() {
   
 
   const fetchStudentDetails = async () => {
+    
     try {
       setLoading(true);
         const response = await fetch(`${BASE_URL}/agent/student/dashbaord/status/${studentId}`, {
@@ -129,19 +85,6 @@ export default function StudentDetailsPage() {
     }
   };
 
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-   const [activeProgram, setActiveProgram] = useState(programs[0].id);
-  const [commentTab, setCommentTab] = useState<'kc' | 'student'>('kc');
-
-  const selected = programs.find(p => p.id === activeProgram)!;
 
   if (loading) {
     return (
@@ -294,7 +237,7 @@ export default function StudentDetailsPage() {
                 </span>
                 <span className="flex justify-center items-center">
                   <span>Profile</span> 
-                  {student.profile_status == "COMPLETE" ? <span className="num ml-1 bg-green-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-xs">
+                  {student.profile_status == "COMPLETE" ? <span className="num ml-1 bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
                       
                     </span> : <span className="num ml-1 bg-red-700 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
                       
@@ -366,7 +309,7 @@ export default function StudentDetailsPage() {
 
         {/* Documents Tab */}
         {activeTab === "documents" && (
-          <DocumentsPage />
+          <DocumentsPage key={refreshDocuments} onDocumentUpload={() => setRefreshDocuments(prev => prev + 1)} />
         )}
       </div>
     </div>
