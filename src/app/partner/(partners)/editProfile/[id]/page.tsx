@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import {
   Pencil,
@@ -26,6 +26,9 @@ interface Student {
   name: string;
   email: string;
   phone: string;
+  profile_status: string,
+  total_applications: number,
+  total_pending_documents: number
 
 }
 
@@ -68,12 +71,13 @@ const programs: Program[] = [
 ];
 
 export default function StudentDetailsPage() {
-  const [activeTab, setActiveTab] = useState<"profile" | "applications" | "documents">("profile");
+  const [activeTab, setActiveTab] = useState<string>("profile");
   const [student, setStudent] = useState<Student | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
+  const searchParams = useSearchParams();
+  const activeTabFromUrl = searchParams.get("tab");
+  
   
   const {id: studentId} = useParams();
   const { token } = useAuth();
@@ -81,16 +85,20 @@ export default function StudentDetailsPage() {
 
   useEffect(() => {
     fetchStudentDetails();
-    fetchApplications();
-    fetchDocuments();
   }, []);
+
+  useEffect(() => {
+      if (activeTabFromUrl) {
+        setActiveTab(activeTabFromUrl);
+      }
+    }, [activeTabFromUrl]);
 
   
 
   const fetchStudentDetails = async () => {
     try {
       setLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/student/${studentId}`, {
+        const response = await fetch(`${BASE_URL}/agent/student/dashbaord/status/${studentId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -100,9 +108,12 @@ export default function StudentDetailsPage() {
           const { data } = await response.json();
       // Mock data for now
       const mockStudent = {
-        name: data.first_name + data.last_name,
-        email: data.email,
-        phone: data.phone,
+        name: data.student.name,
+        email: data.student.email,
+        phone: data.student.phone,
+        profile_status : data.profile_status,
+        total_applications: data.total_applications,
+        total_pending_documents: data.total_pending_documents
       };
       
       setStudent(mockStudent);
@@ -117,96 +128,6 @@ export default function StudentDetailsPage() {
       setLoading(false);
     }
   };
-
-  const fetchApplications = async () => {
-    try {
-      const mockApplications: Application[] = [
-        {
-          id: 1,
-          acknowledge_no: "APP-2024-001",
-          university_name: "University of Arizona",
-          program_name: "Master of Computer Science",
-          intake: "Fall 2024",
-          status: "Application Submitted",
-          created_at: "2024-01-15T10:30:00Z",
-        },
-        {
-          id: 2,
-          acknowledge_no: "APP-2024-002",
-          university_name: "University of Toronto",
-          program_name: "MBA",
-          intake: "Winter 2025",
-          status: "Under Review",
-          created_at: "2024-02-20T14:45:00Z",
-        },
-        {
-          id: 3,
-          acknowledge_no: "APP-2024-003",
-          university_name: "University of Melbourne",
-          program_name: "Bachelor of Engineering",
-          intake: "Spring 2024",
-          status: "Offer Received",
-          created_at: "2024-03-05T09:15:00Z",
-        },
-      ];
-      
-      setApplications(mockApplications);
-    } catch (error) {
-      console.error("Error fetching applications:", error);
-    }
-  };
-
-  const fetchDocuments = async () => {
-    try {
-      const mockDocuments: Document[] = [
-        {
-          id: 1,
-          name: "Passport.pdf",
-          type: "Passport",
-          uploaded_at: "2024-01-15T10:30:00Z",
-          size: "2.5 MB",
-          url: "#",
-        },
-        {
-          id: 2,
-          name: "Transcripts.pdf",
-          type: "Academic",
-          uploaded_at: "2024-01-16T14:20:00Z",
-          size: "3.1 MB",
-          url: "#",
-        },
-        {
-          id: 3,
-          name: "IELTS_Results.pdf",
-          type: "Language Test",
-          uploaded_at: "2024-01-17T11:45:00Z",
-          size: "1.8 MB",
-          url: "#",
-        },
-        {
-          id: 4,
-          name: "SOP.docx",
-          type: "Statement of Purpose",
-          uploaded_at: "2024-01-18T09:15:00Z",
-          size: "0.5 MB",
-          url: "#",
-        },
-        {
-          id: 5,
-          name: "LOR_Professor.pdf",
-          type: "Recommendation Letter",
-          uploaded_at: "2024-01-19T16:30:00Z",
-          size: "1.2 MB",
-          url: "#",
-        },
-      ];
-      
-      setDocuments(mockDocuments);
-    } catch (error) {
-      console.error("Error fetching documents:", error);
-    }
-  };
-
 
 
   const formatDate = (dateString: string) => {
@@ -371,8 +292,16 @@ export default function StudentDetailsPage() {
                 <span className="num mb-2 bg-gray-200 dark:bg-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-xs">
                   1
                 </span>
-                <span>Profile</span>
+                <span className="flex justify-center items-center">
+                  <span>Profile</span> 
+                  {student.profile_status == "COMPLETE" ? <span className="num ml-1 bg-green-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-xs">
+                      
+                    </span> : <span className="num ml-1 bg-red-700 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                      
+                    </span>}
+                  </span> 
               </button>
+              
             </li>
             
             <li id="application" className="mr-2">
@@ -387,7 +316,12 @@ export default function StudentDetailsPage() {
                 <span className="num mb-2 bg-gray-200 dark:bg-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-xs">
                   2
                 </span>
-                <span>Applications</span>
+                <span className="flex justify-center items-center">
+                  <span>Applications</span> 
+                  <span className="num ml-1 bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                      {student.total_applications}
+                    </span>
+                  </span>
               </button>
             </li>
             
@@ -403,7 +337,13 @@ export default function StudentDetailsPage() {
                 <span className="num mb-2 bg-gray-200 dark:bg-gray-700 rounded-full w-6 h-6 flex items-center justify-center text-xs">
                   3
                 </span>
-                <span>Documents</span>
+                
+                 <span className="flex justify-center items-center">
+                  <span>Documents</span> 
+                  <span className="num ml-1 bg-red-700 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                      {student.total_pending_documents}
+                    </span>
+                  </span>
               </button>
             </li>
           </ul>

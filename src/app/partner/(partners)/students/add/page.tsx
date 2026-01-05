@@ -5,6 +5,7 @@ import { User, Mail, Phone, Calendar, FileText } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { Country } from "country-state-city";
 
 interface StudentFormData {
   first_name: string;
@@ -13,6 +14,7 @@ interface StudentFormData {
   email: string;
   phone: string;
   passport_number: string;
+  country_code: string;
   dob: string;
 }
 
@@ -24,6 +26,10 @@ export default function AddStudent() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
+  const countries = Country.getAllCountries();
+
+  
+
   
   const [formData, setFormData] = useState<StudentFormData>({
     first_name: "",
@@ -32,12 +38,13 @@ export default function AddStudent() {
     email: "",
     phone: "",
     passport_number: "",
+    country_code: "",
     dob: "",
   });
 
   const [errors, setErrors] = useState<Partial<StudentFormData>>({});
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> ) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -106,6 +113,7 @@ export default function AddStudent() {
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
     try {
+      
       // API call to create student
       const response = await fetch(`${BASE_URL}/agent/student/add`, {
         method: 'POST',
@@ -232,7 +240,34 @@ export default function AddStudent() {
                   )}
                 </div>
 
-                {/* Date of Birth */}
+
+
+                {/* Email */}
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Email Address *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                      <Mail size={18} />
+                    </span>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="Enter email address"
+                      required
+                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                  )}
+                </div>
+
+                                {/* Date of Birth */}
 <div>
   <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
     Date of Birth *
@@ -281,28 +316,32 @@ export default function AddStudent() {
   )}
 </div>
 
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                    Email Address *
+                <div className="">
+                  <label htmlFor="country_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Country *
                   </label>
                   <div className="relative">
                     <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <Mail size={18} />
+                      <FileText size={18} />
                     </span>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="Enter email address"
-                      required
-                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                    />
+                     <select
+                        id="country_code"
+                        name="country_code"
+                        value={formData.country_code}
+                        onChange={handleInputChange}
+                        required
+                        className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+                      >
+                        <option value="">Select Country</option>
+                        {countries.map(country => (
+                          <option key={country.isoCode} value={country.isoCode}>
+                            {country.name}
+                          </option>
+                        ))}
+                      </select>
                   </div>
-                  {errors.email && (
-                    <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                  {errors.country_code && (
+                    <p className="mt-1 text-sm text-red-500">{errors.country_code}</p>
                   )}
                 </div>
 
@@ -332,7 +371,7 @@ export default function AddStudent() {
                 </div>
 
                 {/* Passport Number */}
-                <div className="md:col-span-2">
+                <div className="">
                   <label htmlFor="passport_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                     Passport Number *
                   </label>
@@ -355,6 +394,7 @@ export default function AddStudent() {
                     <p className="mt-1 text-sm text-red-500">{errors.passport_number}</p>
                   )}
                 </div>
+
               </div>
             </div>
           </div>

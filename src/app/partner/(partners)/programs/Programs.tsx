@@ -3,10 +3,11 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import Badge from "@/components/ui/badge/Badge";
 import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar, Book, Building2, Star, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Country, State } from "country-state-city";
 import Image from "next/image";
+
 
 // Interfaces matching the API response structure
 interface StudyLevel {
@@ -1193,6 +1194,7 @@ const CourseCard: React.FC<{
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function StudentProgramsPage() {
+  const router = useRouter();
   const { token, logout } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [filtersData, setFiltersData] = useState<FiltersData | null>(null);
@@ -1215,6 +1217,9 @@ export default function StudentProgramsPage() {
     const [students, setStudents] = useState<Student[]>([]);
     const [isFetchingStudents, setIsFetchingStudents] = useState(false);
     const [studentError, setStudentError] = useState<string | null>(null);
+
+    
+    
     
 
   // Filters for Student Portal - Updated to use arrays
@@ -1545,10 +1550,16 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
       // }
 
       const result = await response.json();
-      console.log(result)
+      
+
       if (result.success) {
+        const app_id = result.application_id;
         setAlertType('success');
         setAlertMessage(`Your application for ${selectedCourse.course_name} at ${selectedCourse.university_name} has been submitted successfully!`);
+
+        setTimeout(()=>{
+          router.push(`/partner/editProfile/${studentId}?tab=applications&app=${app_id}`);
+        },2000)
       } else {
         throw new Error(result.message || 'Application failed');
       }

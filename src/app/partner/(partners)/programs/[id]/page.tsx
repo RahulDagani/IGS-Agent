@@ -3,9 +3,10 @@ import React, { useState, useEffect } from "react";
 import { Heart, DollarSign, Play, Download, Globe } from "lucide-react";
 import Badge from "@/components/ui/badge/Badge";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { City, Country, State } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
+
 
 // Add Alert Component at the top
 interface AlertProps {
@@ -555,6 +556,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, isOpen =
 const CourseDetailsPage: React.FC = () => {
   const params = useParams();
   const courseId = params?.id;
+  const router = useRouter();
   
   const [courseData, setCourseData] = useState<CourseDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -681,10 +683,15 @@ const CourseDetailsPage: React.FC = () => {
       });
       
       const data = await response.json();
-      
+
       if (data.success) {
+        const app_id = data.application_id;
+
         showAlert('success', 'Application submitted successfully!');
         setShowConfirmModal(false);
+        setTimeout(()=>{
+          router.push(`/partner/editProfile/${studentId}?tab=applications&app=${app_id}`);
+        },2000)
       } else {
         // Check if it's a duplicate application error
         if (data.message && data.message.includes("already exists")) {
