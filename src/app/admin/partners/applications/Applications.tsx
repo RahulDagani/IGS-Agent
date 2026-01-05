@@ -1,1781 +1,1178 @@
 "use client"
-import React, { useState, useMemo, useEffect, useCallback } from "react";
-import Badge from "@/components/ui/badge/Badge";
-import { useAuth } from "@/context/AuthContext";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Link from "next/link";
-
-
-interface ApplicationStatus {
-  id: number;
-  tenant_id: number;
-  status_key: string;
-  status_label: string;
-  sort_order: number;
-  is_default: number;
-  is_active: number;
-  created_at: string;
-  updated_at: string | null;
-}
+import { useAuth } from "@/context/AuthContext";
+import Select from "react-select";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface Application {
   id: number;
-  university: string;
-  course: string;
-  intake: string;
-  status: string;
-  assignedTo: string;
-  studentName: string;
-  studentEmail: string;
-  agentName: string;
-  agentEmail: string;
-  country?: string;
-  degree?: string;
-  location?: string;
-  externalEvaluation?: string;
-  ielts?: number;
-  pte?: number;
-  duolingo?: number;
-  profileStatus: string;
-  commonDocumentsStatus: string;
-  specificDocumentsStatus: string;
-  current_status_id?: number;
-  student_user_id?: number;
-  created_by?: number;
-  commonDocuments?: CommonDocument[];
-  specificDocuments?: SpecificDocument[];
-}
-
-interface CommonDocument {
-  id: number;
-  student_id: number;
+  uuid: string;
+  tenant_id: number;
+  agent_id: number;
+  student_user_id: number;
+  course_id: number;
+  course_intake_id: number;
   study_level_id: number;
-  document_name: string;
-  is_mandatory: number;
-  file_url: string | null;
-  uploaded_at: string | null;
-  uploaded_by: number | null;
-  status: string;
+  current_status_id: number;
+  assigned_to: number | null;
   remarks: string | null;
-  is_deleted: number;
+  is_submitted_to_university: number;
+  role: string;
+  created_by: number;
   created_at: string;
+  updated_at: string | null;
+  is_deleted: number;
+  acknowledgement_no: string;
+  date_created: string;
+  status_key: string;
+  status_label: string;
+  status_sort_order: number;
+  course_name: string;
+  course_slug: string;
+  duration_min: number;
+  duration_max: number;
+  duration_unit: string;
+  tuition_fee: string;
+  application_fee: string;
+  currency_code: string;
+  study_level_name: string;
+  discipline_id: number;
+  discipline_name: string;
+  university_name: string;
+  university_slug: string;
+  university_id: number;
+  university_logo: string;
+  university_country: string;
+  university_state: string;
+  university_city: string;
+  intake_id: number | null;
+  intake_year: string | null;
+  intake_name: string | null;
+  deadline_date: string | null;
+  deadline_type_id: number | null;
+  deadline_type_name: string | null;
+  student_full_name: string | null;
 }
 
-interface SpecificDocument {
-  id: number;
-  application_id: number;
-  document_name: string;
-  document_type: string;
-  is_mandatory: number;
-  file_url: string | null;
-  uploaded_at: string | null;
-  uploaded_by: number | null;
-  status: string;
-  remarks: string | null;
-  is_deleted: number;
-  created_at: string;
-}
-
-interface FilterOption {
-  id: string | number;
-  name: string | null;
-  email?: string;
+interface FilterOptionsData {
+  students: Array<{ id: string; name: string }>;
+  universities: Array<{ id: string | number; name: string }>;
+  countries: Array<{ id: string; code?: string; name: string }>;
+  studyLevels: Array<{ id: string | number; name: string }>;
+  disciplines: Array<{ id: string | number; name: string }>;
+  courses: Array<{ id: string | number; name: string }>;
+  intakeYears: Array<{ id: string; name: string; value: number }>;
+  deadlineTypes: Array<{ id: string | number; name: string }>;
+  intakes: Array<{ id: string; intake_name: string }>;
+  applicationStatus: Array<{ 
+    id: string | number; 
+    status_key?: string; 
+    status_label?: string;
+    name?: string;
+  }>;
 }
 
 interface FilterOptions {
-  agents: FilterOption[];
-  students: FilterOption[];
-  universities: FilterOption[];
-  studyLevels: FilterOption[];
-  disciplines: FilterOption[];
-  courses: FilterOption[];
-  intakes: FilterOption[];
-  years: FilterOption[];
-  applicationStatus: FilterOption[];
+  dateRange: [Date | null, Date | null];
+  countries: string[];
+  universities: string[];
+  intakes: string[];
+  years: string[];
+  statuses: string[];
+  acknowledgeNo: string;
+  programName: string;
+  studentName: string;
+  deadlineType: string | null;
+  deadlineDate: [Date | null, Date | null];
+  students: string[];
+  studyLevels: string[];
+  disciplines: string[];
+  courses: string[];
 }
 
-interface AppliedFilters {
-  course?: string;
-  student?: string;
-  agent?: string;
-  university?: string;
-  status?: string;
-  year?: string;
-  intake?: string;
-  discipline?: string;
-  study_level?: string;
+interface Pagination {
+  page: number;
+  limit: number;
+  totalRecords: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 
-interface FilterModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  filterOptions: FilterOptions | null;
-  appliedFilters: AppliedFilters;
-  onFilterChange: (filters: AppliedFilters) => void;
-}
-
-interface UpdateStatusModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  application: Application | null;
-  statuses: ApplicationStatus[];
-  onUpdateStatus: (applicationId: number, statusId: number) => Promise<void>;
-  loading: boolean;
-}
-
-interface DocumentRequestData {
-  document_name: string;
-  is_mandatory: number;
-  remarks: string;
-}
-
-interface DocumentRequestModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: DocumentRequestData) => Promise<void>;
-  loading: boolean;
-  applicationId: number;
-}
-
-interface DocumentsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  documents: CommonDocument[] | SpecificDocument[] | undefined;
-  loading: boolean;
-  onRequestDocument?: (documentData: DocumentRequestData) => Promise<void>;
-  showRequestButton?: boolean;
-  applicationId?: number;
-}
-
-interface ApiApplicationResponse {
-  application: {
-    id: number;
-    uuid: string;
-    tenant_id: number;
-    agent_id: number;
-    student_user_id: number;
-    course_id: number;
-    study_level_id: number;
-    current_status_id: number;
-    assigned_to: string | null;
-    remarks: string | null;
-    is_submitted_to_university: number;
-    role: string;
-    created_by: number;
-    created_at: string;
-    updated_at: string;
-    is_deleted: number;
-    status_key: string;
-    status_label: string;
-    status_sort_order: number;
-    course_name: string;
-    course_slug: string;
-    duration_min: number;
-    duration_max: number;
-    duration_unit: string;
-    tuition_fee: string;
-    application_fee: string;
-    currency_code: string;
-    study_level_name: string;
-    discipline_name: string;
-    university_name: string;
-    university_slug: string;
-    university_logo: string | null;
-    university_country: string;
-    university_state: string;
-    university_city: string;
-    intake_date: string | null;
-    intake_id: number | null;
-    submission_deadline: string | null;
-    seat_availability: string | null;
-    turnaround_time: string | null;
-    conversion_rate: string | null;
-    overall_score_label: string | null;
-    overall_score_intent: string | null;
-  };
-  student_profile: {
-    id: number;
-    uuid: string;
-    tenant_id: number;
-    agent_id: number;
-    user_id: number;
-    passport_number: string;
-    salutation: string;
-    first_name: string;
-    middle_name: string | null;
-    last_name: string;
-    alternate_email: string | null;
-    country_code: string;
-    state_code: string;
-    city_code: string;
-    alternate_phone_number: string | null;
-    dob: string;
-    gender: string;
-    citizenship: string;
-    address: string;
-    postal_code: string;
-    emergency_c_name: string;
-    emergency_c_relation: string;
-    emergency_c_email: string;
-    emergency_c_phone: string;
-    profile: string | null;
-    created_at: string;
-    updated_at: string;
-    is_deleted: number;
-  };
-  profile_status: string;
-  common_documents: {
-    list: CommonDocument[];
-    status: string;
-  };
-  specific_documents: {
-    list: SpecificDocument[];
-    status: string;
-  };
-}
-
-interface ApiResponse {
-  success: boolean;
-  data: ApiApplicationResponse[];
-  filterOptions: FilterOptions;
-  appliedFilters: AppliedFilters;
-  count: number;
-}
-
-const FilterModal: React.FC<FilterModalProps> = ({
-  isOpen,
-  onClose,
-  filterOptions,
-  appliedFilters,
-  onFilterChange,
-}) => {
-  const [localFilters, setLocalFilters] = useState<AppliedFilters>(appliedFilters);
-
-  // Initialize local filters when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setLocalFilters(appliedFilters);
-    }
-  }, [isOpen, appliedFilters]);
-
-  const handleFilterChange = (key: keyof AppliedFilters, value: string) => {
-    const newFilters = {
-      ...localFilters,
-      [key]: value === "all" ? undefined : value
-    };
-    setLocalFilters(newFilters);
-    onFilterChange(newFilters);
-  };
-
-  const handleReset = () => {
-    const resetFilters: AppliedFilters = {};
-    setLocalFilters(resetFilters);
-    onFilterChange(resetFilters);
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Filter Applications
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {!filterOptions ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Agent Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Agent
-                </label>
-                <select
-                  value={localFilters.agent || "all"}
-                  onChange={(e) => handleFilterChange('agent', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.id === "all" ? agent.name : `${agent.name || ""} (${agent.email})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Student Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Student
-                </label>
-                <select
-                  value={localFilters.student || "all"}
-                  onChange={(e) => handleFilterChange('student', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.students.map((student) => (
-                    <option key={student.id} value={student.id}>
-                      {student.id === "all" ? student.name : `${student.name || ""} (${student.email})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* University Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  University
-                </label>
-                <select
-                  value={localFilters.university || "all"}
-                  onChange={(e) => handleFilterChange('university', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.universities.map((university) => (
-                    <option key={university.id} value={university.id}>
-                      {university.id === "all" ? university.name : university.name || `University ${university.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Course Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Course
-                </label>
-                <select
-                  value={localFilters.course || "all"}
-                  onChange={(e) => handleFilterChange('course', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.id === "all" ? course.name : course.name || `Course ${course.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Study Level Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Study Level
-                </label>
-                <select
-                  value={localFilters.study_level || "all"}
-                  onChange={(e) => handleFilterChange('study_level', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.studyLevels.map((level) => (
-                    <option key={level.id} value={level.id}>
-                      {level.id === "all" ? level.name : level.name || `Level ${level.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Discipline Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Discipline
-                </label>
-                <select
-                  value={localFilters.discipline || "all"}
-                  onChange={(e) => handleFilterChange('discipline', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.disciplines.map((discipline) => (
-                    <option key={discipline.id} value={discipline.id}>
-                      {discipline.id === "all" ? discipline.name : discipline.name || `Discipline ${discipline.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Intake Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Intake
-                </label>
-                <select
-                  value={localFilters.intake || "all"}
-                  onChange={(e) => handleFilterChange('intake', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.intakes.map((intake) => (
-                    <option key={intake.id} value={intake.id}>
-                      {intake.id === "all" ? intake.name : intake.name || `Intake ${intake.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Year Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Year
-                </label>
-                <select
-                  value={localFilters.year || "all"}
-                  onChange={(e) => handleFilterChange('year', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.years.map((year) => (
-                    <option key={year.id} value={year.id}>
-                      {year.id === "all" ? year.name : year.name || `Year ${year.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Application Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Application Status
-                </label>
-                <select
-                  value={localFilters.status || "all"}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {filterOptions?.applicationStatus.map((status) => (
-                    <option key={status.id} value={status.id}>
-                      {status.id === "all" ? status.name : status.name || `Status ${status.id}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={handleReset}
-                className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Reset All
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10"
-              >
-                Apply
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
-
-interface FlowModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  application: Application | null;
-}
-
-const FlowModal: React.FC<FlowModalProps> = ({
-  isOpen,
-  onClose,
-  application
-}) => {
-  
-  if (!isOpen || !application) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Application Status Flow
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="mb-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>University:</strong> {application.university}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Course:</strong> {application.course}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Student:</strong> {application.studentName}
-          </p>
-        </div>
-
-        {/* Application Status Flow */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-            Application Status History
-          </h4>
-          
-          <div className="space-y-4">
-            {/* Application Submitted */}
-            <div className="flex items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mr-3">
-                <svg className="w-4 h-4 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  Application Submitted
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Submitted on: {new Date().toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Application Reviewed */}
-            <div className="flex items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
-                <svg className="w-4 h-4 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  Application Reviewed
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Reviewed by: Admin • {new Date().toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Assigned to User */}
-            <div className="flex items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center mr-3">
-                <svg className="w-4 h-4 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  {application.assignedTo !== "Not Assigned" 
-                    ? `Assigned to ${application.assignedTo}`
-                    : "Not Assigned Yet"}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Status: {application.assignedTo === "Not Assigned" ? "Pending" : "Assigned"}
-                </p>
-              </div>
-            </div>
-
-            {/* Document Status */}
-            <div className="flex items-start">
-              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
-                application.commonDocumentsStatus === "complete" 
-                  ? "bg-green-100 dark:bg-green-900" 
-                  : "bg-yellow-100 dark:bg-yellow-900"
-              }`}>
-                <svg className={`w-4 h-4 ${
-                  application.commonDocumentsStatus === "complete" 
-                    ? "text-green-600 dark:text-green-300" 
-                    : "text-yellow-600 dark:text-yellow-300"
-                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  {application.commonDocumentsStatus === "complete" 
-                    ? "Documents Verified" 
-                    : "Documents Pending"}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {application.commonDocumentsStatus === "complete" 
-                    ? "All documents verified" 
-                    : "Waiting for document upload"}
-                </p>
-              </div>
-            </div>
-
-            {/* Current Status */}
-            <div className="flex items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mr-3">
-                <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  {application.status}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Current Status • Updated: {new Date().toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const UpdateStatusModal: React.FC<UpdateStatusModalProps> = ({
-  isOpen,
-  onClose,
-  application,
-  statuses,
-  onUpdateStatus,
-  loading,
-}) => {
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
-
-  useEffect(() => {
-    if (application && statuses.length > 0) {
-      const currentStatus = statuses.find(status => status.id === application.current_status_id);
-      setSelectedStatus(currentStatus ? currentStatus.id.toString() : "");
-    }
-  }, [application, statuses]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!application || !selectedStatus) return;
-
-    await onUpdateStatus(application.id, parseInt(selectedStatus));
-    onClose();
-  };
-
-  const handleClose = () => {
-    setSelectedStatus("");
-    onClose();
-  };
-
-  if (!isOpen || !application) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Update Application Status
-          </h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>University:</strong> {application.university}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Course:</strong> {application.course}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Student:</strong> {application.studentName}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Application Status
-            </label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-              required
-            >
-              <option value="">Select a status</option>
-              {statuses.map((status) => (
-                <option key={status.id} value={status.id.toString()}>
-                  {status.status_label || `Status ${status.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !selectedStatus}
-              className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Updating..." : "Update Status"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const DocumentRequestModal: React.FC<DocumentRequestModalProps> = ({
-  isOpen,
-  onClose,
-  onSubmit,
-  loading,
-}) => {
-  const [documentName, setDocumentName] = useState<string>("");
-  const [isMandatory, setIsMandatory] = useState<number>(1);
-  const [remarks, setRemarks] = useState<string>("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!documentName.trim()) {
-      alert("Please enter a document name");
-      return;
-    }
-
-    const documentData: DocumentRequestData = {
-      document_name: documentName,
-      is_mandatory: isMandatory,
-      remarks: remarks.trim() || "Please upload the requested document",
-    };
-
-    await onSubmit(documentData);
-    
-    // Reset form
-    setDocumentName("");
-    setIsMandatory(1);
-    setRemarks("");
-  };
-
-  const handleClose = () => {
-    setDocumentName("");
-    setIsMandatory(1);
-    setRemarks("");
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Request Additional Document
-          </h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            disabled={loading}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Document Name *
-              </label>
-              <input
-                type="text"
-                value={documentName}
-                onChange={(e) => setDocumentName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                placeholder="e.g., IELTS Certificate, Work Experience Letter"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Document Requirement
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="1"
-                    checked={isMandatory === 1}
-                    onChange={() => setIsMandatory(1)}
-                    className="mr-2"
-                    disabled={loading}
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Mandatory</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="0"
-                    checked={isMandatory === 0}
-                    onChange={() => setIsMandatory(0)}
-                    className="mr-2"
-                    disabled={loading}
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Optional</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Remarks / Instructions
-              </label>
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                placeholder="Please provide clear instructions for the document..."
-                rows={3}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={loading}
-              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Sending Request..." : "Send Request"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const DocumentsModal: React.FC<DocumentsModalProps> = ({
-  isOpen,
-  onClose,
-  title,
-  documents,
-  loading,
-  onRequestDocument,
-  showRequestButton = false,
-  applicationId,
-}) => {
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  if (!isOpen) return null;
-
-  const handleRequestDocument = async (documentData: DocumentRequestData) => {
-    if (onRequestDocument) {
-      await onRequestDocument(documentData);
-      setShowRequestModal(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'uploaded':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
-  };
-
-  const getDocumentType = (doc: CommonDocument | SpecificDocument) => {
-    if ('document_type' in doc) {
-      return doc.document_type;
-    }
-    return 'Common';
-  };
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-              {title}
-            </h3>
-            <div className="flex items-center gap-3">
-              {showRequestButton && onRequestDocument && (
-                <button
-                  onClick={() => setShowRequestModal(true)}
-                  className="px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 transition-colors"
-                >
-                  + Request Document
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-gray-500">Loading documents...</div>
-              </div>
-            ) : !documents || documents.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No documents found
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {documents.map((doc) => (
-                  <div 
-                    key={doc.id} 
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium text-gray-800 dark:text-white">
-                          {doc.document_name}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          Type: {getDocumentType(doc)} | 
-                          {doc.is_mandatory ? ' Required' : ' Optional'}
-                        </p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                        {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                      </span>
-                    </div>
-                    
-                    {doc.uploaded_at && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                        Uploaded: {new Date(doc.uploaded_at).toLocaleDateString()}
-                      </p>
-                    )}
-                    
-                    {doc.remarks && (
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                        <strong>Remarks:</strong> {doc.remarks}
-                      </p>
-                    )}
-                    
-                    {doc.file_url ? (
-                      <div className="mt-3">
-                        <a
-                          href={`https://api.applystore.org/${doc.file_url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View Document
-                        </a>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        No file uploaded
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={onClose}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {showRequestModal && applicationId && (
-        <DocumentRequestModal
-          isOpen={showRequestModal}
-          onClose={() => setShowRequestModal(false)}
-          onSubmit={handleRequestDocument}
-          loading={loading}
-          applicationId={applicationId}
-        />
-      )}
-    </>
-  );
-};
-
-const CardIcons = {
-  GraduationCap: () => (
-    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v6l9-5M12 20l-9-5" />
-    </svg>
-  ),
-  MapMarker: () => (
-    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  ),
-  FileAlt: () => (
-    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-  )
-};
-
-interface ApplicationCardProps {
-  application: Application;
-  onUpdateStatus: (application: Application) => void;
-  onViewCommonDocs: (application: Application) => void;
-  onViewSpecificDocs: (application: Application) => void;
-  onRequestAdditionalDoc: (application: Application) => void;
-  setShowFlowModal: (application: Application) => void;
-}
-
-const ApplicationCard: React.FC<ApplicationCardProps> = ({ 
-  application, 
-  onUpdateStatus,
-  onViewCommonDocs,
-  onViewSpecificDocs,
-  onRequestAdditionalDoc,
-  setShowFlowModal
-}) => {
-  const getStatusColor = (status: Application["status"]) => {
-    switch (status) {
-      case "Applied":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
-      case "Received":
-        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
-      case "Submitted to University":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-      case "Documents Pending":
-        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-      case "Application Complete":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
-      default:
-        return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300";
-    }
-  };
-
-  const getDocumentStatusIcon = (status: string) => {
-    return status === "complete" ? "✓" : "✕";
-  };
-
-  const getDocumentStatusColor = (status: string) => {
-    return status === "complete" ? "bg-green-100 text-green-500" : "bg-red-100 text-red-500";
-  };
-
-  return (
-    <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
-      <div className="flex justify-end">
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full mb-2 ${getStatusColor(application.status)}`}>
-          {application.status}
-        </span>
-      </div>
-     
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center text-white font-bold text-sm">
-            {application.university.split(' ').map(word => word[0]).join('')}
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-gray-800 dark:text-white leading-snug">
-              {application.course}
-            </h2>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              {application.university}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {application.country}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100 dark:border-gray-700 mt-4 pt-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <CardIcons.GraduationCap />
-          <span>
-            <strong className="font-semibold text-gray-800 dark:text-white">Degree:</strong>{" "}
-            {application.degree}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <CardIcons.MapMarker />
-          <span>
-            <strong className="font-semibold text-gray-800 dark:text-white">Location:</strong>{" "}
-            {application.location}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <CardIcons.FileAlt />
-          <span>
-            <strong className="font-semibold text-gray-800 dark:text-white">
-              External Evaluation:
-            </strong>{" "}
-            {application.externalEvaluation}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-2">
-          ENTRY REQUIREMENTS
-        </h3>
-        <div className="flex gap-2 flex-wrap">
-          {application.ielts && (
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              IELTS: <span className="text-gray-900 dark:text-white">{application.ielts}</span>
-            </span>
-          )}
-          {application.pte && (
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              PTE: <span className="text-gray-900 dark:text-white">{application.pte}</span>
-            </span>
-          )}
-          {application.duolingo && (
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              Duolingo: <span className="text-gray-900 dark:text-white">{application.duolingo}</span>
-            </span>
-          )}
-        </div>
-      </div>
-      
-      <div className="mt-4">
-        <p className="text-sm font-semibold text-red-500 mb-3">Pending</p>
-        <div className="flex justify-between items-center text-center">
-          <Link href={`/admin/partners/agents/students/${application.student_user_id}`}>
-            <div className="flex flex-col items-center cursor-pointer">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-                application.profileStatus === "complete" ? "bg-green-100" : "bg-red-100"
-              }`}>
-                <span className={`text-lg font-bold ${
-                  application.profileStatus === "complete" ? "text-green-500" : "text-red-500"
-                }`}>
-                  {getDocumentStatusIcon(application.profileStatus)}
-                </span>
-              </div>
-              <p className="text-xs dark:text-white">Common Form</p>
-            </div>
-          </Link>
-          
-          <div 
-            className="flex flex-col items-center cursor-pointer"
-            onClick={() => onViewCommonDocs(application)}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-              application.commonDocumentsStatus === "complete" ? "bg-green-100" : "bg-red-100"
-            }`}>
-              <span className={`text-lg font-bold ${
-                application.commonDocumentsStatus === "complete" ? "text-green-500" : "text-red-500"
-              }`}>
-                {getDocumentStatusIcon(application.commonDocumentsStatus)}
-              </span>
-            </div>
-            <p className="text-xs dark:text-white">Common Docs</p>
-          </div>
-          
-          <div 
-            className="flex flex-col items-center cursor-pointer"
-            onClick={() => onViewSpecificDocs(application)}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-              application.specificDocumentsStatus === "complete" ? "bg-green-100" : "bg-red-100"
-            }`}>
-              <span className={`text-lg font-bold ${
-                application.specificDocumentsStatus === "complete" ? "text-green-500" : "text-red-500"
-              }`}>
-                {getDocumentStatusIcon(application.specificDocumentsStatus)}
-              </span>
-            </div>
-            <p className="text-xs dark:text-white">Specific Docs</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 flex gap-3">
-        <button className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all">
-          LIVE CHAT
-        </button>
-        <button 
-          onClick={() => onUpdateStatus(application)}
-          className="flex-1 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
-        >
-          Update Status
-        </button>
-      </div>
-      <div className="mt-6 flex gap-3">
-        <button 
-          onClick={() => onRequestAdditionalDoc(application)}
-          className="flex-1 border border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
-        >
-          Req Doc
-        </button>
-
-        <button 
-          onClick={() => setShowFlowModal(application)}
-          className="flex-1 border border-green-600 text-green-600 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
-        >
-          Application flow
-        </button>
-      </div>
-    </div>
-  );
-};
+type SortField = keyof Application | "";
+type SortDirection = "asc" | "desc";
 
 export default function ApplicationsTable() {
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
-  const [isUpdateStatusModalOpen, setIsUpdateStatusModalOpen] = useState<boolean>(false);
-  const [isCommonDocsModalOpen, setIsCommonDocsModalOpen] = useState<boolean>(false);
-  const [isSpecificDocsModalOpen, setIsSpecificDocsModalOpen] = useState<boolean>(false);
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [selectedDocuments, setSelectedDocuments] = useState<CommonDocument[] | SpecificDocument[] | undefined>([]);
-  const [selectedModalTitle, setSelectedModalTitle] = useState<string>("");
-  const [isFlowModalOpen, setIsFlowModalOpen] = useState<boolean>(false);
-
-    const [applicationStatuses, setApplicationStatuses] = useState<ApplicationStatus[]>([]);
-  
-  
-  const [filters, setFilters] = useState<AppliedFilters>({});
-  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState({
-    applications: false,
-    updatingStatus: false,
-    requestingDocument: false
-  });
+  const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false); // New state for search button loading
   const [error, setError] = useState<string | null>(null);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState<SortField>("");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [filterOptions, setFilterOptions] = useState<FilterOptionsData | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    limit: 10,
+    totalRecords: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+  
+  // Filter states - these are now UI filters that will be applied only on search
+  const [uiFilters, setUiFilters] = useState<FilterOptions>({
+    dateRange: [null, null],
+    countries: [],
+    universities: [],
+    intakes: [],
+    years: [],
+    statuses: [],
+    acknowledgeNo: "",
+    programName: "",
+    studentName: "",
+    deadlineType: null,
+    deadlineDate: [null, null],
+    students: [],
+    studyLevels: [],
+    disciplines: [],
+    courses: [],
+  });
 
-  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  // Active filters that are actually applied to the API
+  const [activeFilters, setActiveFilters] = useState<FilterOptions>({
+    dateRange: [null, null],
+    countries: [],
+    universities: [],
+    intakes: [],
+    years: [],
+    statuses: [],
+    acknowledgeNo: "",
+    programName: "",
+    studentName: "",
+    deadlineType: null,
+    deadlineDate: [null, null],
+    students: [],
+    studyLevels: [],
+    disciplines: [],
+    courses: [],
+  });
+
   const { token } = useAuth();
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-  // Build query string from filters
-  const buildQueryString = useCallback(() => {
-    const params = new URLSearchParams();
-    
-    // Add all filters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value && value !== "all") {
-        if(key == "status"){
-            key = "applicationStatus"
-            params.append(key, value);
-          }else if(key == "study_level"){
-            key = "level"
-            params.append(key, value);
-          }else{
-            params.append(key, value);
-          }
+  // Fetch filter options from API
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/tenant/agent/application/filters/dynamic`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+          setFilterOptions(data.data.filterOptions);
+        }
+      } catch (err) {
+        console.error('Error fetching filter options:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch filter options');
       }
-    });
-    
-    return params.toString();
-  }, [filters]);
+    };
 
-  // Fetch applications with filters
-  const fetchApplications = useCallback(async () => {
-    if (!token) {
-      setError("Authentication token not found");
-      setLoading(prev => ({ ...prev, applications: false }));
-      return;
+    if (token) {
+      fetchFilterOptions();
     }
+  }, [token, BASE_URL]);
 
+  const fetchApplications = async (filtersToApply: FilterOptions = activeFilters) => {
     try {
-      setLoading(prev => ({ ...prev, applications: true }));
-      setError(null);
+      setLoading(true);
       
-      const queryString = buildQueryString();
-      const url = `${BASE_URL}/tenant/agent/applications/filters/dynamic${queryString ? `?${queryString}` : ''}`;
+      // Build query parameters
+      const params = new URLSearchParams();
       
+      // Add pagination params
+      params.append('page', pagination.page.toString());
+      params.append('limit', pagination.limit.toString());
+      
+      // Add filter params
+      if (filtersToApply.students.length > 0 && !filtersToApply.students.includes('all')) {
+        filtersToApply.students.forEach(student => {
+          params.append('student', student);
+        });
+      }
+      
+      if (filtersToApply.countries.length > 0 && !filtersToApply.countries.includes('all')) {
+        filtersToApply.countries.forEach(country => {
+          params.append('country_code', country);
+        });
+      }
+      
+      if (filtersToApply.universities.length > 0 && !filtersToApply.universities.includes('all')) {
+        filtersToApply.universities.forEach(university => {
+          params.append('university', university);
+        });
+      }
+      
+      if (filtersToApply.studyLevels.length > 0 && !filtersToApply.studyLevels.includes('all')) {
+        filtersToApply.studyLevels.forEach(level => {
+          params.append('level', level);
+        });
+      }
+      
+      if (filtersToApply.disciplines.length > 0 && !filtersToApply.disciplines.includes('all')) {
+        filtersToApply.disciplines.forEach(discipline => {
+          params.append('discipline', discipline);
+        });
+      }
+      
+      if (filtersToApply.courses.length > 0 && !filtersToApply.courses.includes('all')) {
+        filtersToApply.courses.forEach(course => {
+          params.append('course', course);
+        });
+      }
+      
+      if (filtersToApply.intakes.length > 0 && !filtersToApply.intakes.includes('all')) {
+        filtersToApply.intakes.forEach(intake => {
+          params.append('intake', intake);
+        });
+      }
+      
+      if (filtersToApply.years.length > 0 && !filtersToApply.years.includes('all')) {
+        filtersToApply.years.forEach(year => {
+          params.append('year', year);
+        });
+      }
+      
+      if (filtersToApply.statuses.length > 0 && !filtersToApply.statuses.includes('all')) {
+        filtersToApply.statuses.forEach(status => {
+          params.append('applicationStatus', status);
+        });
+      }
+      
+      if (filtersToApply.deadlineType && filtersToApply.deadlineType !== 'all') {
+        params.append('deadline_type', filtersToApply.deadlineType);
+      }
+      
+      if (filtersToApply.dateRange[0]) {
+        params.append('date_created_start', filtersToApply.dateRange[0].toISOString().split('T')[0]);
+      }
+      
+      if (filtersToApply.dateRange[1]) {
+        params.append('date_created_end', filtersToApply.dateRange[1].toISOString().split('T')[0]);
+      }
+      
+      if (filtersToApply.deadlineDate[0]) {
+        params.append('deadline_date_start', filtersToApply.deadlineDate[0].toISOString().split('T')[0]);
+      }
+      
+      if (filtersToApply.deadlineDate[1]) {
+        params.append('deadline_date_end', filtersToApply.deadlineDate[1].toISOString().split('T')[0]);
+      }
+      
+      if (filtersToApply.acknowledgeNo) {
+        params.append('acknowledgement_no', filtersToApply.acknowledgeNo);
+      }
+      
+      if (filtersToApply.programName) {
+        params.append('program_name', filtersToApply.programName);
+      }
+      
+      if (filtersToApply.studentName) {
+        params.append('student_name', filtersToApply.studentName);
+      }
+
+      const url = `${BASE_URL}/tenant/agent/applications?${params.toString()}`;
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const result: ApiResponse = await response.json();
       
-      if (result.success && result.data) {
-        // Transform API data to match Application interface
-        const transformedApplications: Application[] = result.data.map((apiApp: ApiApplicationResponse) => ({
-          id: apiApp.application.id,
-          university: apiApp.application.university_name,
-          course: apiApp.application.course_name,
-          intake: apiApp.application.intake_date 
-            ? new Date(apiApp.application.intake_date).getFullYear().toString()
-            : "Fall 2024",
-          status: apiApp.application.status_label,
-          assignedTo: apiApp.application.assigned_to || "Not Assigned",
-          studentName: `${apiApp.student_profile.first_name} ${apiApp.student_profile.last_name}`,
-          studentEmail: apiApp.student_profile.alternate_email || "student@example.com",
-          agentName: "Agent", // Will need to fetch agent details separately
-          agentEmail: "agent@example.com",
-          country: apiApp.application.university_country,
-          degree: apiApp.application.study_level_name,
-          location: `${apiApp.application.university_city}, ${apiApp.application.university_state}`,
-          externalEvaluation: "Not Provided",
-          profileStatus: apiApp.profile_status,
-          commonDocumentsStatus: apiApp.common_documents.status,
-          specificDocumentsStatus: apiApp.specific_documents.status,
-          commonDocuments: apiApp.common_documents.list,
-          specificDocuments: apiApp.specific_documents.list,
-          current_status_id: apiApp.application.current_status_id,
-          student_user_id: apiApp.application.student_user_id,
-          created_by: apiApp.application.created_by
-        }));
-
-        setApplications(transformedApplications);
-        setFilterOptions(result.filterOptions);
+      const data = await response.json();
+      if (data.success) {
+        setApplications(data.data || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
       } else {
-        setApplications([]);
-        setFilterOptions(null);
+        throw new Error(data.message || 'Failed to fetch applications');
       }
     } catch (err) {
       console.error('Error fetching applications:', err);
-      setError('Failed to load applications. Please try again.');
-      setApplications([]);
-      setFilterOptions(null);
+      setError(err instanceof Error ? err.message : 'Failed to fetch applications');
     } finally {
-      setLoading(prev => ({ ...prev, applications: false }));
+      setLoading(false);
+      setSearchLoading(false); // Also stop search loading when fetch completes
     }
-  }, [token, buildQueryString, BASE_URL]);
-
-    // Fetch application statuses
-    useEffect(() => {
-      const fetchApplicationStatuses = async () => {
-        setLoading(prev => ({ ...prev, statuses: true }));
-        try {
-          const response = await fetch(`${BASE_URL}/tenant/application/statuses`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const data = await response.json();
-          
-          if (data.success) {
-            setApplicationStatuses(data.data);
-          } else {
-            throw new Error('Failed to fetch application statuses');
-          }
-        } catch (err) {
-          setError('Failed to load application statuses');
-          console.error('Error fetching application statuses:', err);
-        } finally {
-          setLoading(prev => ({ ...prev, statuses: false }));
-        }
-      };
-  
-      fetchApplicationStatuses();
-    }, [BASE_URL, token]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchApplications();
-  }, [fetchApplications]);
-
-  // Handle filter changes with debounce
-  useEffect(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    const timeout = setTimeout(() => {
-      fetchApplications();
-    }, 500); // 500ms debounce
-
-    setSearchTimeout(timeout);
-
-    return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-      }
-    };
-  }, [filters]);
-
-  // Handle filter changes
-  const handleFilterChange = (newFilters: AppliedFilters) => {
-    setFilters(newFilters);
   };
 
-  // Filter removal functions
-  const handleRemoveFilter = (key: keyof AppliedFilters) => {
-    setFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters[key];
-      return newFilters;
+  // Fetch applications from API on initial load and page change
+  useEffect(() => {
+    if (token) {
+      fetchApplications(activeFilters);
+    }
+  }, [token, BASE_URL, pagination.page, pagination.limit, activeFilters]);
+
+  // Handle UI filter changes - this only updates the UI state, not the API
+  const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
+    setUiFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  // Handle search button click - apply filters to API
+  const handleSearch = async () => {
+    // Set search loading to true
+    setSearchLoading(true);
+    
+    // Set active filters from UI filters and reset to page 1
+    setActiveFilters(uiFilters);
+    setPagination(prev => ({ ...prev, page: 1 }));
+    
+    // The useEffect will trigger fetchApplications with the new activeFilters
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  // Handle limit change
+  const handleLimitChange = (newLimit: number) => {
+    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
+  };
+
+  // Format date to readable string
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
-  const clearAllFilters = () => {
-    setFilters({});
-  };
-
-  const handleUpdateStatusClick = (application: Application) => {
-    setSelectedApplication(application);
-    setIsUpdateStatusModalOpen(true);
-  };
-
-  const handleViewCommonDocs = (application: Application) => {
-    setSelectedApplication(application);
-    setSelectedDocuments(application.commonDocuments);
-    setSelectedModalTitle(`Common Documents - ${application.studentName}`);
-    setIsCommonDocsModalOpen(true);
-  };
-
-  const handleViewSpecificDocs = (application: Application) => {
-    setSelectedApplication(application);
-    setSelectedDocuments(application.specificDocuments);
-    setSelectedModalTitle(`Specific Documents - ${application.studentName}`);
-    setIsSpecificDocsModalOpen(true);
-  };
-
-  const handleRequestAdditionalDoc = (application: Application) => {
-    setSelectedApplication(application);
-    handleViewSpecificDocs(application);
-  };
-
-  const handleShowFlowModal = (application: Application) => {
-    setSelectedApplication(application);
-    setIsFlowModalOpen(true);
-  };
-
-  const handleRequestDocument = async (documentData: DocumentRequestData) => {
-    if (!selectedApplication) return;
-
-    setLoading(prev => ({ ...prev, requestingDocument: true }));
-    try {
-      const response = await fetch(
-        `${BASE_URL}/tenant/application/document/request/${selectedApplication.id}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(documentData)
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert('Document request sent successfully!');
-        fetchApplications(); // Refresh applications
-      } else {
-        throw new Error(data.message || 'Failed to request document');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send document request';
-      setError(errorMessage);
-      console.error('Error requesting document:', err);
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setLoading(prev => ({ ...prev, requestingDocument: false }));
+  const handleSort = (field: keyof Application) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
     }
   };
 
-  const handleUpdateStatus = async (applicationId: number, statusId: number) => {
-    if (!selectedApplication) return;
-
-    setLoading(prev => ({ ...prev, updatingStatus: true }));
-    try {
-      const { created_by, student_user_id } = selectedApplication;
-      console.log(`${created_by}/${student_user_id}/${applicationId}`)
-      const response = await fetch(
-        `${BASE_URL}/tenant/agent/application/status/${created_by}/${student_user_id}/${applicationId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            current_status_id: statusId
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        fetchApplications(); // Refresh applications
-      } else {
-        throw new Error('Failed to update application status');
-      }
-    } catch (err) {
-      setError('Failed to update application status');
-      console.error('Error updating application status:', err);
-    } finally {
-      setLoading(prev => ({ ...prev, updatingStatus: false }));
-    }
+  const getSortIcon = (field: keyof Application) => {
+    if (sortField !== field) return "↕️";
+    return sortDirection === "asc" ? "↑" : "↓";
   };
 
-  const hasActiveFilters = Object.keys(filters).length > 0;
-
-  // Get filter display name
-  const getFilterDisplayName = (key: keyof AppliedFilters, value: string): string => {
-    if (!filterOptions) return value;
+  const getStatusColor = (status: string) => {
+    const statusLower = status.toLowerCase();
     
-    const optionMap: Record<keyof AppliedFilters, FilterOption[]> = {
-      course: filterOptions.courses,
-      student: filterOptions.students,
-      agent: filterOptions.agents,
-      university: filterOptions.universities,
-      status: filterOptions.applicationStatus,
-      year: filterOptions.years,
-      intake: filterOptions.intakes,
-      discipline: filterOptions.disciplines,
-      study_level: filterOptions.studyLevels,
-    };
-
-    const option = optionMap[key]?.find(opt => opt.id.toString() === value);
-    return option?.name || value;
+    if (statusLower.includes('approved') || statusLower.includes('admitted') || statusLower.includes('complete') || statusLower.includes('arrived')) {
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+    } else if (statusLower.includes('pending') || statusLower.includes('incomplete') || statusLower.includes('received') || statusLower.includes('submitted')) {
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+    } else if (statusLower.includes('denied') || statusLower.includes('rejected') || statusLower.includes('withdrawn')) {
+      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+    } else if (statusLower.includes('applied') || statusLower.includes('documents')) {
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+    } else if (statusLower.includes('visa') || statusLower.includes('i20')) {
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+    }
+    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
   };
+
+  // Prepare filter options for Select components
+  const countryOptions = filterOptions?.countries?.map(country => ({
+    value: country.code || country.id,
+    label: country.name
+  })) || [];
+
+  const universityOptions = filterOptions?.universities?.map(univ => ({
+    value: univ.id.toString(),
+    label: univ.name
+  })) || [];
+
+  const intakeOptions = filterOptions?.intakes?.map(intake => ({
+    value: intake.id,
+    label: intake.intake_name
+  })) || [];
+
+  const yearOptions = filterOptions?.intakeYears?.map(year => ({
+    value: year.id,
+    label: year.name
+  })) || [];
+
+  const statusOptions = filterOptions?.applicationStatus?.map(status => ({
+    value: status.id.toString(),
+    label: status.status_label || status.name || 'Unknown'
+  })) || [];
+
+  const deadlineTypeOptions = filterOptions?.deadlineTypes?.map(type => ({
+    value: type.id.toString(),
+    label: type.name
+  })) || [];
+
+  const studyLevelOptions = filterOptions?.studyLevels?.map(level => ({
+    value: level.id.toString(),
+    label: level.name
+  })) || [];
+
+  const disciplineOptions = filterOptions?.disciplines?.map(discipline => ({
+    value: discipline.id.toString(),
+    label: discipline.name
+  })) || [];
+
+  const courseOptions = filterOptions?.courses?.map(course => ({
+    value: course.id.toString(),
+    label: course.name
+  })) || [];
+
+  const studentOptions = filterOptions?.students?.map(student => ({
+    value: student.id.toString(),
+    label: student.name
+  })) || [];
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    const emptyFilters: FilterOptions = {
+      dateRange: [null, null],
+      countries: [],
+      universities: [],
+      intakes: [],
+      years: [],
+      statuses: [],
+      acknowledgeNo: "",
+      programName: "",
+      studentName: "",
+      deadlineType: null,
+      deadlineDate: [null, null],
+      students: [],
+      studyLevels: [],
+      disciplines: [],
+      courses: [],
+    };
+    
+    setUiFilters(emptyFilters);
+    setActiveFilters(emptyFilters);
+    setSearchTerm("");
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  if (loading && !applications.length) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-red-500 text-center">
-          <p className="text-lg font-semibold mb-2">Error</p>
-          <p>{error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="mt-4 px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
-          >
-            Try Again
-          </button>
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+        <div className="flex items-center">
+          <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="ml-2 text-sm font-medium text-red-800 dark:text-red-400">Error loading applications</h3>
         </div>
+        <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-3 text-sm text-red-800 dark:text-red-400 underline"
+        >
+          Try again
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Applications</div>
-          <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {applications.length}
-          </div>
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90">
+          Applications ({pagination.totalRecords})
+        </h2>
+        <span  className="d-block text-sm text-gray-800 dark:text-white/90">Manage your Students' Applications.</span>
         </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Active Applications</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {applications.filter(a => a.status === 'Applied').length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Pending Documents</div>
-          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {applications.filter(a => a.commonDocumentsStatus === 'incomplete').length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Universities</div>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {new Set(applications.map(a => a.university)).size}
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Search Input (optional - can be added if API supports search) */}
-        {/* <div className="flex-1 max-w-md">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search applications..."
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div> */}
-
-        {/* Filter Button and Active Filters */}
+        
         <div className="flex items-center gap-3">
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Clear All Filters
+          
+          {/* <Link href="/partner/programs" className="shrink-0">
+            <button className="h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Application
             </button>
-          )}
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-            </svg>
-            Filter Applications
-          </button>
+          </Link> */}
         </div>
       </div>
+      
+      <div className="space-y-6">
+       
 
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          {Object.entries(filters).map(([key, value]) => (
-            <Badge key={key} size="sm" color="primary">
-              {key}: {getFilterDisplayName(key as keyof AppliedFilters, value)}
-              <button 
-                onClick={() => handleRemoveFilter(key as keyof AppliedFilters)}
-                className="ml-1 text-xs"
-              >
-                ×
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {loading.applications && (
-        <div className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
-        </div>
-      )}
-
-      {!loading.applications && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {applications && applications.length > 0 ? (
-            applications.map((application, index) => (
-              <ApplicationCard 
-                key={`${application.id}-${index}`} 
-                application={application} 
-                onUpdateStatus={handleUpdateStatusClick}
-                onViewCommonDocs={handleViewCommonDocs}
-                onViewSpecificDocs={handleViewSpecificDocs}
-                onRequestAdditionalDoc={handleRequestAdditionalDoc}
-                setShowFlowModal={handleShowFlowModal}
-              />
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <div className="text-gray-500 dark:text-gray-400 text-lg mb-2">
-                No applications found matching your criteria.
+        {/* Filters Section */}
+        <div className="MSL-Searchform p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* Student Multi-select */}
+            <div className="SF-Student all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Student
+                </label>
+                <Select
+                  isMulti
+                  options={studentOptions}
+                  value={studentOptions.filter(option => 
+                    uiFilters.students.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('students', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select students"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
               </div>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Try adjusting your filters
-              </p>
             </div>
-          )}
-        </div>
-      )}
 
-      {!loading.applications && applications && (
+            {/* Country Multi-select */}
+            <div className="all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Country
+                </label>
+                <Select
+                  isMulti
+                  options={countryOptions}
+                  value={countryOptions.filter(option => 
+                    uiFilters.countries.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('countries', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select countries"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* University Multi-select */}
+            <div className="SF-University all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  University
+                </label>
+                <Select
+                  isMulti
+                  options={universityOptions}
+                  value={universityOptions.filter(option => 
+                    uiFilters.universities.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('universities', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select universities"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Study Level Multi-select */}
+            <div className="SF-StudyLevel all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Study Level
+                </label>
+                <Select
+                  isMulti
+                  options={studyLevelOptions}
+                  value={studyLevelOptions.filter(option => 
+                    uiFilters.studyLevels.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('studyLevels', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select study levels"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Discipline Multi-select */}
+            <div className="SF-Discipline all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Discipline
+                </label>
+                <Select
+                  isMulti
+                  options={disciplineOptions}
+                  value={disciplineOptions.filter(option => 
+                    uiFilters.disciplines.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('disciplines', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select disciplines"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Course Multi-select */}
+            <div className="SF-Course all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Course
+                </label>
+                <Select
+                  isMulti
+                  options={courseOptions}
+                  value={courseOptions.filter(option => 
+                    uiFilters.courses.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('courses', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select courses"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Intake Multi-select */}
+            <div className="SF-Intake all-countries">
+              <div className="form-group calendar-two">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Intake
+                </label>
+                <Select
+                  isMulti
+                  options={intakeOptions}
+                  value={intakeOptions.filter(option => 
+                    uiFilters.intakes.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('intakes', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select intakes"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Year Multi-select */}
+            <div className="SF-year all-countries">
+              <div className="form-group calendar-two">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Year
+                </label>
+                <Select
+                  isMulti
+                  options={yearOptions}
+                  value={yearOptions.filter(option => 
+                    uiFilters.years.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('years', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select years"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Status Multi-select */}
+            <div className="SF-Status all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <Select
+                  isMulti
+                  options={statusOptions}
+                  value={statusOptions.filter(option => 
+                    uiFilters.statuses.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('statuses', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select statuses"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Date Created */}
+            <div className="SF-DateApp">
+              <div className="form-group calendar-one">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Date Created
+                </label>
+                <DatePicker
+                  selected={uiFilters.dateRange[0]}
+                  onChange={(dates: [Date | null, Date | null]) => handleFilterChange('dateRange', dates)}
+                  startDate={uiFilters.dateRange[0]}
+                  endDate={uiFilters.dateRange[1]}
+                  selectsRange
+                  isClearable
+                  placeholderText="Select date range"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  dateFormat="dd-MM-yyyy"
+                />
+              </div>
+            </div>
+
+            {/* Acknowledgement No. */}
+            <div className="SF-Keyword">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Acknowledgement No.
+                </label>
+                <input
+                  type="text"
+                  placeholder="Acknowledgement No."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  value={uiFilters.acknowledgeNo}
+                  onChange={(e) => handleFilterChange('acknowledgeNo', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Program Name */}
+            <div className="SF-Keyword">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Program Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Program Name"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  value={uiFilters.programName}
+                  onChange={(e) => handleFilterChange('programName', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Student Name */}
+            <div className="SF-Keyword">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Student Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Student Name"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  value={uiFilters.studentName}
+                  onChange={(e) => handleFilterChange('studentName', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Deadline Type */}
+            <div className="SF-Intake all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Deadline Type
+                </label>
+                <Select
+                  options={deadlineTypeOptions}
+                  value={deadlineTypeOptions.find(option => option.value === uiFilters.deadlineType)}
+                  onChange={(selectedOption) => {
+                    handleFilterChange('deadlineType', selectedOption?.value || null);
+                  }}
+                  placeholder="Select deadline type"
+                  className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                  isClearable
+                />
+              </div>
+            </div>
+
+            {/* Deadline Date */}
+            <div className="SF-DateApp">
+              <div className="form-group calendar-one">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Deadline Date
+                </label>
+                <DatePicker
+                  selected={uiFilters.deadlineDate[0]}
+                  onChange={(dates: [Date | null, Date | null]) => handleFilterChange('deadlineDate', dates)}
+                  startDate={uiFilters.deadlineDate[0]}
+                  endDate={uiFilters.deadlineDate[1]}
+                  selectsRange
+                  isClearable
+                  placeholderText="Select deadline date"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  dateFormat="dd-MM-yyyy"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Search Button */}
+          <div className="SF-Searchbtn mt-6">
+            <div className="form-group flex justify-end">
+              <button
+            onClick={clearAllFilters}
+            className="h-11 mr-2 px-4 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-transparent text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            Clear Filters
+          </button>
+              <button
+                type="button"
+                className={`px-6 py-2.5 rounded-lg transition-colors font-medium flex items-center justify-center min-w-[100px] ${
+                  searchLoading 
+                    ? 'bg-blue-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+                onClick={handleSearch}
+                disabled={searchLoading}
+              >
+                {searchLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Searching...
+                  </>
+                ) : (
+                  'Search'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Show table loading overlay when data is being fetched */}
+        {loading && (
+          <div className="relative">
+            <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Loading applications...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Results Count */}
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {applications.length} application{applications.length !== 1 ? 's' : ''}
+          Showing {applications.length} of {pagination.totalRecords} applications
         </div>
-      )}
 
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        filterOptions={filterOptions}
-        appliedFilters={filters}
-        onFilterChange={handleFilterChange}
-      />
+        {/* Table */}
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <div className="max-w-full overflow-x-auto">
+            <div className="min-w-[1200px]">
+              <Table>
+                {/* Table Header */}
+                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                  <TableRow>
+                    {[
+                      { key: "acknowledgement_no", label: "Acknowledge No." },
+                      { key: "date_created", label: "Date Created" },
+                      { key: "student_full_name", label: "Student Name" },
+                      { key: "university_name", label: "University Name" },
+                      { key: "course_name", label: "Program Name" },
+                      { key: "intake_name", label: "Intake" },
+                      { key: "study_level_name", label: "Study Level" },
+                      { key: "status_label", label: "Application Status" },
+                    ].map(({ key, label }) => (
+                      <TableCell
+                        key={key}
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                        onClick={() => handleSort(key as keyof Application)}
+                      >
+                        <div className="flex items-center gap-1">
+                          {label}
+                          <span className="text-xs">{getSortIcon(key as keyof Application)}</span>
+                        </div>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHeader>
 
-      <UpdateStatusModal
-        isOpen={isUpdateStatusModalOpen}
-        onClose={() => setIsUpdateStatusModalOpen(false)}
-        application={selectedApplication}
-        statuses={applicationStatuses}
-        onUpdateStatus={handleUpdateStatus}
-        loading={loading.updatingStatus}
-      />
+                {/* Table Body */}
+                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {applications.length > 0 ? (
+                    applications.map((application) => (
+                      <TableRow key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300 font-medium">
+                          <Link href={`/partner/editProfile/${application.student_user_id}?tab=applications&app=${application.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                            {application.acknowledgement_no}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
+                          {formatDate(application.date_created)}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300 font-medium">
+                          <Link href={`/partner/editProfile/${application.student_user_id}`}>
+                            {application.student_full_name || 'N/A'}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
+                          {application.university_name}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
+                          {application.course_name}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
+                          {application.intake_name || 'N/A'}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
+                          {application.study_level_name}
+                        </TableCell>
+                        <TableCell className="px-5 py-4">
+                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(application.status_label)}`}>
+                            {application.status_label}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                       
+                        className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
+                      >
+                        No applications found matching your criteria.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
 
-      <DocumentsModal
-        isOpen={isCommonDocsModalOpen}
-        onClose={() => setIsCommonDocsModalOpen(false)}
-        title={selectedModalTitle}
-        documents={selectedDocuments}
-        loading={false}
-      />
-
-      <FlowModal
-        isOpen={isFlowModalOpen}
-        onClose={() => setIsFlowModalOpen(false)}
-        application={selectedApplication}
-      />
-
-      <DocumentsModal
-        isOpen={isSpecificDocsModalOpen}
-        onClose={() => setIsSpecificDocsModalOpen(false)}
-        title={selectedModalTitle}
-        documents={selectedDocuments}
-        loading={false}
-        onRequestDocument={handleRequestDocument}
-        showRequestButton={true}
-        applicationId={selectedApplication?.id || 0}
-      />
-    </div>
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Showing {(pagination.page - 1) * pagination.limit + 1} to {Math.min(pagination.page * pagination.limit, pagination.totalRecords)} of {pagination.totalRecords} applications
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Items per page selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Show:</span>
+              <select
+                value={pagination.limit}
+                onChange={(e) => handleLimitChange(Number(e.target.value))}
+                className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm"
+              >
+                {[10, 20, 50, 100].map(limit => (
+                  <option key={limit} value={limit}>{limit}</option>
+                ))}
+              </select>
+              <span className="text-sm text-gray-500 dark:text-gray-400">per page</span>
+            </div>
+            
+            {/* Pagination buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={!pagination.hasPrevPage}
+                className={`px-3 py-1.5 rounded-lg border text-sm ${
+                  pagination.hasPrevPage
+                    ? 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    : 'border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                Previous
+              </button>
+              
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                let pageNum;
+                if (pagination.totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (pagination.page <= 3) {
+                  pageNum = i + 1;
+                } else if (pagination.page >= pagination.totalPages - 2) {
+                  pageNum = pagination.totalPages - 4 + i;
+                } else {
+                  pageNum = pagination.page - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1.5 rounded-lg text-sm ${
+                      pagination.page === pageNum
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              
+              {pagination.totalPages > 5 && pagination.page < pagination.totalPages - 2 && (
+                <>
+                  <span className="px-2 text-gray-500 dark:text-gray-400">...</span>
+                  <button
+                    onClick={() => handlePageChange(pagination.totalPages)}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
+                  >
+                    {pagination.totalPages}
+                  </button>
+                </>
+              )}
+              
+              <button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={!pagination.hasNextPage}
+                className={`px-3 py-1.5 rounded-lg border text-sm ${
+                  pagination.hasNextPage
+                    ? 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    : 'border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

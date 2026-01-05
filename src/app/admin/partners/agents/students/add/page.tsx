@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { User, Mail, Phone, Calendar, FileText } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -18,6 +18,25 @@ interface StudentFormData {
   dob: string;
 }
 
+interface Agent {
+  id: number;
+  name: string;
+  businessName: string;
+  email: string;
+}
+
+interface ApiAgent {
+  user_id: number;
+  name: string;
+  business_name: string | null;
+  email: string;
+  phone: string | null;
+  is_agent_verified: number;
+  is_payment_verified: number;
+}
+
+    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
 export default function AddStudent() {
   const router = useRouter();
   const {token} = useAuth(); 
@@ -27,6 +46,11 @@ export default function AddStudent() {
   const [success, setSuccess] = useState("")
 
   const countries = Country.getAllCountries();
+
+    const [agents, setAgents] = useState<Agent[]>([]);
+
+      const [loading, setLoading] = useState(true);
+  
 
   
 
@@ -110,7 +134,7 @@ export default function AddStudent() {
 
     setIsSubmitting(true);
 
-    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
 
     try {
       
@@ -144,6 +168,48 @@ export default function AddStudent() {
       setIsSubmitting(false);
     }
   };
+
+      // Fetch agents from API
+      useEffect(() => {
+        const fetchAgents = async () => {
+          try {
+            setLoading(true);
+            const response = await fetch(`${BASE_URL}/tenant/agent/list`,{
+              headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Failed to fetch agents: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && Array.isArray(data.data)) {
+              // Transform API data to match our component's interface
+              const transformedAgents: Agent[] = data.data.map((apiAgent: ApiAgent) => ({
+                id: apiAgent.user_id,
+                name: apiAgent.name || "N/A",
+                businessName: apiAgent.business_name || "N/A",
+                email: apiAgent.email,
+              }));
+              
+              setAgents(transformedAgents);
+            } else {
+              throw new Error("Invalid API response format");
+            }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "An error occurred while fetching agents");
+            console.error("Error fetching agents:", err);
+          } finally {
+            setLoading(false);
+          }
+        };
+    
+        fetchAgents();
+      }, []);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">

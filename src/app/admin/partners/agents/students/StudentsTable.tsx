@@ -451,21 +451,24 @@ export default function StudentTable() {
               </div>
             </div>
 
-            {/* Date Range Filter */}
-            <div className="SF-DateApp">
-              <div className="form-group calendar-one">
-                <DatePicker
-                  selected={startDate}
-                  onChange={handleDateRangeChange}
-                  startDate={startDate}
-                  endDate={endDate}
-                  selectsRange
-                  isClearable
-                  placeholderText="Select date range"
-                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
-                  dateFormat="dd-MM-yyyy"
-                />
-              </div>
+
+
+            <div className="relative">
+              <select
+                id="agent_id"
+                name="agent_id"
+                value={agentId}
+                onChange={handleAgentChange}
+                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+              >
+                <option value="">All Agents</option>
+                {agents.map(agent => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name + " (" + agent.email+")"}
+                  </option>
+                ))}
+              </select>
+             
             </div>
 
             {/* Country Filter */}
@@ -487,23 +490,24 @@ export default function StudentTable() {
              
             </div>
 
-            <div className="relative">
-              <select
-                id="agent_id"
-                name="agent_id"
-                value={agentId}
-                onChange={handleAgentChange}
-                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
-              >
-                <option value="">All Agents</option>
-                {agents.map(agent => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name + " (" + agent.email+")"}
-                  </option>
-                ))}
-              </select>
-             
+                        {/* Date Range Filter */}
+            <div className="SF-DateApp">
+              <div className="form-group calendar-one">
+                <DatePicker
+                  selected={startDate}
+                  onChange={handleDateRangeChange}
+                  startDate={startDate}
+                  endDate={endDate}
+                  selectsRange
+                  isClearable
+                  placeholderText="Select date range"
+                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
+                  dateFormat="dd-MM-yyyy"
+                />
+              </div>
             </div>
+
+            
 
             
 
