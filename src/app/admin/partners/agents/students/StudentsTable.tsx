@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Country } from "country-state-city";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-
+import { useParams, useSearchParams } from "next/navigation";
 
 interface ApiAgent {
   user_id: number;
@@ -32,6 +32,7 @@ interface Agent {
 }
 
 interface Student {
+  agent_id: number;
   user_id: number;
   email: string;
   phone: string;
@@ -68,8 +69,12 @@ export default function StudentTable() {
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const [searchLoading, setSearchLoading] = useState(false); 
+  const searchParams = useSearchParams();
+  const activeAgentId = searchParams.get("agent_id");
 
+  const initialLoad = useRef(true);
+
+  const [searchLoading, setSearchLoading] = useState(false); 
   const [agents, setAgents] = useState<Agent[]>([]);
   
   // Filter states
@@ -78,8 +83,6 @@ export default function StudentTable() {
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
 
-
-  
   // Pagination states
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
@@ -95,61 +98,49 @@ export default function StudentTable() {
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 
-    // Fetch agents from API
-    useEffect(() => {
-      const fetchAgents = async () => {
-        try {
-          setLoading(true);
-          const response = await fetch(`${BASE_URL}/tenant/agent/list`,{
-            headers: {
+
+  // Fetch agents from API
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/tenant/agent/list`, {
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch agents: ${response.status}`);
-          }
-          
-          const data = await response.json();
-          
-          if (data.success && Array.isArray(data.data)) {
-            // Transform API data to match our component's interface
-            const transformedAgents: Agent[] = data.data.map((apiAgent: ApiAgent) => ({
-              id: apiAgent.user_id,
-              name: apiAgent.name || "N/A",
-              businessName: apiAgent.business_name || "N/A",
-              email: apiAgent.email,
-            }));
-            
-            setAgents(transformedAgents);
-          } else {
-            throw new Error("Invalid API response format");
-          }
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "An error occurred while fetching agents");
-          console.error("Error fetching agents:", err);
-        } finally {
-          setLoading(false);
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status}`);
         }
-      };
-  
-      fetchAgents();
-    }, []);
+        
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.data)) {
+          const transformedAgents: Agent[] = data.data.map((apiAgent: ApiAgent) => ({
+            id: apiAgent.user_id,
+            name: apiAgent.name || "N/A",
+            businessName: apiAgent.business_name || "N/A",
+            email: apiAgent.email,
+          }));
+          
+          setAgents(transformedAgents);
+        } else {
+          throw new Error("Invalid API response format");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred while fetching agents");
+        console.error("Error fetching agents:", err);
+      }
+    };
 
-  const handleSearch = async () => {
-    // Set search loading to true
-    setSearchLoading(true);
-
-    setPagination(prev => ({ ...prev, page: 1 }));
-    
     if (token) {
-      fetchStudents();
+      fetchAgents();
     }
-  };
+  }, [token]);
 
   // Build query string from filters
-  const buildQueryString = () => {
+  const buildQueryString = (customAgentId?: string) => {
     const params = new URLSearchParams();
     
     // Add pagination params
@@ -165,9 +156,10 @@ export default function StudentTable() {
       params.append('country_code', countryCode);
     }
 
-    if(agentId) {
-      params.append('agent_id', agentId);
-
+    // Use agentId from state (which includes activeAgentId from URL)
+    const agentIdToUse = customAgentId !== undefined ? customAgentId : agentId;
+    if (agentIdToUse) {
+      params.append('agent_id', agentIdToUse);
     }
     
     if (startDate) {
@@ -182,10 +174,10 @@ export default function StudentTable() {
   };
 
   // Fetch students from API
-  const fetchStudents = async () => {
+const fetchStudents = async (customAgentId?: string) => {
     try {
       setLoading(true);
-      const queryString = buildQueryString();
+      const queryString = buildQueryString(customAgentId);
       const url = `${BASE_URL}/tenant/agent/student${queryString ? `?${queryString}` : ''}`;
       
       const response = await fetch(url, {
@@ -203,7 +195,7 @@ export default function StudentTable() {
       
       if (result.success && Array.isArray(result.data)) {
         setStudents(result.data);
-        setPagination(result.pagination);
+        setPagination(result.pagination); 
       } else {
         throw new Error('Invalid response format');
       }
@@ -219,14 +211,43 @@ export default function StudentTable() {
   // Fetch students when filters or pagination change
   useEffect(() => {
     if (token) {
+      // Skip on initial load if we have activeAgentId
+      if (initialLoad.current && activeAgentId) {
+        initialLoad.current = false;
+        return;
+      }
       fetchStudents();
     }
-  }, [token]);
+  }, [token, currentPage, limit]);
 
-  // Reset to first page when filters change (except pagination controls)
+  // Initialize agentId from URL params - FIXED VERSION
   useEffect(() => {
+    if (activeAgentId && token) {
+      // Set agentId state
+      setAgentId(activeAgentId);
+      // Reset to first page
+      setCurrentPage(1);
+      // Fetch students with the activeAgentId
+      fetchStudents(activeAgentId);
+      initialLoad.current = false;
+    }
+  }, [activeAgentId, token]); // Added token as dependency
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    if (token && !initialLoad.current) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm, countryCode, agentId, dateRange]);
+
+  const handleSearch = async () => {
+    setSearchLoading(true);
     setCurrentPage(1);
-  }, [searchTerm, countryCode, dateRange, agentId]);
+    
+    if (token) {
+      fetchStudents();
+    }
+  };
 
   // Format date to readable string
   const formatDate = (dateString: string) => {
@@ -272,20 +293,35 @@ export default function StudentTable() {
   const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLimit = parseInt(e.target.value);
     setLimit(newLimit);
-    setCurrentPage(1); // Reset to first page when limit changes
+    setCurrentPage(1);
   };
 
-  // Filter and sort data (client-side for display only, since we have server-side filtering)
+  // Clear all filters
+ const clearFilters = () => {
+    setSearchTerm("");
+    setCountryCode("");
+    
+    // Only clear agentId if it's not from URL
+    if (!activeAgentId) {
+      setAgentId("");
+    } else {
+      // If we have URL agentId, keep it but refresh
+      fetchStudents(activeAgentId);
+    }
+    
+    setDateRange([null, null]);
+    setCurrentPage(1);
+  };
+
+  // Filter and sort data (client-side for display only)
   const filteredAndSortedData = useMemo(() => {
     let filtered = [...students];
 
-    // Apply client-side sorting if needed
     if (sortField) {
       filtered.sort((a, b) => {
         let aValue = a[sortField];
         let bValue = b[sortField];
         
-        // Handle name sorting separately
         if (sortField === 'first_name' || sortField === 'last_name') {
           aValue = getFullName(a);
           bValue = getFullName(b);
@@ -296,7 +332,6 @@ export default function StudentTable() {
           bValue = bValue.toLowerCase();
         }
         
-        // Handle date sorting
         if (sortField === 'dob' || sortField === 'created_at') {
           aValue = new Date(aValue as string).getTime();
           bValue = new Date(bValue as string).getTime();
@@ -348,15 +383,6 @@ export default function StudentTable() {
     );
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setSearchTerm("");
-    setCountryCode("");
-    setAgentId("");
-    setDateRange([null, null]);
-    setCurrentPage(1);
-  };
-
   if (loading && currentPage === 1) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -376,7 +402,7 @@ export default function StudentTable() {
         </div>
         <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
         <button
-          onClick={fetchStudents}
+          onClick={() => fetchStudents()}
           className="mt-3 text-sm text-red-800 dark:text-red-400 underline"
         >
           Try again
@@ -401,14 +427,14 @@ export default function StudentTable() {
         {/* Add Student Button */}
         <div className="flex gap-4 text-sm">
           <button
-              onClick={clearFilters}
-              className="h-11 px-4 rounded-lg border border-gray-300 bg-transparent text-sm text-gray-700 shadow-theme-xs hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-gray-500/10 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Clear Filters
-            </button>
+            onClick={clearFilters}
+            className="h-11 px-4 rounded-lg border border-gray-300 bg-transparent text-sm text-gray-700 shadow-theme-xs hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-gray-500/10 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear Filters
+          </button>
           <Link href="/admin/partners/agents/students/add" className="shrink-0">
             <button className="h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -417,7 +443,6 @@ export default function StudentTable() {
               Add Student
             </button>
           </Link>
-
         </div>
       </div>
       
@@ -425,10 +450,7 @@ export default function StudentTable() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-3">
         <div className="flex gap-4 text-sm w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full">
-            
-
-
-
+            {/* Agent Filter */}
             <div className="relative">
               <select
                 id="agent_id"
@@ -444,7 +466,6 @@ export default function StudentTable() {
                   </option>
                 ))}
               </select>
-             
             </div>
 
             {/* Country Filter */}
@@ -463,10 +484,9 @@ export default function StudentTable() {
                   </option>
                 ))}
               </select>
-             
             </div>
 
-                        {/* Date Range Filter */}
+            {/* Date Range Filter */}
             <div className="SF-DateApp">
               <div className="form-group calendar-one">
                 <DatePicker
@@ -483,8 +503,7 @@ export default function StudentTable() {
               </div>
             </div>
 
-            
-                {/* Search Input */}
+            {/* Search Input */}
             <div className="relative">
               <input
                 type="text"
@@ -509,33 +528,9 @@ export default function StudentTable() {
                 </svg>
               </div>
             </div>
-            
 
-            {/* Results per page */}
-            {/* <div className="relative">
-              <select
-                value={limit}
-                onChange={handleLimitChange}
-                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
-              >
-                <option value="5">5 per page</option>
-                <option value="10">10 per page</option>
-                <option value="20">20 per page</option>
-                <option value="50">50 per page</option>
-              </select>
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-            </div> */}
-
-            {/* Clear Filters Button */}
-            
-
-
+            {/* Search Button */}
             <div className="form-group flex justify-end gap-2">
-              
               <button
                 type="button"
                 className={`px-6 py-2.5 rounded-lg transition-colors font-medium flex items-center justify-center min-w-[100px] ${
@@ -559,7 +554,6 @@ export default function StudentTable() {
                 )}
               </button>
             </div>
-          
           </div>
         </div>
       </div>
@@ -602,7 +596,7 @@ export default function StudentTable() {
                   filteredAndSortedData.map((student) => (
                     <TableRow key={student.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
-                        <Link href={`/admin/partners/agents/editProfile/${student.user_id}`}>
+                        <Link href={`/admin/partners/agents/${student.agent_id}/students/editProfile/${student.user_id}`}>
                           <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer">
                             {getFullName(student)}
                           </span>
@@ -631,6 +625,7 @@ export default function StudentTable() {
                 ) : (
                   <TableRow>
                     <TableCell
+                    
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       {students.length === 0 ? "No students found." : "No students found matching your criteria."}

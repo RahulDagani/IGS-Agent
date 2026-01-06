@@ -37,7 +37,7 @@ interface StudentFormData {
 type Tab = "personal" | "address" | "emergency";
 
 export default function ProfileForm() {
-  const { id: studentId } = useParams();
+  const {studentId} = useParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("personal");
   const [isSubmitting, setIsSubmitting] = useState(false);

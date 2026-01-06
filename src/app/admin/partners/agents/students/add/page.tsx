@@ -173,7 +173,7 @@ export default function AddStudent() {
       }else{
         setSuccess("Student created successfully!");
         setTimeout(()=>{setSuccess("")},3000)
-        router.push(`/admin/partners/agents/editProfile/${result.data.id}`);
+        router.push(`/admin/partners/agents/${agentId}/students/editProfile/${result.data.id}`);
         router.refresh();
       }
       

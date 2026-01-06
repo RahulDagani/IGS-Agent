@@ -160,7 +160,7 @@ const getStateName = (state_code: string | undefined | null, country_code: strin
 };
 
 export default function Applications() {
-  const { id: studentId } = useParams();
+  const { studentId } = useParams();
   const [activeTab, setActiveTab] = useState<'applied' | 'apply'>('applied');
   const [activeProgram, setActiveProgram] = useState<number | null>(null);
   const [agentId, setAgentId] = useState<number | null>(null);

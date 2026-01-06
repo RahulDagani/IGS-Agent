@@ -14,7 +14,10 @@ import {
   AlertCircle,
   Building,
   GraduationCap,
-  Eye
+  Eye,
+  Phone,
+  Briefcase,
+  User
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -71,6 +74,28 @@ interface ApiResponse {
   };
 }
 
+interface Application {
+  id: number;
+  course_name: string;
+  university_name: string;
+  university_logo: string;
+  status_label: string;
+}
+
+interface StudyLevel {
+  study_level_id: number;
+  study_level_name: string;
+}
+
+interface RequestFormData {
+  documentType: 'common' | 'application';
+  applicationId: number | null;
+  studyLevelId: number | null;
+  documentName: string;
+  isMandatory: number;
+  documentTypeRole: 'self' | 'agency';
+}
+
 interface UploadState {
   [key: number]: boolean;
 }
@@ -87,11 +112,14 @@ interface DocumentsPageProps {
   onDocumentUpload: () => void; // Optional if not always provided
 }
 
+
 export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) {
   const params = useParams();
-  const studentId = params.id as string;
+  const studentId = params.studentId as string;
+  const agentId = params.id as string;
+
   
-  const [activeTab, setActiveTab] = useState<'your' | 'Igs'>('your');
+  const [activeTab, setActiveTab] = useState<'your' | 'Igs' | 'requested'>('your');
   const [mandatoryOpen, setMandatoryOpen] = useState(true);
   const [nonMandatoryOpen, setNonMandatoryOpen] = useState(true);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -103,8 +131,107 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   const [selectedFile, setSelectedFile] = useState<{ [key: number]: File | null }>({});
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+    // New states for requested documents tab
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [loadingStudyLevels, setLoadingStudyLevels] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  
+  const [requestForm, setRequestForm] = useState<RequestFormData>({
+    documentType: 'common',
+    applicationId: null,
+    studyLevelId: null,
+    documentName: '',
+    isMandatory: 1,
+    documentTypeRole: 'self'
+  });
+
   const BASE_URL = 'https://api.applystore.org/api';
   const { token } = useAuth();
+
+  // Fetch applications for the student
+  useEffect(() => {
+    const fetchApplications = async () => {
+      if (!studentId) return;
+      
+      try {
+        setLoadingApplications(true);
+        const response = await fetch(
+          `${BASE_URL}/tenant/agent/applications/student/${studentId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+          setApplications(data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching applications:', err);
+      } finally {
+        setLoadingApplications(false);
+      }
+    };
+
+    if (activeTab === 'requested') {
+      fetchApplications();
+    }
+  }, [studentId, token, activeTab]);
+
+
+
+  // Fetch study levels for the student
+  useEffect(() => {
+    const fetchStudyLevels = async () => {
+      if (!studentId) return;
+      
+      try {
+        setLoadingStudyLevels(true);
+        const response = await fetch(
+          `${BASE_URL}/tenant/agent/student/studylevel/${studentId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+          setStudyLevels(data.data);
+          // Set default study level if available
+          if (data.data.length > 0 && !requestForm.studyLevelId) {
+            setRequestForm(prev => ({
+              ...prev,
+              studyLevelId: data.data[0].study_level_id
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching study levels:', err);
+      } finally {
+        setLoadingStudyLevels(false);
+      }
+    };
+
+    if (activeTab === 'requested' && requestForm.documentType === 'common') {
+      fetchStudyLevels();
+    }
+  }, [studentId, token, activeTab, requestForm.documentType]);
 
   // Fetch documents from API
   useEffect(() => {
@@ -152,6 +279,102 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       fetchDocuments();
     }
   }, [studentId, token, refreshTrigger]);
+
+
+    // Handle form input changes
+  const handleFormChange = (
+    field: keyof RequestFormData,
+    value: string | number | boolean
+  ) => {
+    setRequestForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear success/error messages when form changes
+    if (submitError) setSubmitError(null);
+    if (submitSuccess) setSubmitSuccess(null);
+  };
+
+  // Handle form submission
+  const handleSubmitRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!requestForm.documentName.trim()) {
+      setSubmitError('Document name is required');
+      return;
+    }
+    
+    if (requestForm.documentType === 'application' && !requestForm.applicationId) {
+      setSubmitError('Please select an application');
+      return;
+    }
+    
+    if (requestForm.documentType === 'common' && !requestForm.studyLevelId) {
+      setSubmitError('Please select a study level');
+      return;
+    }
+    
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    
+    try {
+      
+      let endpoint = '';
+      let payload: any = {
+        student_id: parseInt(studentId),
+        agent_id: agentId,
+        document_name: requestForm.documentName.trim(),
+        document_type: requestForm.documentTypeRole
+      };
+      
+      if (requestForm.documentType === 'application') {
+        endpoint = `${BASE_URL}/tenant/agent/application/request/document`;
+        payload.application_id = requestForm.applicationId;
+      } else {
+        endpoint = `${BASE_URL}/tenant/agent/student/request/document`;
+        payload.study_level_id = requestForm.studyLevelId;
+      }
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSubmitSuccess('Document request submitted successfully!');
+        // Reset form
+        setRequestForm({
+          documentType: 'common',
+          applicationId: null,
+          studyLevelId: studyLevels.length > 0 ? studyLevels[0].study_level_id : null,
+          documentName: '',
+          isMandatory: 1,
+          documentTypeRole: 'self'
+        });
+        
+        // Trigger refresh of documents list
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        throw new Error(data.message || 'Failed to submit request');
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Group documents by mandatory status and type
   const mandatoryDocuments = documents.filter(doc => doc.is_mandatory === 1);
@@ -523,6 +746,16 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
         >
           Igs Documents
         </button>
+        <button
+          onClick={() => setActiveTab('requested')}
+          className={`pb-3 font-medium ${
+            activeTab === 'requested'
+              ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          Request Documents
+        </button>
       </div>
 
       {activeTab === 'your' && (
@@ -666,6 +899,270 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'requested' && (
+         <div className="max-w-2xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-sm">
+            <div className="p-6 border-b dark:border-gray-700">
+              <h2 className="text-xl font-semibold dark:text-white">
+                Request New Document
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Select document type and fill in the details
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Success/Error Messages */}
+              {submitSuccess && (
+                <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <CheckCircle size={20} />
+                    <span className="font-medium">{submitSuccess}</span>
+                  </div>
+                </div>
+              )}
+
+              {submitError && (
+                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                    <AlertCircle size={20} />
+                    <span className="font-medium">{submitError}</span>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitRequest}>
+                {/* Document Type Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium dark:text-gray-300 mb-3">
+                    Document Type
+                  </label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange('documentType', 'common')}
+                      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border ${
+                        requestForm.documentType === 'common'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <FileText size={20} />
+                      <div className="text-left">
+                        <div className="font-medium">Common Document</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          For all applications
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange('documentType', 'application')}
+                      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border ${
+                        requestForm.documentType === 'application'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <Briefcase size={20} />
+                      <div className="text-left">
+                        <div className="font-medium">Application Document</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          For specific application
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Application Selection (for application documents) */}
+                {requestForm.documentType === 'application' && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium dark:text-gray-300 mb-2">
+                      Select Application *
+                    </label>
+                    {loadingApplications ? (
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        Loading applications...
+                      </div>
+                    ) : applications.length === 0 ? (
+                      <p className="text-gray-500 dark:text-gray-400">
+                        No applications found for this student
+                      </p>
+                    ) : (
+                      <select
+                        value={requestForm.applicationId || ''}
+                        onChange={(e) => handleFormChange('applicationId', parseInt(e.target.value))}
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
+                        required
+                      >
+                        <option value="">Select an application</option>
+                        {applications.map((app) => (
+                          <option key={app.id} value={app.id}>
+                            {app.course_name} - {app.university_name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {/* Study Level Selection (for common documents) */}
+                {requestForm.documentType === 'common' && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium dark:text-gray-300 mb-2">
+                      Study Level *
+                    </label>
+                    {loadingStudyLevels ? (
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        Loading study levels...
+                      </div>
+                    ) : studyLevels.length === 0 ? (
+                      <p className="text-gray-500 dark:text-gray-400">
+                        No study levels found for this student
+                      </p>
+                    ) : (
+                      <select
+                        value={requestForm.studyLevelId || ''}
+                        onChange={(e) => handleFormChange('studyLevelId', parseInt(e.target.value))}
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
+                        required
+                      >
+                        {studyLevels.map((level) => (
+                          <option key={level.study_level_id} value={level.study_level_id}>
+                            {level.study_level_name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {/* Document Name */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium dark:text-gray-300 mb-2">
+                    Document Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={requestForm.documentName}
+                    onChange={(e) => handleFormChange('documentName', e.target.value)}
+                    placeholder="e.g., Passport, Transcript, Bank Statement"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+
+                {/* Document Type Role */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium dark:text-gray-300 mb-2">
+                    Who will upload this document? *
+                  </label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange('documentTypeRole', 'self')}
+                      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border ${
+                        requestForm.documentTypeRole === 'self'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <User size={20} />
+                      <div className="text-left">
+                        <div className="font-medium">Self</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Student will upload
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange('documentTypeRole', 'agency')}
+                      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border ${
+                        requestForm.documentTypeRole === 'agency'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <Briefcase size={20} />
+                      <div className="text-left">
+                        <div className="font-medium">Agency</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Agency will upload
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mandatory Status */}
+                {/* <div className="mb-8">
+                  <label className="block text-sm font-medium dark:text-gray-300 mb-2">
+                    Is this document mandatory? *
+                  </label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange('isMandatory', 1)}
+                      className={`flex-1 p-4 rounded-lg border ${
+                        requestForm.isMandatory === 1
+                          ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <div className="font-medium">Mandatory</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Required for processing
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange('isMandatory', 0)}
+                      className={`flex-1 p-4 rounded-lg border ${
+                        requestForm.isMandatory === 0
+                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                          : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <div className="font-medium">Optional</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Not required for processing
+                      </div>
+                    </button>
+                  </div>
+                </div> */}
+
+                {/* Submit Button */}
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className={`flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors ${
+                      submitting ? 'opacity-70 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {submitting ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Submitting...
+                      </div>
+                    ) : (
+                      'Submit Request'
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

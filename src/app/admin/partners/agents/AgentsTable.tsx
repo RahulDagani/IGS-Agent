@@ -374,7 +374,7 @@ export default function AgentTable() {
 
                       <TableCell className="px-5 py-4 text-blue-500 text-start text-theme-sm dark:text-blue-400">
                         <Link 
-                        href={`/admin/partners/agents/${agent.id}/students`}
+                        href={`/admin/partners/agents/students?agent_id=${agent.id}`}
                         className="cursor-pointer"
                         >
                           View 

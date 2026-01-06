@@ -299,7 +299,7 @@ export default function StudentTable() {
                   filteredAndSortedData.map((student) => (
                     <TableRow key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <TableCell className="px-5 py-4 text-start">
-                        <Link href={`/admin/partners/agents/editProfile/${student.id}`}>
+                        <Link href={`/admin/partners/agents/${agentId}/students/editProfile/${student.id}`}>
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {student.fullName}
                         </span>
