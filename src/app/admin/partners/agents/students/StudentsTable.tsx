@@ -421,7 +421,7 @@ const fetchStudents = async (customAgentId?: string) => {
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Manage your Students and their Profiles
-          </p>
+          </p> 
         </div>
         
         {/* Add Student Button */}
