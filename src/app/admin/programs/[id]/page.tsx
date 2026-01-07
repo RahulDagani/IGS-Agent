@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Heart, DollarSign, Play, Download, Globe } from "lucide-react";
 import Badge from "@/components/ui/badge/Badge";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { City, Country, State } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
 
@@ -189,7 +189,6 @@ interface ConfirmModalProps {
   onConfirm: (studentId: number, intakeId: number, studyLevelId: number, appLogin: string, appPassword: string) => void;
   course: Course | null;
   loading: boolean;
-  students: Student[];
   isFetchingStudents: boolean;
   studentError: string | null;
   courseId: string | string[];
@@ -202,13 +201,15 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   course,
   loading,
-  students,
+  // students,
   isFetchingStudents,
   studentError,
   courseId,
   token
 }) => {
-  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
+  const searchParams = useSearchParams();
+  const studentIdFromParams = searchParams.get("student_id");
+  // const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
   const [selectedIntakeId, setSelectedIntakeId] = useState<number>(0);
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
@@ -284,17 +285,18 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   let studyLevelId = course.study_level_id;
   
   const handleSubmit = () => {
-    if (selectedStudentId === 0) {
-      // Show error alert for missing student selection
-      alert("Please select a student");
-      return;
-    }
+   
     if (selectedIntakeId === 0) {
       // Show error alert for missing intake selection
       alert("Please select an intake");
       return;
     }
-    onConfirm(selectedStudentId, selectedIntakeId, studyLevelId, appLogin, appPassword);
+    if (!studentIdFromParams) {
+      // Show error alert for missing intake selection
+      alert("Student not selected");
+      return;
+    }
+    onConfirm(Number(studentIdFromParams), selectedIntakeId, studyLevelId, appLogin, appPassword);
   };
 
   const toggleIntakeDetails = (intakeId: number) => {
@@ -442,43 +444,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               )}
             </div>
 
-            {/* Student Selection Dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Student
-              </label>
-              {isFetchingStudents ? (
-                <div className="flex items-center justify-center p-4">
-                  <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading students...</span>
-                </div>
-              ) : studentError ? (
-                <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded">
-                  Error loading students: {studentError}
-                </div>
-              ) : students.length === 0 ? (
-                <div className="text-sm text-yellow-600 dark:text-yellow-400 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded">
-                  No students found. Please add students first.
-                </div>
-              ) : (
-                <select
-                  value={selectedStudentId}
-                  onChange={(e) => setSelectedStudentId(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  disabled={loading}
-                >
-                  <option value={0}>-- Select a student --</option>
-                  {students.map((student) => (
-                    <option key={student.user_id} value={student.user_id}>
-                      {student.first_name} {student.last_name} - {student.email}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+          
 
             <div className="grid grid-cols-2  gap-4">
               <div>
@@ -528,8 +494,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 loading || 
                 isFetchingStudents || 
                 isFetchingIntakes || 
-                students.length === 0 || 
-                selectedStudentId === 0 || 
+                // students.length === 0 || 
+                // selectedStudentId === 0 || 
                 selectedIntakeId === 0 ||
                 intakes.length === 0 ||
                 intakesError !== null
@@ -659,46 +625,47 @@ const CourseDetailsPage: React.FC = () => {
   }, [courseId]);
 
   // Fetch students
-  const fetchStudents = async () => {
-    try {
-      setIsFetchingStudents(true);
-      setStudentError(null);
+  // const fetchStudents = async () => {
+  //   try {
+  //     setIsFetchingStudents(true);
+  //     setStudentError(null);
       
-      const response = await fetch(`${BASE_URL}/tenant/agent/student`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+  //     const response = await fetch(`${BASE_URL}/tenant/agent/student`, {
+  //       headers: {
+  //         'Authorization': `Bearer ${token}`
+  //       }
+  //     });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch students: ${response.status}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`Failed to fetch students: ${response.status}`);
+  //     }
       
-      const data = await response.json();
+  //     const data = await response.json();
       
-      if (data.success) {
-        setStudents(data.data || []);
-      } else {
-        throw new Error(data.message || 'Failed to load students');
-      }
-    } catch (err) {
-      setStudentError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error fetching students:', err);
-    } finally {
-      setIsFetchingStudents(false);
-    }
-  };
+  //     if (data.success) {
+  //       setStudents(data.data || []);
+  //     } else {
+  //       throw new Error(data.message || 'Failed to load students');
+  //     }
+  //   } catch (err) {
+  //     setStudentError(err instanceof Error ? err.message : 'An error occurred');
+  //     console.error('Error fetching students:', err);
+  //   } finally {
+  //     setIsFetchingStudents(false);
+  //   }
+  // };
 
   const toggleAccordion = (accordion: string) => {
     setOpenAccordion(openAccordion === accordion ? null : accordion);
   };
 
   const handleApply = async () => {
-    await fetchStudents();
+    // await fetchStudents();
     setShowConfirmModal(true);
   };
 
   const handleConfirmApplication = async (studentId: number, intakeId: number, studyLevelId: number,  appLogin: string, appPassword: string) => {
+    
     try {
       setIsApplying(true);
       
@@ -718,6 +685,7 @@ const CourseDetailsPage: React.FC = () => {
           application_password: appPassword
         })
       });
+
       
       const data = await response.json();
 
@@ -1090,7 +1058,7 @@ const CourseDetailsPage: React.FC = () => {
         onConfirm={handleConfirmApplication}
         course={courseData?.course || null}
         loading={isApplying}
-        students={students}
+        // students={students}
         isFetchingStudents={isFetchingStudents}
         studentError={studentError}
         courseId={String(courseId)}

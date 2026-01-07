@@ -1014,7 +1014,8 @@ const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, type, message 
 const CourseCard: React.FC<{ 
   course: Course;
   onApply: (course: Course) => void;
-}> = ({ course, onApply }) => {
+  studentId: string;
+}> = ({ course, onApply, studentId }) => {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -1172,7 +1173,7 @@ const CourseCard: React.FC<{
       {/* Buttons */}
       <div className="mt-6 flex gap-3">
         <Link
-          href={`/admin/programs/${course.id}`}
+          href={`/admin/programs/${course.id}?student_id=${studentId}`}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
           View Course Details
@@ -1787,6 +1788,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
               key={course.id} 
               course={course}
               onApply={handleApplyClick}
+              studentId={studentId}
             />
           ))
         ) : (
