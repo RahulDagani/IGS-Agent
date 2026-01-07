@@ -1154,7 +1154,7 @@ const updateCredentials = async () => {
         </div>
       ) : (
         <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 relative">
-          <Programs />
+          <Programs studentId={String(studentId)}/>
         </div>
       )}
 

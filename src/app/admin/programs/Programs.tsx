@@ -8,6 +8,9 @@ import Link from "next/link";
 import { Country, State } from "country-state-city";
 import Image from "next/image";
 
+interface ProgramsProps {
+  studentId: string;
+}
 
 // Interfaces matching the API response structure
 interface StudyLevel {
@@ -630,7 +633,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (studentId: number, intakeId: number, appLogin: string, appPassword: string) => void;
+  onConfirm: (intakeId: number, appLogin: string, appPassword: string) => void;
   course: Course | null;
   loading: boolean;
   students: Student[];
@@ -652,7 +655,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   courseId,
   token
 }) => {
-  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
+ 
   const [selectedIntakeId, setSelectedIntakeId] = useState<number>(0);
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
@@ -726,17 +729,13 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   
   
   const handleSubmit = () => {
-    if (selectedStudentId === 0) {
-      // Show error alert for missing student selection
-      alert("Please select a student");
-      return;
-    }
+    
     if (selectedIntakeId === 0) {
       // Show error alert for missing intake selection
       alert("Please select an intake");
       return;
     }
-    onConfirm(selectedStudentId, selectedIntakeId, appLogin, appPassword);
+    onConfirm( selectedIntakeId, appLogin, appPassword);
   };
 
   const toggleIntakeDetails = (intakeId: number) => {
@@ -884,43 +883,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               )}
             </div>
 
-            {/* Student Selection Dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Student
-              </label>
-              {isFetchingStudents ? (
-                <div className="flex items-center justify-center p-4">
-                  <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading students...</span>
-                </div>
-              ) : studentError ? (
-                <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded">
-                  Error loading students: {studentError}
-                </div>
-              ) : students.length === 0 ? (
-                <div className="text-sm text-yellow-600 dark:text-yellow-400 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded">
-                  No students found. Please add students first.
-                </div>
-              ) : (
-                <select
-                  value={selectedStudentId}
-                  onChange={(e) => setSelectedStudentId(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  disabled={loading}
-                >
-                  <option value={0}>-- Select a student --</option>
-                  {students.map((student) => (
-                    <option key={student.user_id} value={student.user_id}>
-                      {student.first_name} {student.last_name} - {student.email}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+       
 
             <div className="grid grid-cols-2  gap-4">
               <div>
@@ -969,7 +932,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 isFetchingStudents || 
                 isFetchingIntakes || 
                 students.length === 0 || 
-                selectedStudentId === 0 || 
+              
                 selectedIntakeId === 0 ||
                 intakes.length === 0 ||
                 intakesError !== null
@@ -1227,7 +1190,8 @@ const CourseCard: React.FC<{
 
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-export default function StudentProgramsPage() {
+export default function StudentProgramsPage({ studentId }: ProgramsProps) {
+
   const router = useRouter();
   const { token, logout } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -1556,7 +1520,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
   };
 
   // Handle application submission
-  const handleConfirmApplication = async (studentId: number, intakeId: number, appLogin: string, appPassword: string) => {
+  const handleConfirmApplication = async (intakeId: number, appLogin: string, appPassword: string) => {
     if (!selectedCourse) return;
 
     setIsApplying(true);

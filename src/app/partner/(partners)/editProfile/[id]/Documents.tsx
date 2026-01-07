@@ -521,7 +521,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
               : 'text-gray-500 dark:text-gray-400'
           }`}
         >
-          Your Documents
+          Student Documents
         </button>
         <button
           onClick={() => setActiveTab('Igs')}

@@ -736,7 +736,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
               : 'text-gray-500 dark:text-gray-400'
           }`}
         >
-          Your Documents
+          Student Documents
         </button>
         <button
           onClick={() => setActiveTab('Igs')}
@@ -1006,7 +1006,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
                         <option value="">Select an application</option>
                         {applications.map((app) => (
                           <option key={app.id} value={app.id}>
-                            {app.course_name} - {app.university_name}
+                            {app.course_name} - {app.university_name} 
                           </option>
                         ))}
                       </select>
