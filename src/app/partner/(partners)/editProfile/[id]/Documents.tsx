@@ -13,7 +13,9 @@ import {
   Clock,
   AlertCircle,
   Building,
-  GraduationCap
+  GraduationCap,
+  Eye,
+  Download
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -107,10 +109,12 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
 
   // Fetch documents from API
   useEffect(() => {
+    const tabType = activeTab == 'your' ? 'agent' : 'self';
+ 
     const fetchDocuments = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/student/commondocs/${studentId}`, {
+        const response = await fetch(`${BASE_URL}/agent/student/commondocs/${studentId}?document_type=${tabType}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -150,7 +154,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     if (studentId) {
       fetchDocuments();
     }
-  }, [studentId, token, refreshTrigger]);
+  }, [studentId, token, refreshTrigger, activeTab]);
 
   // Group documents by mandatory status and type
   const mandatoryDocuments = documents.filter(doc => doc.is_mandatory === 1);
@@ -456,10 +460,21 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
               href={doc.file_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-white dark:bg-gray-800 border dark:border-gray-600 px-3 py-1 rounded-md text-sm dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="bg-white dark:bg-gray-800 border flex items-center dark:border-gray-600 px-3 py-1 rounded-md text-sm dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               {fileName}
+              <Eye size={16} className='ml-2'/>
             </a>
+
+            {activeTab == "Igs" && <a
+  href={doc.file_url}
+  download
+  className="inline-flex items-center justify-center rounded-md border bg-white px-3 py-[2px] text-gray-600 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+  title="Download file"
+>
+  Download
+  <Download size={16} className='ml-2'/>
+</a>}
           </div>
         )}
       </div>
@@ -591,77 +606,73 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       )}
 
       {activeTab === 'Igs' && (
-        <div className="space-y-6">
-          {/* Your existing Igs Documents content */}
-          <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md">
-            {/* Program Header */}
-            <div className="flex justify-between items-start px-6 py-4">
-              <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <span className="dark:text-gray-300">📄</span>
-                </div>
-                <div>
-                  <h3 className="text-blue-600 dark:text-blue-400 font-semibold text-lg">
-                    MBM (MSc) with specialization in Applied Artificial Intelligence
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
-                    Wittenborg University of Applied Sciences
-                    <span className="mx-2 text-gray-400">•</span>
-                    Netherlands
-                    <span className="mx-2 text-gray-400">•</span>
-                    May-2026
-                  </p>
-                </div>
+        <>
+          {/* Mandatory Documents */}
+          <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md mb-6">
+            <div
+              onClick={() => setMandatoryOpen(!mandatoryOpen)}
+              className="flex justify-between items-center px-6 py-4 cursor-pointer"
+            >
+              <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 font-semibold">
+                <FileText />
+                Mandatory Documents ({mandatoryDocuments.length})
+                <span className={`text-sm font-normal ${
+                  mandatoryDocuments.every(d => d.status === 'uploaded') 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  ({mandatoryDocuments.filter(d => d.status === 'uploaded').length}/{mandatoryDocuments.length} uploaded)
+                </span>
               </div>
-
-              <button className="text-xl text-gray-500 dark:text-gray-400">−</button>
+              {mandatoryOpen ? <Minus className="dark:text-gray-300" /> : <Plus className="dark:text-gray-300" />}
             </div>
 
-            {/* Visa Related Document */}
-            <div className="mx-6 mb-6 border-l-4 border-green-500 dark:border-green-400 bg-gray-50 dark:bg-gray-700/50 rounded-md p-5">
-              {/* Header Row */}
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2 font-semibold dark:text-white">
-                  <span className="w-5 h-5 rounded-full bg-green-600 dark:bg-green-500 text-white flex items-center justify-center text-xs">
-                    ✓
-                  </span>
-                  Visa Related Document
-                </div>
-
-                {/* <div className="flex gap-3">
-                  <button className="border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30">
-                    + Add all to Student Platform
-                  </button>
-                  <button className="border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30">
-                    ⬇ Download All
-                  </button>
-                </div> */}
-              </div>
-
-              {/* File Card */}
-              <div className="bg-white dark:bg-gray-800 border dark:border-gray-600 rounded-md p-5 flex justify-between items-start">
-                <div>
-                  <p className="font-semibold mb-2 dark:text-white">Netherland Visa.png</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    <strong className="dark:text-gray-300">Uploaded on:</strong> 16-12-2025 04:34 PM
+            {mandatoryOpen && (
+              <div className="px-6 pb-6">
+                {mandatoryDocuments.length === 0 ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                    No mandatory documents found
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    <strong className="dark:text-gray-300">Uploaded by:</strong> Swaranjali Gaikwad
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
-                  {/* <button className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    + Add to Student Platform
-                  </button> */}
-                  <button className="border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30">
-                    ⬇ Download
-                  </button>
-                </div>
+                ) : (
+                  mandatoryDocuments.map((doc) => (
+                    <DocumentCard key={doc.id} doc={doc} />
+                  ))
+                )}
               </div>
-            </div>
+            )}
           </div>
-        </div>
+
+          {/* Non Mandatory Documents */}
+          <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md">
+            <div
+              onClick={() => setNonMandatoryOpen(!nonMandatoryOpen)}
+              className="flex justify-between items-center px-6 py-4 cursor-pointer"
+            >
+              <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 font-semibold">
+                <FileText />
+                Non-Mandatory Documents ({nonMandatoryDocuments.length})
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+                  ({nonMandatoryDocuments.filter(d => d.status === 'uploaded').length}/{nonMandatoryDocuments.length} uploaded)
+                </span>
+              </div>
+              {nonMandatoryOpen ? <Minus className="dark:text-gray-300" /> : <Plus className="dark:text-gray-300" />}
+            </div>
+
+            {nonMandatoryOpen && (
+              <div className="px-6 pb-6">
+                {nonMandatoryDocuments.length === 0 ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                    No non-mandatory documents found
+                  </p>
+                ) : (
+                  nonMandatoryDocuments.map((doc) => (
+                    <DocumentCard key={doc.id} doc={doc} />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
