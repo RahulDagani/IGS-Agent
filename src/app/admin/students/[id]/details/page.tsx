@@ -79,7 +79,7 @@ export default function StudentApplicationForm() {
   const [validationMessage, setValidationMessage] = useState<string>("");
 
 
-        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 
   // Fetch student data on component mount
