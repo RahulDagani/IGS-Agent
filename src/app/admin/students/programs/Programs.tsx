@@ -9,7 +9,7 @@ import { Country, State } from "country-state-city";
 import Image from "next/image";
 
 interface ProgramsProps {
-  studentId: string;
+  studentId?: string;
 }
 
 // Interfaces matching the API response structure
@@ -1008,7 +1008,7 @@ const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, type, message 
 const CourseCard: React.FC<{ 
   course: Course;
   onApply: (course: Course) => void;
-  studentId: string;
+  studentId: string | null;
 }> = ({ course, onApply, studentId }) => {
   const getInitials = (name: string) => {
     return name
@@ -1747,7 +1747,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
               key={course.id} 
               course={course}
               onApply={handleApplyClick}
-              studentId={studentId}
+              studentId={studentId || null}
             />
           ))
         ) : (
