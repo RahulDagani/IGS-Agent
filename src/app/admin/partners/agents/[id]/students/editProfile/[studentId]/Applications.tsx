@@ -44,6 +44,18 @@ interface Application {
   updated_at: string;
 }
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  status: string;
+  email_verified: number;
+  created_at: string;
+  role_name: string;
+  role_key: string;
+}
+
 interface ApplicationDetail {
   id: number;
   uuid: string;
@@ -89,6 +101,9 @@ interface ApplicationDetail {
 
   application_login: string;
   application_password: string;
+
+  assigned_to_name?: string | null;
+  assigned_to?: number | null;
 }
 
 interface SpecificDocument {
@@ -121,6 +136,18 @@ interface DocumentUploadState {
   progress: number;
 }
 
+interface AssignUserModalProps {
+  applicationId: number;
+  currentAssignedTo: number | null;
+  currentAssignedName: string | null;
+  applicationUuid: string;
+  courseName: string;
+  universityName: string;
+  onClose: () => void;
+  onUserAssign: (assignedTo: number | null) => void;
+  token: string | null;
+}
+
 interface ChatMessage {
   id: number;
   tenant_id: number;
@@ -147,6 +174,28 @@ interface ChatUploadState {
   isUploading: boolean;
 }
 
+interface StatusOption {
+  id: number;
+  status_key: string;
+  status_label: string;
+  sort_order: number;
+  is_default: number;
+  is_active: number;
+  created_at: string;
+  updated_at: string | null;
+}
+
+interface StatusModalProps {
+  applicationId: number;
+  currentStatusId: number;
+  applicationUuid: string;
+  courseName: string;
+  universityName: string;
+  onClose: () => void;
+  onStatusUpdate: (newStatusId: number) => void;
+  token: string | null;
+}
+
 const getCountryName = (code: string | undefined | null) => {
   if (!code) return '';
   const country = Country.getCountryByCode(code);
@@ -157,6 +206,478 @@ const getStateName = (state_code: string | undefined | null, country_code: strin
   if (!state_code || !country_code) return '';
   const state = State.getStateByCodeAndCountry(state_code, country_code);
   return state ? state.name : state_code;
+};
+
+
+const StatusUpdateModal: React.FC<StatusModalProps> = ({
+  applicationId,
+  currentStatusId,
+  applicationUuid,
+  courseName,
+  universityName,
+  onClose,
+  onStatusUpdate,
+  token
+}) => {
+  const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
+  const [selectedStatusId, setSelectedStatusId] = useState<number>(currentStatusId);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [updating, setUpdating] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const BASE_URL = 'https://api.applystore.org/api';
+
+  useEffect(() => {
+    fetchStatusOptions();
+  }, []);
+
+  const fetchStatusOptions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${BASE_URL}/tenant/agent/application/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setStatusOptions(data.data);
+      } else {
+        setError('Failed to load status options');
+      }
+    } catch (error) {
+      console.error('Error fetching status options:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async () => {
+    if (!selectedStatusId || selectedStatusId === currentStatusId) {
+      onClose();
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_URL}/tenant/agent/application/status/${applicationId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_status_id: selectedStatusId
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        onStatusUpdate(selectedStatusId);
+        onClose();
+      } else {
+        setError(data.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const getCurrentStatusLabel = () => {
+    const currentStatus = statusOptions.find(status => status.id === currentStatusId);
+    return currentStatus ? currentStatus.status_label : 'Loading...';
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-99999 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+          <h3 className="text-lg font-semibold dark:text-white">
+            Update Application Status
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            disabled={updating}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Application ID: <span className="font-medium dark:text-gray-300">{applicationUuid}</span>
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Course: <span className="font-medium dark:text-gray-300">{courseName}</span>
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              University: <span className="font-medium dark:text-gray-300">{universityName}</span>
+            </p>
+            <div className="pt-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Current Status:
+              </p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">
+                {getCurrentStatusLabel()}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Update Status To
+            </label>
+            {loading ? (
+              <div className="py-8 text-center">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Loading status options...</p>
+              </div>
+            ) : error ? (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <button
+                  onClick={fetchStatusOptions}
+                  className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <select
+                value={selectedStatusId}
+                onChange={(e) => setSelectedStatusId(Number(e.target.value))}
+                className="w-full px-4 py-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
+                disabled={updating}
+              >
+                <option value="">Select a status</option>
+                {statusOptions
+                  .filter(status => status.is_active === 1)
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.status_label}
+                    </option>
+                  ))}
+              </select>
+            )}
+          </div>
+
+          {selectedStatusId !== currentStatusId && selectedStatusId > 0 && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                You are changing status from <span className="font-medium">{getCurrentStatusLabel()}</span> to{' '}
+                <span className="font-medium">
+                  {statusOptions.find(s => s.id === selectedStatusId)?.status_label}
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex justify-end gap-3 p-6 border-t dark:border-gray-700">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+            disabled={updating}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleStatusUpdate}
+            disabled={updating || !selectedStatusId || selectedStatusId === currentStatusId || loading}
+            className={`px-4 py-2 rounded-md flex items-center gap-2 ${
+              updating || !selectedStatusId || selectedStatusId === currentStatusId || loading
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
+            }`}
+          >
+            {updating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Update Status'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AssignUserModal: React.FC<AssignUserModalProps> = ({
+  applicationId,
+  currentAssignedTo,
+  currentAssignedName,
+  applicationUuid,
+  courseName,
+  universityName,
+  onClose,
+  onUserAssign,
+  token
+}) => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(currentAssignedTo);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [assigning, setAssigning] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const BASE_URL = 'https://api.applystore.org/api';
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${BASE_URL}/tenant/custom/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUsers(data.data);
+      } else {
+        setError('Failed to load users');
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAssignUser = async () => {
+    if (selectedUserId === currentAssignedTo) {
+      onClose();
+      return;
+    }
+
+    try {
+      setAssigning(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_URL}/tenant/agent/application/assign/${applicationId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          assigned_to: selectedUserId || 0
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        onUserAssign(selectedUserId);
+        onClose();
+      } else {
+        setError(data.message || 'Failed to assign user');
+      }
+    } catch (error) {
+      console.error('Error assigning user:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleUnassign = async () => {
+    try {
+      setAssigning(true);
+      setError(null);
+
+      const response = await fetch(`${BASE_URL}/tenant/agent/application/assign/${applicationId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          assigned_to: 0
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        onUserAssign(null);
+        onClose();
+      } else {
+        setError(data.message || 'Failed to unassign user');
+      }
+    } catch (error) {
+      console.error('Error unassigning user:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-99999 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+          <h3 className="text-lg font-semibold dark:text-white">
+            Assign Application to User
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            disabled={assigning}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Application ID: <span className="font-medium dark:text-gray-300">{applicationUuid}</span>
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Course: <span className="font-medium dark:text-gray-300">{courseName}</span>
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              University: <span className="font-medium dark:text-gray-300">{universityName}</span>
+            </p>
+            <div className="pt-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Currently Assigned To:
+              </p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">
+                {currentAssignedName || 'Not assigned'}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Assign To User
+            </label>
+            {loading ? (
+              <div className="py-4 text-center">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Loading users...</p>
+              </div>
+            ) : error ? (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <button
+                  onClick={fetchUsers}
+                  className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <select
+                value={selectedUserId || ''}
+                onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-4 py-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
+                disabled={assigning}
+              >
+                <option value="">Select a user (or Re-Assigned to IGS)</option>
+                {users
+                  .filter(user => user.status === 'active')
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.role_name} - {user.email})
+                    </option>
+                  ))}
+              </select>
+            )}
+          </div>
+
+          {selectedUserId !== currentAssignedTo && selectedUserId !== null && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                You are assigning this application to{' '}
+                <span className="font-medium">
+                  {users.find(u => u.id === selectedUserId)?.name}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {selectedUserId === null && currentAssignedTo !== null && (
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                You are removing the assignment from{' '}
+                <span className="font-medium">{currentAssignedName}</span>
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex justify-between p-6 border-t dark:border-gray-700">
+          <div className="flex gap-3">
+            {currentAssignedTo !== null && (
+              <button
+                onClick={handleUnassign}
+                disabled={assigning}
+                className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800"
+              >
+                Re-Assign Igs
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+              disabled={assigning}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAssignUser}
+              disabled={assigning || selectedUserId === currentAssignedTo}
+              className={`px-4 py-2 rounded-md flex items-center gap-2 ${
+                assigning || selectedUserId === currentAssignedTo
+                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
+              }`}
+            >
+              {assigning ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {'Assigning...'}
+                </>
+              ) : (
+                'Assign User'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function Applications() {
@@ -189,6 +710,15 @@ export default function Applications() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
+  const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
+const [selectedApplicationForStatus, setSelectedApplicationForStatus] = useState<{
+  id: number;
+  uuid: string;
+  courseName: string;
+  universityName: string;
+  currentStatusId: number;
+} | null>(null);
+
   const [showCredentialsModal, setShowCredentialsModal] = useState<boolean>(false);
   const [editingCredentials, setEditingCredentials] = useState<{
     application_login: string;
@@ -208,6 +738,16 @@ export default function Applications() {
 
   const BASE_URL = 'https://api.applystore.org/api';
   const {token} = useAuth();
+
+  const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
+  const [selectedApplicationForAssign, setSelectedApplicationForAssign] = useState<{
+    id: number;
+    uuid: string;
+    courseName: string;
+    universityName: string;
+    assignedTo: number | null;
+    assignedName: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (studentId) {
@@ -242,6 +782,24 @@ export default function Applications() {
   // const scrollToBottom = () => {
   //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   // };
+
+  const handleStatusUpdateSuccess = (newStatusId: number) => {
+    if(activeProgram){
+      fetchApplicationDetails(activeProgram)
+    }
+
+};
+
+const handleOpenStatusModal = (application: Application) => {
+  setSelectedApplicationForStatus({
+    id: application.id,
+    uuid: application.uuid,
+    courseName: application.course_name,
+    universityName: application.university_name,
+    currentStatusId: application.current_status_id
+  });
+  setShowStatusModal(true);
+};
 
   const handleLoginDetails = (applicationId?: number) => {
   return () => {
@@ -547,8 +1105,27 @@ const updateCredentials = async () => {
     }
   };
 
+    const handleOpenAssignModal = (application: ApplicationDetail) => {
+    setSelectedApplicationForAssign({
+      id: application.id,
+      uuid: application.uuid,
+      courseName: application.course_name,
+      universityName: application.university_name,
+      assignedTo: application.assigned_to || null,
+      assignedName: application.assigned_to_name || null
+    });
+    setShowAssignModal(true);
+  };
+
   const getDocumentUploadState = (documentId: number) => {
     return uploadStates.find(state => state.documentId === documentId);
+  };
+
+    const handleUserAssignSuccess = (assignedTo: number | null) => {
+    if (activeProgram) {
+      // Refresh the application details to get updated assigned user info
+      fetchApplicationDetails(activeProgram);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -776,16 +1353,50 @@ const updateCredentials = async () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="">
+                  <div className="flex items-center justify-between gap-2 mb-2">
                   <span className={`text-sm px-3 py-1 rounded-md font-medium ${getStatusColor(applicationDetail.status_label)}`}>
                     {applicationDetail.status_label}
                   </span>
-                  {/* <button className="p-2 border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+                      
+      
+                  <button 
+                    onClick={() => handleOpenStatusModal({
+                      id: applicationDetail.id,
+                      uuid: applicationDetail.uuid,
+                      course_name: applicationDetail.course_name,
+                      university_name: applicationDetail.university_name,
+                      current_status_id: applicationDetail.current_status_id
+                    } as Application)}
+                    className="p-2 border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
                     <Pencil size={16} className="dark:text-gray-300" />
                   </button>
-                  <button className="p-2 border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <ChevronDown size={16} className="dark:text-gray-300" />
-                  </button> */}
+
+                 </div>
+                
+
+                <div className="flex items-center justify-between gap-2">
+                  
+                        {/* Add assigned user info */}
+      
+        <span className="text-sm px-3 py-1 rounded-md font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+          Assigned: {applicationDetail.assigned_to_name || 'IGS-ADMIN'}
+        </span>
+      
+                  
+
+                  <button 
+        onClick={() => handleOpenAssignModal(applicationDetail)}
+        className="p-2 border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+        title="Assign to User"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+        </svg>
+      </button>
+                </div>
+
                 </div>
               </div>
 
@@ -1247,6 +1858,39 @@ const updateCredentials = async () => {
       </div>
     </div>
   </div>
+)}
+
+ {showAssignModal && selectedApplicationForAssign && (
+        <AssignUserModal
+          applicationId={selectedApplicationForAssign.id}
+          currentAssignedTo={selectedApplicationForAssign.assignedTo}
+          currentAssignedName={selectedApplicationForAssign.assignedName}
+          applicationUuid={selectedApplicationForAssign.uuid}
+          courseName={selectedApplicationForAssign.courseName}
+          universityName={selectedApplicationForAssign.universityName}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedApplicationForAssign(null);
+          }}
+          onUserAssign={handleUserAssignSuccess}
+          token={token}
+        />
+      )}
+
+{showStatusModal && selectedApplicationForStatus && (
+  <StatusUpdateModal
+    applicationId={selectedApplicationForStatus.id}
+    currentStatusId={selectedApplicationForStatus.currentStatusId}
+    applicationUuid={selectedApplicationForStatus.uuid}
+    courseName={selectedApplicationForStatus.courseName}
+    universityName={selectedApplicationForStatus.universityName}
+    onClose={() => {
+      setShowStatusModal(false);
+      setSelectedApplicationForStatus(null);
+    }}
+    onStatusUpdate={handleStatusUpdateSuccess}
+    token={token}
+  />
 )}
     </div>
   );
