@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function Application() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="Student Applications" />
+      {/* <PageBreadcrumb pageTitle="Student Applications" /> */}
       <div className="space-y-6">
         
           <Applications />

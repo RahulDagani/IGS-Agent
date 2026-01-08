@@ -246,7 +246,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       setIsFetchingIntakes(true);
       setIntakesError(null);
       
-      const response = await fetch(`${BASE_URL}/tenant/agent/course/intake/${courseId}`, {
+      const response = await fetch(`${BASE_URL}/tenant/student/course/intake/${courseId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -624,37 +624,6 @@ const CourseDetailsPage: React.FC = () => {
     fetchCourseData();
   }, [courseId]);
 
-  // Fetch students
-  // const fetchStudents = async () => {
-  //   try {
-  //     setIsFetchingStudents(true);
-  //     setStudentError(null);
-      
-  //     const response = await fetch(`${BASE_URL}/tenant/agent/student`, {
-  //       headers: {
-  //         'Authorization': `Bearer ${token}`
-  //       }
-  //     });
-      
-  //     if (!response.ok) {
-  //       throw new Error(`Failed to fetch students: ${response.status}`);
-  //     }
-      
-  //     const data = await response.json();
-      
-  //     if (data.success) {
-  //       setStudents(data.data || []);
-  //     } else {
-  //       throw new Error(data.message || 'Failed to load students');
-  //     }
-  //   } catch (err) {
-  //     setStudentError(err instanceof Error ? err.message : 'An error occurred');
-  //     console.error('Error fetching students:', err);
-  //   } finally {
-  //     setIsFetchingStudents(false);
-  //   }
-  // };
-
   const toggleAccordion = (accordion: string) => {
     setOpenAccordion(openAccordion === accordion ? null : accordion);
   };
@@ -669,7 +638,7 @@ const CourseDetailsPage: React.FC = () => {
     try {
       setIsApplying(true);
       
-      const response = await fetch(`${BASE_URL}/tenant/agent/application`, {
+      const response = await fetch(`${BASE_URL}/tenant/student/application`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

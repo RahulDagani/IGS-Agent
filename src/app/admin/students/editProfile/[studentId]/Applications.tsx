@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import Programs from '@/app/admin/programs/Programs';
+import Programs from '@/app/admin/students/programs/Programs';
 import { Country, State } from 'country-state-city';
 
 interface Application {
@@ -128,7 +128,7 @@ interface ChatMessage {
   application_id: number;
   comment: string;
   file: string | null;
-  who_has_created: 'agent' | 'tenant';
+  who_has_created: 'student' | 'tenant';
   created_by: number;
   is_internal_note: number;
   is_deleted: number;
@@ -163,9 +163,8 @@ export default function Applications() {
   const { studentId } = useParams();
   const [activeTab, setActiveTab] = useState<'applied' | 'apply'>('applied');
   const [activeProgram, setActiveProgram] = useState<number | null>(null);
-  const [agentId, setAgentId] = useState<number | null>(null);
 
-  const [commentTab, setCommentTab] = useState<'Igs' | 'agent' | 'specific-doc'>('Igs');
+  const [commentTab, setCommentTab] = useState<'Igs' | 'student' | 'specific-doc'>('Igs');
   
   const [applications, setApplications] = useState<Application[]>([]);
   const [applicationDetail, setApplicationDetail] = useState<ApplicationDetail | null>(null);
@@ -218,7 +217,7 @@ export default function Applications() {
   useEffect(() => {
     if (applications.length > 0 && !activeProgram) {
       setActiveProgram(applications[0].id);
-      setAgentId(applications[0].agent_id);
+    
     }
   }, [applications]);
 
@@ -264,7 +263,7 @@ const updateCredentials = async () => {
   try {
     setIsUpdatingCredentials(true);
     
-    const response = await fetch(`${BASE_URL}/tenant/agent/application/credentials/${activeProgram}`, {
+    const response = await fetch(`${BASE_URL}/tenant/student/application/credentials/${activeProgram}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -303,7 +302,7 @@ const updateCredentials = async () => {
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${BASE_URL}/tenant/agent/applications/student/${studentId}`, {
+      const response = await fetch(`${BASE_URL}/tenant/student/applications/student/${studentId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -324,7 +323,7 @@ const updateCredentials = async () => {
   const fetchApplicationDetails = async (applicationId: number) => {
     try {
       setDetailLoading(true);
-      const response = await fetch(`${BASE_URL}/tenant/agent/application/student/detail/${studentId}/${applicationId}`, {
+      const response = await fetch(`${BASE_URL}/tenant/student/application/student/detail/${studentId}/${applicationId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -358,7 +357,7 @@ const updateCredentials = async () => {
       let endpoint = '';
       
       
-        endpoint = `${BASE_URL}/tenant/agent/application/comments/${applicationId}`;
+        endpoint = `${BASE_URL}/tenant/student/application/comments/${applicationId}`;
       
 
       const response = await fetch(endpoint, {
@@ -380,7 +379,7 @@ const updateCredentials = async () => {
   };
 
   useEffect(() => {
-    if (activeProgram && (commentTab === 'Igs' || commentTab === 'agent')) {
+    if (activeProgram && (commentTab === 'Igs' || commentTab === 'student')) {
       loadMessages(activeProgram);
     }
   }, [commentTab, activeProgram]);
@@ -430,7 +429,7 @@ const updateCredentials = async () => {
       ));
       setIsUploading(true);
 
-      xhr.open('PUT', `${BASE_URL}/tenant/agent/application/upload/document/${applicationId}`);
+      xhr.open('PUT', `${BASE_URL}/tenant/student/application/upload/document/${applicationId}`);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
       xhr.upload.onprogress = (event) => {
@@ -492,12 +491,13 @@ const updateCredentials = async () => {
       if (hideFromCounselor) {
         formData.append('is_internal_note', '1');
       }
-      
-      if (agentId) {
-        formData.append('agent_id', String(agentId));
-      }
 
-      const response = await fetch(`${BASE_URL}/tenant/agent/application/comments/${activeProgram}`, {
+      if (studentId) {
+        formData.append('student_id', String(studentId));
+      }
+      
+
+      const response = await fetch(`${BASE_URL}/tenant/student/application/comments/${activeProgram}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -508,8 +508,8 @@ const updateCredentials = async () => {
       const data = await response.json();
       
       if (data.success) {
-        if (commentTab === 'agent') {
-          const messagesResponse = await fetch(`${BASE_URL}/tenant/agent/application/comments/${activeProgram}?who_has_created=agent`, {
+        if (commentTab === 'student') {
+          const messagesResponse = await fetch(`${BASE_URL}/tenant/student/application/comments/${activeProgram}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -616,29 +616,29 @@ const updateCredentials = async () => {
     }
 
     return messages.map((message) => {
-      const isAgent = message.who_has_created === 'agent';
+      const isStudent = message.who_has_created === 'student';
       const isTenant = message.who_has_created === 'tenant';
       
       const senderName = message.created_by_name || 
-                        (isAgent ? 'You' : 'IGS Team');
+                        (isStudent ? 'You' : 'IGS Team');
 
       return (
         <div key={message.id} className="flex gap-3 mb-6">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-            isAgent 
+            isStudent 
               ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400'
           }`}>
             {senderName.charAt(0).toUpperCase()}
           </div>
           <div className={`rounded-lg p-4 max-w-xl ${
-            isAgent
+            isStudent
               ? 'bg-blue-100 dark:bg-blue-900/30'
               : 'bg-gray-100 dark:bg-gray-700'
           }`}>
             <div className="flex justify-between items-start mb-2">
               <p className={`font-medium ${
-                isAgent
+                isStudent
                   ? 'text-blue-700 dark:text-blue-400'
                   : 'text-gray-700 dark:text-gray-300'
               }`}>
@@ -857,7 +857,7 @@ const updateCredentials = async () => {
                   </button> */}
                 </div>
 
-                {(commentTab === 'Igs' || commentTab === 'agent') && (
+                {(commentTab === 'Igs' || commentTab === 'student') && (
                   <div className="mt-6">
                     <div className="h-64 overflow-y-auto mb-4 pr-2">
                       {renderMessages()}

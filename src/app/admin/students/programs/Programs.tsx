@@ -636,9 +636,6 @@ interface ConfirmModalProps {
   onConfirm: (intakeId: number, appLogin: string, appPassword: string) => void;
   course: Course | null;
   loading: boolean;
-  students: Student[];
-  isFetchingStudents: boolean;
-  studentError: string | null;
   courseId: string | string[];
   token: string | null;
 }
@@ -649,9 +646,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   course,
   loading,
-  students,
-  isFetchingStudents,
-  studentError,
   courseId,
   token
 }) => {
@@ -693,7 +687,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       setIsFetchingIntakes(true);
       setIntakesError(null);
       
-      const response = await fetch(`${BASE_URL}/tenant/agent/course/intake/${courseId}`, {
+      const response = await fetch(`${BASE_URL}/tenant/student/course/intake/${courseId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -929,9 +923,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               onClick={handleSubmit}
               disabled={
                 loading || 
-                isFetchingStudents || 
+              
                 isFetchingIntakes || 
-                students.length === 0 || 
+              
               
                 selectedIntakeId === 0 ||
                 intakes.length === 0 ||
@@ -1173,7 +1167,7 @@ const CourseCard: React.FC<{
       {/* Buttons */}
       <div className="mt-6 flex gap-3">
         <Link
-          href={`/admin/programs/${course.id}?student_id=${studentId}`}
+          href={`/admin/students/programs/${course.id}?student_id=${studentId}`}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
           View Course Details
@@ -1212,10 +1206,6 @@ export default function StudentProgramsPage({ studentId }: ProgramsProps) {
   const [alertType, setAlertType] = useState<'success' | 'error'>('success');
   const [alertMessage, setAlertMessage] = useState('');
   const [isApplying, setIsApplying] = useState(false);
-
-    const [students, setStudents] = useState<Student[]>([]);
-    const [isFetchingStudents, setIsFetchingStudents] = useState(false);
-    const [studentError, setStudentError] = useState<string | null>(null);
 
     
     
@@ -1482,40 +1472,9 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
     };
   }, [hasMore, loading, isLoadingMore, currentPage, fetchCourses]);
 
-    // Fetch students
-  const fetchStudents = async () => {
-    try {
-      setIsFetchingStudents(true);
-      setStudentError(null);
-      
-      const response = await fetch(`${BASE_URL}/tenant/agent/student`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch students: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setStudents(data.data || []);
-      } else {
-        throw new Error(data.message || 'Failed to load students');
-      }
-    } catch (err) {
-      setStudentError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error fetching students:', err);
-    } finally {
-      setIsFetchingStudents(false);
-    }
-  };
-
   // Handle Apply button click
   const handleApplyClick = async (course: Course) => {
-    await fetchStudents();
+  
     setSelectedCourse(course);
     setIsConfirmModalOpen(true);
   };
@@ -1536,7 +1495,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         application_password: appPassword
       };
 
-      const response = await fetch(`${BASE_URL}/tenant/agent/application`, {
+      const response = await fetch(`${BASE_URL}/tenant/student/application`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1850,9 +1809,6 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         onConfirm={handleConfirmApplication}
         course={selectedCourse}
         loading={isApplying}
-        students={students}
-        isFetchingStudents={isFetchingStudents}
-        studentError={studentError}
         courseId={String(selectedCourse?.id)}
         token={token}
       />
