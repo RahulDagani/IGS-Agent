@@ -1,601 +1,656 @@
 "use client"
-import React, { useState, useMemo, useEffect } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import Link from "next/link";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Select from "react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { ChevronLeft, ChevronRight, Send, Search } from "lucide-react";
+import Link from "next/link";
 
-interface Application {
-  id: number;
-  acknowledge_no: string;
+interface CommissionNote {
+  commission_note_id?: number;
+  commission_note_number: string;
+  status: string;
+  company: string;
+  commission_amount: string;
   created_at: string;
-  student_name: string;
-  university_name: string;
-  program_name: string;
-  intake: string;
-  created_by: string;
-  application_status: string;
-  igs_assigned: string;
-  year: string;
-  country: string;
-  deadline_type?: string;
-  deadline_date?: string;
+  updated_at: string;
 }
 
-type SortField = keyof Application | "";
+interface CommissionNoteDetail {
+  commission_note_number: string;
+  status: string;
+  company: string;
+  commission_amount: string;
+  generated_by: string | null;
+  paid_by: string;
+  date_received_on: string;
+  date_of_payment: string;
+  last_updated_on: string;
+  comments: Comment[];
+}
+
+interface Comment {
+  id: number;
+  comment: string;
+  created_by: string;
+  created_at: string;
+}
+
+interface ApiComment {
+  id: number;
+  tenant_id: number;
+  agent_id: number;
+  commission_note_id: number;
+  comment: string;
+  who_has_created: string;
+  created_by: number;
+  is_internal_note: number;
+  is_deleted: number;
+  deleted_by: number | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by_name: string | null;
+  created_by_email: string | null;
+}
+
+type SortField = keyof CommissionNote | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
   dateRange: [Date | null, Date | null];
-  countries: string[];
   universities: string[];
-  intakes: string[];
-  years: string[];
-  statuses: string[];
-  acknowledgeNo: string;
-  programName: string;
-  studentName: string;
-  deadlineType: string | null;
-  deadlineDate: Date | null;
+  status: string[];
+  commissionNoteNumber: string;
+  studentSearch: string;
+  acknowledgementNo: string;
+  agentId: string | null;
 }
 
-export default function ApplicationsTable() {
-  const [applications, setApplications] = useState<Application[]>([]);
+interface Agent {
+  agent_id: number;
+  name: string | null;
+  email: string;
+}
+
+interface University {
+  university_id: number;
+  university_name: string;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export default function PaymentsTable() {
+  const [notes, setNotes] = useState<CommissionNote[]>([]);
+  const [activeNoteDetail, setActiveNoteDetail] = useState<CommissionNoteDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-
-  const [active, setActive] = useState<"progress" | "paid">("paid");
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 1
+  });
+  const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
+  const [active, setActive] = useState<"progress" | "paid">("progress");
+  const [commentText, setCommentText] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
   
   // Filter states
   const [filters, setFilters] = useState<FilterOptions>({
     dateRange: [null, null],
-    countries: [],
     universities: [],
-    intakes: [],
-    years: [],
-    statuses: [],
-    acknowledgeNo: "",
-    programName: "",
-    studentName: "",
-    deadlineType: null,
-    deadlineDate: null,
+    status: [],
+    commissionNoteNumber: "",
+    studentSearch: "",
+    acknowledgementNo: "",
+    agentId: null,
   });
+
+  const [appliedFilters, setAppliedFilters] = useState<FilterOptions>(filters);
+  const [datePickerKey, setDatePickerKey] = useState(0);
 
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-  // Static data for filters
-  const countryOptions = [
-    { value: "1", label: "United States of America" },
-    { value: "2", label: "Australia" },
-    { value: "3", label: "Canada" },
-    { value: "4", label: "United Kingdom" },
-    { value: "8", label: "Ireland" },
-    { value: "12", label: "Netherlands" },
-  ];
-
-  const universityOptions = [
-    { value: "3", label: "(INTO) George Mason University" },
-    { value: "753", label: "(INTO) Hofstra University" },
-    { value: "676", label: "(INTO) Jefferson University, St, Philadelphia, Pennsylvania" },
-    { value: "1436", label: "(INTO) Montclair State University" },
-    { value: "114", label: "(INTO) New England College" },
-    { value: "4", label: "(INTO) Oregon State University" },
-    { value: "7", label: "(INTO) Saint Louis University" },
-    { value: "571", label: "(INTO) Suffolk University" },
-    { value: "1240", label: "(INTO) UMass Amherst" },
-    { value: "9", label: "(INTO) University of Alabama at Birmingham" },
-    { value: "2", label: "(INTO) University of Arizona" },
-    { value: "6", label: "(INTO) University of South Florida" },
-    { value: "1", label: "(Kaplan) Arizona State University- Arizona" },
-    { value: "80", label: "(Kaplan) Pace University" },
-    { value: "858", label: "(Shorelight) Cleveland State University" },
-    { value: "57", label: "(Shorelight) Florida International University, Florida" },
-    { value: "669", label: "(Shorelight) University of Dayton" },
-    { value: "11", label: "(Shorelight) University of Illinois Chicago" },
-    { value: "1218", label: "(Shorelight) University of Illinois Springfield" },
-    { value: "33", label: "(Shorelight) University of Massachusetts Boston (UMass Boston)" },
-    { value: "26", label: "(Shorelight) University of South Carolina" },
-    { value: "24", label: "(Shorelight) University of the Pacific" },
-    { value: "719", label: "(Study Group) DePaul University" },
-    { value: "94", label: "(Study Group) Florida Atlantic University" },
-    { value: "717", label: "(Study Group) University of Hartford" },
-    { value: "340", label: "Anglia Ruskin University" },
-    { value: "52", label: "Auburn University at Montgomery" },
-    { value: "839", label: "Bournemouth University" },
-    { value: "69", label: "California State University, East Bay" },
-    { value: "67", label: "California State University, Fresno" },
-    { value: "66", label: "California State University, Northridge" },
-    { value: "651", label: "California State University, Sacramento" },
-    { value: "73", label: "California State University, San Bernardino" },
-    { value: "297", label: "Canadore College" },
-    { value: "5", label: "Colorado State University" },
-    { value: "871", label: "Coventry University, Coventry" },
-    { value: "130", label: "Dallas Baptist University" },
-    { value: "194", label: "Deakin University" },
-    { value: "1520", label: "DePaul University" },
-    { value: "572", label: "Drexel University" },
-    { value: "451", label: "Dublin Business School" },
-    { value: "1125", label: "Eastern Michigan University" },
-    { value: "1129", label: "Franklin University" },
-    { value: "1178", label: "Governors State University" },
-    { value: "1035", label: "Grand Valley State University, Michigan" },
-    { value: "912", label: "Kennesaw State University" },
-    { value: "40", label: "Kent State University" },
-    { value: "862", label: "Kingston University" },
-    { value: "861", label: "La Trobe University, Melbourne" },
-    { value: "292", label: "Lambton College" },
-    { value: "104", label: "Lawrence Technological University" },
-    { value: "359", label: "Leeds Beckett University" },
-    { value: "1590", label: "Lehigh University" },
-    { value: "754", label: "Lynn University" },
-    { value: "650", label: "Manchester Metropolitan University" },
-    { value: "100", label: "Marist University" },
-    { value: "126", label: "Marshall University" },
-    { value: "449", label: "Maynooth University" },
-    { value: "326", label: "Middlesex University" },
-    { value: "740", label: "Missouri State University" },
-    { value: "898", label: "Missouri University of Science and Technology" },
-    { value: "83", label: "Murray State University" },
-    { value: "58", label: "New Jersey Institute of Technology" },
-    { value: "97", label: "New York Institute of Technology" },
-    { value: "18", label: "Northeastern University" },
-    { value: "55", label: "Northern Arizona University" },
-    { value: "303", label: "Northern College at Pures-Toronto" },
-    { value: "331", label: "Northumbria University, Newcastle" },
-    { value: "323", label: "Nottingham Trent University" },
-    { value: "98", label: "Rider University" },
-    { value: "1295", label: "Rowan University" },
-    { value: "1134", label: "Sacred Heart University" },
-    { value: "757", label: "Saint Leo University" },
-    { value: "38", label: "San Francisco State University" },
-    { value: "37", label: "San Jose State University" },
-    { value: "62", label: "Southeast Missouri State University" },
-    { value: "817", label: "Southern Illinois University Edwardsville" },
-    { value: "136", label: "Southern New Hampshire University" },
-    { value: "290", label: "St. Lawrence College" },
-    { value: "708", label: "Teesside University" },
-    { value: "61", label: "Texas A & M University - Corpus Christi" },
-    { value: "1011", label: "The University of Alabama, Tuscaloosa" },
-    { value: "133", label: "The University of Findlay" },
-    { value: "47", label: "The University of Memphis" },
-    { value: "789", label: "The University of Queensland" },
-    { value: "1017", label: "The University of Scranton" },
-    { value: "1067", label: "Trine University" },
-    { value: "366", label: "Ulster University, London Campus" },
-    { value: "444", label: "University College Dublin" },
-    { value: "13", label: "University of Albany, The State University of New York, Albany (SUNY Albany)" },
-    { value: "358", label: "University of Bedfordshire" },
-    { value: "108", label: "University of Bridgeport" },
-    { value: "85", label: "University Of Central Oklahoma" },
-    { value: "17", label: "University of Cincinnati" },
-    { value: "16", label: "University of Colorado Denver" },
-    { value: "333", label: "University of East London" },
-    { value: "1154", label: "University of Exeter" },
-    { value: "334", label: "University of Greenwich" },
-    { value: "35", label: "University of Idaho" },
-    { value: "313", label: "University of Leicester" },
-    { value: "310", label: "University of Liverpool" },
-    { value: "1311", label: "University of Louisville" },
-    { value: "23", label: "University of Maryland Baltimore County" },
-    { value: "32", label: "University of Massachusetts Dartmouth (UMass Dartmouth)" },
-    { value: "31", label: "University of Massachusetts Lowell (UMass Lowell)" },
-    { value: "1256", label: "University of Michigan-Flint" },
-    { value: "63", label: "University of Missouri–St. Louis (UMSL)" },
-    { value: "1305", label: "University of Nebraska at Omaha" },
-    { value: "49", label: "University of Nevada" },
-    { value: "638", label: "University of New Hampshire" },
-    { value: "78", label: "University of New Haven" },
-    { value: "1413", label: "University of North Florida" },
-    { value: "56", label: "University of North Texas" },
-    { value: "356", label: "University of South Wales" },
-    { value: "341", label: "University of Staffordshire" },
-    { value: "95", label: "University of Tampa" },
-    { value: "350", label: "University of West London" },
-    { value: "1304", label: "University of Western Australia" },
-    { value: "739", label: "University of Wisconsin Milwaukee, Wisconsin" },
-    { value: "360", label: "University of Wolverhampton" },
-    { value: "132", label: "Webster University - (St. Louis, Missouri)" },
-    { value: "135", label: "Western New England University" },
-    { value: "45", label: "Wichita State University" },
-    { value: "500", label: "Wittenborg University of Applied Sciences" },
-    { value: "44", label: "Wright State University" },
-  ];
-
-  const intakeOptions = [
-    { value: "Jan", label: "Jan" },
-    { value: "Feb", label: "Feb" },
-    { value: "Mar", label: "Mar" },
-    { value: "Apr", label: "Apr" },
-    { value: "May", label: "May" },
-    { value: "Jun", label: "Jun" },
-    { value: "Jul", label: "Jul" },
-    { value: "Aug", label: "Aug" },
-    { value: "Sep", label: "Sep" },
-    { value: "Oct", label: "Oct" },
-    { value: "Nov", label: "Nov" },
-    { value: "Dec", label: "Dec" },
-    { value: "Spring", label: "Spring" },
-    { value: "Summer", label: "Summer" },
-    { value: "Fall", label: "Fall" },
-    { value: "Winter", label: "Winter" },
-  ];
-
-  const yearOptions = [
-    { value: "2022", label: "2022" },
-    { value: "2023", label: "2023" },
-    { value: "2024", label: "2024" },
-    { value: "2025", label: "2025" },
-    { value: "2026", label: "2026" },
-    { value: "2027", label: "2027" },
-  ];
-
-  const statusOptions = [
-    { value: "1", label: "Received Application at KC" },
-    { value: "2", label: "Application in Progress" },
-    { value: "38", label: "Application on Hold - Intake yet to open" },
-    { value: "3", label: "Application on Hold - KC team" },
-    { value: "8", label: "Application on Hold - University" },
-    { value: "95", label: "Application on Hold - Pre-Assessment Pending" },
-    { value: "23", label: "Pending from Partner" },
-    { value: "40", label: "Pending from Partner - Login Credentials" },
-    { value: "41", label: "Pending from Partner - Academic Documents" },
-    { value: "42", label: "Pending from Partner - Financial Documents" },
-    { value: "79", label: "Pending from Partner - Application Fee Pending" },
-    { value: "89", label: "Pending from Partner - Interview" },
-    { value: "43", label: "Pending from KC" },
-    { value: "4", label: "Application submitted to the Institution" },
-    { value: "80", label: "Application Submitted - Consent Form/Student ID Required" },
-    { value: "81", label: "Application Submitted - Under Review" },
-    { value: "91", label: "Requirements met for Assessment" },
-    { value: "7", label: "Rejected by Institution" },
-    { value: "5", label: "Conditional Offer Received" },
-    { value: "97", label: "Un-Conditional offer awaited from the University" },
-    { value: "6", label: "Un-conditional Offer Received" },
-    { value: "58", label: "Funds - Pending from Partner" },
-    { value: "61", label: "Funds - On hold by the Institution" },
-    { value: "60", label: "Funds - Submitted to the Institution" },
-    { value: "13", label: "Funds - Under Assessment" },
-    { value: "14", label: "Funds - Approved" },
-    { value: "64", label: "Rejected on GTE grounds" },
-    { value: "15", label: "COE Received" },
-    { value: "16", label: "Payment Received" },
-    { value: "98", label: "Payment Received - Conditional Offer" },
-    { value: "83", label: "PAL - Pending" },
-    { value: "84", label: "PAL - Received" },
-    { value: "32", label: "CAS - Requested" },
-    { value: "17", label: "CAS - Received" },
-    { value: "36", label: "I-20 - Initiated" },
-    { value: "18", label: "I-20 - Received" },
-    { value: "34", label: "AIP Received" },
-    { value: "19", label: "Visa In Process" },
-    { value: "20", label: "Visa Received" },
-    { value: "21", label: "Visa Rejected" },
-    { value: "55", label: "Proposed for Case Closure" },
-    { value: "10", label: "Case Closed" },
-    { value: "66", label: "Case Closed - Fraudulent Documents Found" },
-    { value: "45", label: "Case Closed - On Partner's Suggestion" },
-    { value: "12", label: "Case Closed - Program Closed" },
-    { value: "11", label: "Case Closed - Student Not Qualified" },
-    { value: "31", label: "Case Closed - Offer Received - Student not interested to pay" },
-    { value: "30", label: "Case Closed - Offer Received - Student Paid Tuition Fees to Other Institution" },
-    { value: "47", label: "Case Closed - Student not tagged under KC" },
-    { value: "24", label: "Case Closed - Student not Enrolled" },
-    { value: "46", label: "Case Closed - Full Commission Received" },
-    { value: "90", label: "Case Closed - Offer not Received" },
-    { value: "37", label: "Deferral - Initiated - Tuition Payment Not Done" },
-    { value: "44", label: "Deferral - Initiated - Tuition Payment Done" },
-    { value: "88", label: "Refund/Deferral Decision Pending" },
-    { value: "25", label: "Deferral - Completed" },
-    { value: "26", label: "Refund Request Initiated" },
-    { value: "51", label: "Invoicing Due" },
-    { value: "52", label: "Invoice sent to the Institution" },
-    { value: "48", label: "Visa Received - Progressive Student" },
-    { value: "50", label: "Visa Received - Progressive Student - Discontinued Enrolment" },
-    { value: "49", label: "Visa Received - Progressive Student - Tuition Fees Not Paid" },
-  ];
-
-  const deadlineTypeOptions = [
-    { value: "1", label: "Application Deadline" },
-    { value: "2", label: "Payment Deadline" },
-    { value: "3", label: "CAS Request Deadline" },
-    { value: "4", label: "Enrollment Deadline" },
-    { value: "5", label: "GS Submission Deadline" },
-    { value: "6", label: "Visa Received Deadline" },
-  ];
-
-  // Fetch applications from API
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        setLoading(true);
-        // Static mock data for now
-        const mockApplications: Application[] = [
-          {
-            id: 1,
-            acknowledge_no: "APP-2024-001",
-            created_at: "2024-01-15T10:30:00Z",
-            student_name: "John Doe",
-            university_name: "University of Arizona",
-            program_name: "Master of Computer Science",
-            intake: "Fall 2024",
-            created_by: "Agent Smith",
-            application_status: "Application Submitted",
-            igs_assigned: "Not Assigned",
-            year: "2024",
-            country: "USA",
-          },
-          {
-            id: 2,
-            acknowledge_no: "APP-2024-002",
-            created_at: "2024-02-20T14:45:00Z",
-            student_name: "Jane Smith",
-            university_name: "University of Toronto",
-            program_name: "MBA",
-            intake: "Winter 2025",
-            created_by: "Agent Johnson",
-            application_status: "Under Review",
-            igs_assigned: "John Carter",
-            year: "2024",
-            country: "Canada",
-          },
-          {
-            id: 3,
-            acknowledge_no: "APP-2024-003",
-            created_at: "2024-03-05T09:15:00Z",
-            student_name: "Robert Johnson",
-            university_name: "University of Melbourne",
-            program_name: "Bachelor of Engineering",
-            intake: "Spring 2024",
-            created_by: "Agent Brown",
-            application_status: "Offer Received",
-            igs_assigned: "Sarah Miller",
-            year: "2024",
-            country: "Australia",
-          },
-          {
-            id: 4,
-            acknowledge_no: "APP-2024-004",
-            created_at: "2024-01-25T16:20:00Z",
-            student_name: "Emily Wilson",
-            university_name: "University of Oxford",
-            program_name: "PhD in Physics",
-            intake: "Fall 2024",
-            created_by: "Agent Davis",
-            application_status: "Visa Processing",
-            igs_assigned: "Michael Taylor",
-            year: "2024",
-            country: "UK",
-          },
-          {
-            id: 5,
-            acknowledge_no: "APP-2024-005",
-            created_at: "2024-02-10T11:10:00Z",
-            student_name: "Michael Brown",
-            university_name: "National University of Singapore",
-            program_name: "Master of Finance",
-            intake: "Summer 2024",
-            created_by: "Agent Wilson",
-            application_status: "Application in Progress",
-            igs_assigned: "Not Assigned",
-            year: "2024",
-            country: "Singapore",
-          },
-          {
-            id: 6,
-            acknowledge_no: "APP-2024-006",
-            created_at: "2024-03-15T13:25:00Z",
-            student_name: "Sarah Miller",
-            university_name: "University of British Columbia",
-            program_name: "Bachelor of Arts",
-            intake: "Fall 2024",
-            created_by: "Agent Taylor",
-            application_status: "Documents Pending",
-            igs_assigned: "David Wilson",
-            year: "2024",
-            country: "Canada",
-          },
-          {
-            id: 7,
-            acknowledge_no: "APP-2024-007",
-            created_at: "2024-01-30T09:45:00Z",
-            student_name: "David Wilson",
-            university_name: "University of Sydney",
-            program_name: "Master of Data Science",
-            intake: "Spring 2024",
-            created_by: "Agent Miller",
-            application_status: "Conditional Offer",
-            igs_assigned: "Emily Brown",
-            year: "2024",
-            country: "Australia",
-          },
-          {
-            id: 8,
-            acknowledge_no: "APP-2024-008",
-            created_at: "2024-02-28T15:30:00Z",
-            student_name: "Lisa Anderson",
-            university_name: "Imperial College London",
-            program_name: "PhD in Chemistry",
-            intake: "Fall 2024",
-            created_by: "Agent Anderson",
-            application_status: "Interview Scheduled",
-            igs_assigned: "Robert Davis",
-            year: "2024",
-            country: "UK",
-          },
-        ];
-        
-        setApplications(mockApplications);
-      } catch (err) {
-        console.error('Error fetching applications:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch applications');
-      } finally {
-        setLoading(false);
+  // Fetch agents
+  const fetchAgents = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/tenant/agent/commissionnote/agents`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch agents: ${response.status}`);
       }
-    };
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setAgents(data.data || []);
+      } else {
+        throw new Error(data.message || "Failed to fetch agents");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }, [BASE_URL, token]);
 
-    fetchApplications();
-  }, []);
+  // Fetch universities based on selected agent
+  const fetchUniversities = useCallback(async (agentId: string) => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/tenant/agent/commissionnote/universities?agent_id=${agentId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch universities: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setUniversities(data.data || []);
+      } else {
+        throw new Error(data.message || "Failed to fetch universities");
+      }
+    } catch (err) {
+      console.error(err);
+      setUniversities([]);
+    }
+  }, [BASE_URL, token]);
 
-  // Format date to readable string
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  // Fetch commission notes
+  const fetchCommissionNotes = useCallback(async (page = 1, filterOptions = appliedFilters) => {
+    try {
+      setNotesLoading(true);
+      
+      // Build query parameters
+      const params = new URLSearchParams();
+      
+      // Add status filter based on active tab
+      if (active === "progress") {
+        params.delete("status");
+      } else if (active === "paid") {
+        params.append('status', 'commission_payment_done');
+      }
+      
+      if (filterOptions.agentId) {
+        params.append('agent_id', filterOptions.agentId);
+      }
+      
+      if (filterOptions.commissionNoteNumber) {
+        params.append('commission_note_number', filterOptions.commissionNoteNumber);
+      }
+      
+      if (filterOptions.status.length > 0) {
+        filterOptions.status.forEach(status => params.append('status', status));
+      }
+      
+      if (filterOptions.universities.length > 0) {
+        filterOptions.universities.forEach(univId => params.append('university_id', univId));
+      }
+      
+      if (filterOptions.dateRange[0]) {
+        params.append('start_date', filterOptions.dateRange[0].toISOString().split('T')[0]);
+      }
+      
+      if (filterOptions.dateRange[1]) {
+        params.append('end_date', filterOptions.dateRange[1].toISOString().split('T')[0]);
+      }
+      
+      if (filterOptions.studentSearch) {
+        params.append('student_search', filterOptions.studentSearch);
+      }
+      
+      if (filterOptions.acknowledgementNo) {
+        params.append('acknowledgement_no', filterOptions.acknowledgementNo);
+      }
+      
+      params.append('page', page.toString());
+      params.append('limit', pagination.limit.toString());
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/agent/commissionnote/notes?${params.toString()}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch notes: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const notesWithId = data.data.map((note: CommissionNote, index: number) => ({
+          ...note,
+          id: index + 1
+        }));
+        
+        setNotes(notesWithId);
+        setPagination(data.pagination || {
+          page: page,
+          limit: pagination.limit,
+          total: notesWithId.length,
+          pages: 1
+        });
+        
+        // Set first note as active if available
+        if (notesWithId.length > 0 && !activeNoteId) {
+          setActiveNoteId(notesWithId[0].commission_note_id || null);
+        }
+      } else {
+        throw new Error(data.message || "Failed to fetch commission notes");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setNotesLoading(false);
+    }
+  }, [BASE_URL, token, active, pagination.limit, activeNoteId, appliedFilters]);
+
+  // Fetch commission note details
+  const fetchCommissionNoteDetail = useCallback(async (noteId: number) => {
+    try {
+      setDetailLoading(true);
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/agent/commissionnote/notes/${noteId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch note details: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setActiveNoteDetail(data.data);
+        // Fetch comments for this note
+        fetchComments(noteId);
+      } else {
+        throw new Error(data.message || "Failed to fetch note details");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [BASE_URL, token]);
+
+  // Fetch comments for a commission note
+  const fetchComments = useCallback(async (noteId: number) => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/tenant/agent/commissionnote/comments/${noteId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch comments: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Transform API comments to match our Comment interface
+        const comments: Comment[] = data.data.map((apiComment: ApiComment) => ({
+          id: apiComment.id,
+          comment: apiComment.comment,
+          created_by: apiComment.created_by_name || apiComment.created_by_email || `User ${apiComment.created_by}`,
+          created_at: apiComment.created_at
+        }));
+        
+        // Update the active note detail with comments
+        setActiveNoteDetail(prev => {
+          if (prev) {
+            return {
+              ...prev,
+              comments: comments
+            };
+          }
+          return prev;
+        });
+      } else {
+        throw new Error(data.message || "Failed to fetch comments");
+      }
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    }
+  }, [BASE_URL, token]);
+
+  // Post a new comment
+  const postComment = useCallback(async (noteId: number, comment: string) => {
+    if (!comment.trim() || !activeNoteDetail) return;
+    
+    try {
+      setPostingComment(true);
+      
+      // Find agent_id from the active note detail or filters
+      // let agentId: number | null = null;
+      
+ 
+      // If not in filters, try to find from agents list
+      // if (activeNoteDetail.company) {
+      //   const agent = agents.find(a => a.name === activeNoteDetail.company || a.email === activeNoteDetail.company);
+      //   if (agent) {
+      //     agentId = agent.agent_id;
+      //   }
+      // }
+      
+      // if (!agentId) {
+      //   throw new Error("Agent ID is required to post a comment");
+      // }
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/agent/commissionnote/comments/${noteId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            comment: comment.trim(),
+            // agent_id: agentId
+          })
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to post comment: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Clear the comment input
+        setCommentText("");
+        
+        // Refresh comments
+        fetchComments(noteId);
+      } else {
+        throw new Error(data.message || "Failed to post comment");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred while posting comment");
+    } finally {
+      setPostingComment(false);
+    }
+  }, [BASE_URL, token, activeNoteDetail, filters.agentId, agents, fetchComments]);
 
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
+    setFilters(prev => {
+      const newFilters = {
+        ...prev,
+        [filterType]: value
+      };
+      
+      // If agent is changed, reset universities and fetch new ones
+      if (filterType === 'agentId') {
+        if (value) {
+          fetchUniversities(value);
+          newFilters.universities = [];
+        } else {
+          setUniversities([]);
+        }
+      }
+      
+      return newFilters;
+    });
   };
 
-  // Handle search button click
+  // Handle search button click - apply filters
   const handleSearch = () => {
-    console.log("Applied filters:", filters);
+    setAppliedFilters(filters);
+    setDatePickerKey(prev => prev + 1);
+    fetchCommissionNotes(1, filters);
   };
 
-  // Filter and sort data
-  const filteredAndSortedData = useMemo(() => {
-    let filtered = [...applications];
+  // Clear all filters
+  const handleClearFilters = () => {
+    const clearedFilters: FilterOptions = {
+      dateRange: [null, null],
+      universities: [],
+      status: [],
+      commissionNoteNumber: "",
+      studentSearch: "",
+      acknowledgementNo: "",
+      agentId: null,
+    };
+    
+    setFilters(clearedFilters);
+    setAppliedFilters(clearedFilters);
+    setDatePickerKey(prev => prev + 1);
+    setUniversities([]);
+    fetchCommissionNotes(1, clearedFilters);
+  };
 
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter((app) => {
-        const matchesSearch = 
-          app.acknowledge_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.university_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          app.program_name.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        return matchesSearch;
-      });
-    }
+  // Handle note click
+  const handleNoteClick = (noteId: number) => {
+    setActiveNoteId(noteId);
+    fetchCommissionNoteDetail(noteId);
+  };
 
-    // Apply custom filters
-    if (filters.acknowledgeNo) {
-      filtered = filtered.filter(app => 
-        app.acknowledge_no.toLowerCase().includes(filters.acknowledgeNo.toLowerCase())
-      );
-    }
-
-    if (filters.studentName) {
-      filtered = filtered.filter(app => 
-        app.student_name.toLowerCase().includes(filters.studentName.toLowerCase())
-      );
-    }
-
-    if (filters.programName) {
-      filtered = filtered.filter(app => 
-        app.program_name.toLowerCase().includes(filters.programName.toLowerCase())
-      );
-    }
-
-    if (filters.countries.length > 0) {
-      filtered = filtered.filter(app => 
-        filters.countries.includes(app.country)
-      );
-    }
-
-    if (filters.universities.length > 0) {
-      filtered = filtered.filter(app => 
-        filters.universities.includes(app.university_name)
-      );
-    }
-
-    if (filters.intakes.length > 0) {
-      filtered = filtered.filter(app => 
-        filters.intakes.some(intake => app.intake.includes(intake))
-      );
-    }
-
-    if (filters.years.length > 0) {
-      filtered = filtered.filter(app => 
-        filters.years.includes(app.year)
-      );
-    }
-
-    if (filters.statuses.length > 0) {
-      filtered = filtered.filter(app => 
-        filters.statuses.includes(app.application_status)
-      );
-    }
-
-    // Apply sorting
-    if (sortField) {
-      filtered.sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        if(!aValue || !bValue) return 0;
-
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-        
-        // Handle date sorting
-        if (sortField === 'created_at') {
-          aValue = new Date(aValue).getTime();
-          bValue = new Date(bValue).getTime();
-        }
-        
-
-        if (aValue < bValue) {
-          return sortDirection === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortDirection === "asc" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [applications, searchTerm, sortField, sortDirection, filters]);
-
-  const handleSort = (field: keyof Application) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.pages) {
+      fetchCommissionNotes(newPage);
     }
   };
 
-  const getSortIcon = (field: keyof Application) => {
-    if (sortField !== field) return "↕️";
-    return sortDirection === "asc" ? "↑" : "↓";
+  // Handle comment submission
+  const handleCommentSubmit = async () => {
+    if (activeNoteId && commentText.trim()) {
+      await postComment(activeNoteId, commentText);
+    }
   };
 
+  // Handle key press in comment input (Shift + Enter for new line, Enter to submit)
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleCommentSubmit();
+    }
+  };
+
+  // Format date to readable string
+  const formatDate = (dateString: string) => {
+    if (!dateString || dateString === "-") return "-";
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString || dateString === "-") return "-";
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Get status color
   const getStatusColor = (status: string) => {
-    if (status.includes("Received") || status.includes("Approved") || status.includes("Completed")) {
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-    } else if (status.includes("Pending") || status.includes("Processing") || status.includes("Progress")) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+    if (status.includes("Received") || status.includes("Approved") || status.includes("Completed") || status.includes("Paid")) {
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    } else if (status.includes("Pending") || status.includes("Processing") || status.includes("Progress") || status.includes("In Progress")) {
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
     } else if (status.includes("Rejected") || status.includes("Closed")) {
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-    } else if (status.includes("Submitted") || status.includes("Review")) {
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-    } else if (status.includes("Offer")) {
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    } else if (status.includes("Sent To Partner")) {
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+    } else if (status.includes("Invoice Uploaded")) {
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
     }
-    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
+    return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+  };
+
+  // Status options for filter
+  const statusOptions = [
+    { value: "Draft", label: "Draft" },
+    { value: "sent_to_partner", label: "Sent To Partner" },
+    { value: "invoice_uploaded", label: "Invoice Uploaded" },
+    { value: "revisions_in_invoice_needed", label: "Revisions In Invoice Needed" },
+    { value: "invoice_uploaded_after_corrections", label: "Invoice Uploaded After Corrections" },
+    { value: "revision_in_cn_needed", label: "Revision In CN Needed" },
+    { value: "commission_payment_done", label: "Commission Payment Done" },
+  ];
+
+  // Initial data fetch
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setLoading(true);
+      await fetchAgents();
+      await fetchCommissionNotes();
+      setLoading(false);
+    };
+    
+    fetchInitialData();
+  }, [fetchAgents, fetchCommissionNotes]);
+
+  // Fetch detail when active note changes
+  useEffect(() => {
+    if (activeNoteId) {
+      fetchCommissionNoteDetail(activeNoteId);
+    }
+  }, [activeNoteId, fetchCommissionNoteDetail]);
+
+  // Refresh notes when active tab changes
+  useEffect(() => {
+    fetchCommissionNotes(1);
+  }, [active, fetchCommissionNotes]);
+
+  // Custom styles for react-select
+  const customSelectStyles = {
+    control: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+      minHeight: '42px',
+      '&:hover': {
+        borderColor: 'rgb(156 163 175 / var(--tw-border-opacity))',
+      },
+    }),
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: 'rgb(255 255 255)',
+      zIndex: 50,
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isFocused ? 'rgb(243 244 246)' : 'white',
+      color: 'rgb(17 24 39)',
+      '&:hover': {
+        backgroundColor: 'rgb(243 244 246)',
+      },
+    }),
+    multiValue: (base: any) => ({
+      ...base,
+      backgroundColor: 'rgb(239 246 255)',
+    }),
+    multiValueLabel: (base: any) => ({
+      ...base,
+      color: 'rgb(29 78 216)',
+    }),
+  };
+
+  const darkSelectStyles = {
+    control: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: 'rgb(31 41 55 / var(--tw-bg-opacity))',
+      borderColor: 'rgb(75 85 99 / var(--tw-border-opacity))',
+      minHeight: '42px',
+      '&:hover': {
+        borderColor: 'rgb(107 114 128 / var(--tw-border-opacity))',
+      },
+    }),
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: 'rgb(31 41 55)',
+      zIndex: 50,
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isFocused ? 'rgb(55 65 81)' : 'rgb(31 41 55)',
+      color: 'rgb(243 244 246)',
+      '&:hover': {
+        backgroundColor: 'rgb(55 65 81)',
+      },
+    }),
+    multiValue: (base: any) => ({
+      ...base,
+      backgroundColor: 'rgb(30 58 138)',
+    }),
+    multiValueLabel: (base: any) => ({
+      ...base,
+      color: 'rgb(191 219 254)',
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: 'rgb(243 244 246)',
+    }),
+    input: (base: any) => ({
+      ...base,
+      color: 'rgb(243 244 246)',
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: 'rgb(156 163 175)',
+    }),
   };
 
   if (loading) {
@@ -608,12 +663,12 @@ export default function ApplicationsTable() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20">
         <div className="flex items-center">
           <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="ml-2 text-sm font-medium text-red-800 dark:text-red-400">Error loading applications</h3>
+          <h3 className="ml-2 text-sm font-medium text-red-800 dark:text-red-400">Error loading data</h3>
         </div>
         <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
         <button
@@ -628,419 +683,551 @@ export default function ApplicationsTable() {
 
   return (
     <>
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-      <div className="w-full bg-[#f8fbff] dark:bg-gray-900  pt-4 rounded-lg ">
-  {/* Tabs */}
-  <div className="flex gap-8 text-sm font-medium relative">
-    {/* In Progress */}
-    <button
-      onClick={() => setActive("progress")}
-      className={`pb-3 relative ${
-        active === "progress"
-          ? "text-blue-600 dark:text-blue-400"
-          : "text-gray-900 dark:text-gray-300"
-      }`}
-    >
-      In Progress
-      {active === "progress" && (
-        <span className="absolute left-0 -bottom-[1px] h-[3px] w-full bg-blue-600 dark:bg-blue-400 rounded-full" />
-      )}
-    </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex justify-between w-full bg-[#f8fbff] dark:bg-gray-900 rounded-lg ">
+          {/* Tabs */}
+          <div className="flex gap-8 font-medium relative">
+            <button
+              onClick={() => setActive("progress")}
+              className={`pb-3 relative ${
+                active === "progress"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-900 dark:text-gray-300"
+              }`}
+            >
+              In Progress
+              {active === "progress" && (
+                <span className="absolute left-0 -bottom-[1px] h-[3px] w-full bg-blue-600 dark:bg-blue-400 rounded-full" />
+              )}
+            </button>
 
-    {/* Paid */}
-    <button
-      onClick={() => setActive("paid")}
-      className={`pb-3 relative ${
-        active === "paid"
-          ? "text-blue-600 dark:text-blue-400"
-          : "text-gray-900 dark:text-gray-300"
-      }`}
-    >
-      Paid
-      {active === "paid" && (
-        <span className="absolute left-0 -bottom-[1px] h-[3px] w-full bg-blue-600 dark:bg-blue-400 rounded-full" />
-      )}
-    </button>
-  </div>
-</div>
-    </div>
-    <div className="space-y-6">
+            <button
+              onClick={() => setActive("paid")}
+              className={`pb-3 relative ${
+                active === "paid"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-900 dark:text-gray-300"
+              }`}
+            >
+              Paid
+              {active === "paid" && (
+                <span className="absolute left-0 -bottom-[1px] h-[3px] w-full bg-blue-600 dark:bg-blue-400 rounded-full" />
+              )}
+            </button>
+          </div>
+
+          <Link
+            href="/admin/partners/commission-payments/add"
+            type="button"
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
+          >
+            <span>Create Commission Note</span>
+          </Link>
+        </div>
+      </div>
       
-      {/* Filters Section */}
-      <div className="MSL-Searchform p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {/* Date Created */}
-          <div className="SF-DateApp">
-            <div className="form-group calendar-one">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Date Created
-              </label>
-              <DatePicker
-                selected={filters.dateRange[0]}
-                onChange={(dates) => handleFilterChange('dateRange', dates)}
-                startDate={filters.dateRange[0]}
-                endDate={filters.dateRange[1]}
-                selectsRange
-                placeholderText="Select date range"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                isClearable
-                readOnly
-              />
+      <div className="space-y-6">
+        {/* Filters Section */}
+        <div className="MSL-Searchform bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            
+            {/* Commission Note Number */}
+            <div className="SF-Keyword">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Commission Note
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by commission note Number"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                  value={filters.commissionNoteNumber}
+                  onChange={(e) => handleFilterChange('commissionNoteNumber', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Status Multi-select */}
+            <div className="SF-University all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <Select
+                  key={JSON.stringify(filters.status)}
+                  isMulti
+                  options={statusOptions}
+                  value={statusOptions.filter(option => 
+                    filters.status.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('status', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select status"
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={darkSelectStyles}
+                />
+              </div>
+            </div>
+
+            {/* Agent Select */}
+            <div className="SF-University all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Agent
+                </label>
+                <Select
+                  key={filters.agentId}
+                  options={agents.map(agent => ({
+                    value: agent.agent_id.toString(),
+                    label: agent.name || agent.email
+                  }))}
+                  value={agents
+                    .filter(agent => agent.agent_id.toString() === filters.agentId)
+                    .map(agent => ({
+                      value: agent.agent_id.toString(),
+                      label: agent.name || agent.email
+                    }))[0]}
+                  onChange={(selectedOption) => {
+                    handleFilterChange('agentId', selectedOption?.value || null);
+                  }}
+                  placeholder="Select agent"
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={darkSelectStyles}
+                />
+              </div>
+            </div>
+
+            {/* University Multi-select */}
+            <div className="SF-University all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  University
+                </label>
+                <Select
+                  key={JSON.stringify([filters.universities, filters.agentId])}
+                  isMulti
+                  options={universities.map(univ => ({
+                    value: univ.university_id.toString(),
+                    label: univ.university_name
+                  }))}
+                  value={universities.filter(univ => 
+                    filters.universities.includes(univ.university_id.toString())
+                  ).map(univ => ({
+                    value: univ.university_id.toString(),
+                    label: univ.university_name
+                  }))}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('universities', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder={filters.agentId ? "Select universities" : "Select agent first"}
+                  isDisabled={!filters.agentId}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={darkSelectStyles}
+                />
+              </div>
+            </div>
+
+            {/* Date Created */}
+            <div className="SF-DateApp">
+              <div className="form-group calendar-one">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Date Created
+                </label>
+                <div className="relative">
+                  <DatePicker
+                    key={datePickerKey}
+                    selected={filters.dateRange[0]}
+                    onChange={(dates: [Date | null, Date | null]) => handleFilterChange('dateRange', dates)}
+                    startDate={filters.dateRange[0]}
+                    endDate={filters.dateRange[1]}
+                    selectsRange
+                    isClearable
+                    placeholderText="Select date range"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    dateFormat="dd-MM-yyyy"
+                    wrapperClassName="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Student Search */}
+            <div className="SF-Keyword">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Student
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by student Name/Email"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                  value={filters.studentSearch}
+                  onChange={(e) => handleFilterChange('studentSearch', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Acknowledgement No. */}
+            <div className="SF-Keyword">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Acknowledgement No.
+                </label>
+                <input
+                  type="text"
+                  placeholder="Acknowledgement No."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                  value={filters.acknowledgementNo}
+                  onChange={(e) => handleFilterChange('acknowledgementNo', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-end gap-2">
+              <div className="form-group">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
+                  onClick={handleSearch}
+                  disabled={notesLoading}
+                >
+                  <Search size={18} />
+                  {notesLoading ? "Searching..." : "Search"}
+                </button>
+              </div>
+              
+              <div className="form-group">
+                <button
+                  type="button"
+                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
+                  onClick={handleClearFilters}
+                >
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Country Multi-select */}
-          <div className="all-countries">
-            <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Country
-              </label>
-              <Select
-                isMulti
-                options={countryOptions}
-                value={countryOptions.filter(option => 
-                  filters.countries.includes(option.value)
-                )}
-                onChange={(selectedOptions) => {
-                  handleFilterChange('countries', 
-                    selectedOptions ? selectedOptions.map(option => option.value) : []
-                  );
-                }}
-                placeholder="Select countries"
-                className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
-                    borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
-                    minHeight: '42px',
-                  }),
-                }}
-              />
-            </div>
-          </div>
-
-          {/* University Multi-select */}
-          <div className="SF-University all-countries">
-            <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                University
-              </label>
-              <Select
-                isMulti
-                options={universityOptions}
-                value={universityOptions.filter(option => 
-                  filters.universities.includes(option.value)
-                )}
-                onChange={(selectedOptions) => {
-                  handleFilterChange('universities', 
-                    selectedOptions ? selectedOptions.map(option => option.value) : []
-                  );
-                }}
-                placeholder="Select universities"
-                className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
-                    borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
-                    minHeight: '42px',
-                  }),
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Intake Multi-select */}
-          <div className="SF-Intake all-countries">
-            <div className="form-group calendar-two">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Intake
-              </label>
-              <Select
-                isMulti
-                options={intakeOptions}
-                value={intakeOptions.filter(option => 
-                  filters.intakes.includes(option.value)
-                )}
-                onChange={(selectedOptions) => {
-                  handleFilterChange('intakes', 
-                    selectedOptions ? selectedOptions.map(option => option.value) : []
-                  );
-                }}
-                placeholder="Select intakes"
-                className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
-                    borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
-                    minHeight: '42px',
-                  }),
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Year Multi-select */}
-          <div className="SF-year all-countries">
-            <div className="form-group calendar-two">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Year
-              </label>
-              <Select
-                isMulti
-                options={yearOptions}
-                value={yearOptions.filter(option => 
-                  filters.years.includes(option.value)
-                )}
-                onChange={(selectedOptions) => {
-                  handleFilterChange('years', 
-                    selectedOptions ? selectedOptions.map(option => option.value) : []
-                  );
-                }}
-                placeholder="Select years"
-                className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
-                    borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
-                    minHeight: '42px',
-                  }),
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Status Multi-select */}
-          {/* <div className="SF-Status all-countries">
-            <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Status
-              </label>
-              <Select
-                isMulti
-                options={statusOptions}
-                value={statusOptions.filter(option => 
-                  filters.statuses.includes(option.value)
-                )}
-                onChange={(selectedOptions) => {
-                  handleFilterChange('statuses', 
-                    selectedOptions ? selectedOptions.map(option => option.value) : []
-                  );
-                }}
-                placeholder="Select statuses"
-                className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                classNamePrefix="react-select"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
-                    borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
-                    minHeight: '42px',
-                  }),
-                }}
-              />
-            </div>
-          </div> */}
-
-          {/* Acknowledgement No. */}
-          <div className="SF-Keyword">
-            <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Acknowledgement No.
-              </label>
-              <input
-                type="text"
-                placeholder="Acknowledgement No."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.acknowledgeNo}
-                onChange={(e) => handleFilterChange('acknowledgeNo', e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Program Name */}
-          <div className="SF-Keyword">
-            <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Program Name
-              </label>
-              <input
-                type="text"
-                placeholder="Program Name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.programName}
-                onChange={(e) => handleFilterChange('programName', e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Student Name */}
-          <div className="SF-Keyword">
-            <div className="form-group">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Student Name
-              </label>
-              <input
-                type="text"
-                placeholder="Student Name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                value={filters.studentName}
-                onChange={(e) => handleFilterChange('studentName', e.target.value)}
-              />
-            </div>
-          </div>
-
-          
         </div>
 
-        {/* Search Button */}
-        <div className="SF-Searchbtn mt-6">
-          <div className="form-group flex justify-end">
-            <button
-              type="button"
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              onClick={handleSearch}
+        {/* Table */}
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <div className="max-w-full overflow-x-auto">
+            <div className="min-w-[1200px]">
+              <div className="flex gap-6 bg-[#F6F9FC] dark:bg-gray-900 min-h-screen">
+                {/* LEFT PANEL */}
+                <div className="w-[420px] bg-white dark:bg-gray-800 rounded-xl space-y-4 border border-gray-200 dark:border-white/[0.05]">
+                  {notesLoading ? (
+                    <div className="flex justify-center items-center h-32">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+                    </div>
+                  ) : notes.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      No commission notes found
+                    </div>
+                  ) : (
+                    <>
+                      {notes.map((note) => (
+                        <div 
+                          key={note.commission_note_number}
+                          className={`rounded-xl p-4 space-y-2 mb-0 relative cursor-pointer transition-all ${
+                            activeNoteId === note.commission_note_id 
+                              ? 'border-l-4 border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500' 
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-transparent'
+                          }`}
+                          onClick={() => handleNoteClick(note.commission_note_id!)}
+                        >
+                          <span className={`absolute top-4 right-4 text-xs px-3 py-1 rounded-full ${getStatusColor(note.status)}`}>
+                            {note.status}
+                          </span>
+
+                          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                            {note.commission_note_number}
+                          </h3>
+
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {note.company}
+                          </p>
+
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            Commission Amount is{" "}
+                            <span className="font-semibold">{note.commission_amount}</span>
+                          </p>
+
+                          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <p>
+                              Created On:{" "}
+                              <span className="font-medium text-gray-800 dark:text-gray-300">
+                                {formatDateTime(note.created_at)}
+                              </span>
+                            </p>
+                            <p>
+                              Last Updated On:{" "}
+                              <span className="font-medium text-gray-800 dark:text-gray-300">
+                                {formatDateTime(note.updated_at)}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* PAGINATION */}
+                  {notes.length > 0 && (
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-white/[0.05]">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          className="h-9 w-9 border border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          onClick={() => handlePageChange(pagination.page - 1)}
+                          disabled={pagination.page === 1}
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+
+                        <button className="h-9 w-9 bg-blue-600 text-white rounded-lg dark:bg-blue-700">
+                          {pagination.page}
+                        </button>
+
+                        <button 
+                          className="h-9 w-9 border border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          onClick={() => handlePageChange(pagination.page + 1)}
+                          disabled={pagination.page === pagination.pages}
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+
+                      <select 
+                        className="border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        value={pagination.limit}
+                        onChange={(e) => {
+                          const newLimit = parseInt(e.target.value);
+                          setPagination(prev => ({
+                            ...prev,
+                            limit: newLimit
+                          }));
+                          fetchCommissionNotes(1);
+                        }}
+                      >
+                        <option value="10">10/page</option>
+                        <option value="20">20/page</option>
+                        <option value="50">50/page</option>
+                        <option value="100">100/page</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT PANEL */}
+                <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-white/[0.05]">
+                  {detailLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+                    </div>
+                  ) : activeNoteDetail ? (
+                    <>
+                      {/* HEADER */}
+                      <div className="flex justify-between items-start border-b border-gray-200 dark:border-white/[0.05] pb-4">
+                        <div className="space-y-2">
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                            {activeNoteDetail.commission_note_number}
+                          </h2>
+
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {activeNoteDetail.company}
+                          </p>
+
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            Commission Amount is{" "}
+                            <span className="font-semibold">{activeNoteDetail.commission_amount}</span>
+                          </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600">
+                            Generate Invoice
+                          </button>
+
+                          <button className="border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                            View Note
+                          </button>
+
+                          <button className="border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                            Download Note
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* DETAILS */}
+                      <div className="grid grid-cols-2 gap-y-4 gap-x-10 py-6 text-sm">
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Generated By:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {activeNoteDetail.generated_by || '-'}
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Paid By:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {activeNoteDetail.paid_by}
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Date Received On:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {formatDateTime(activeNoteDetail.date_received_on)}
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Date of Payment:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {activeNoteDetail.date_of_payment}
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Last Updated On:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {formatDateTime(activeNoteDetail.last_updated_on)}
+                          </span>
+                        </p>
+                      </div>
+
+                      {/* COMMENTS */}
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-100 dark:border-blue-900/30">
+                        <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Comments</h3>
+
+                        <div className="flex items-center gap-3">
+                          <input
+                            placeholder="Type your comment here... Press Enter to submit"
+                            className="flex-1 rounded-full px-4 py-3 border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            onKeyDown={handleCommentKeyDown}
+                            disabled={postingComment}
+                          />
+
+                          <button 
+                            className="h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={handleCommentSubmit}
+                            disabled={postingComment || !commentText.trim()}
+                          >
+                            {postingComment ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                            ) : (
+                              <Send size={18} />
+                            )}
+                          </button>
+                        </div>
+
+                        {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
+                          <div className="mt-4 space-y-4">
+                            {activeNoteDetail.comments.map((comment) => (
+                              <div key={comment.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-white/[0.05] shadow-sm">
+                                <p className="text-gray-700 dark:text-gray-300">{comment.comment}</p>
+                                <div className="flex justify-between items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                  <span>By: {comment.created_by}</span>
+                                  <span>{formatDateTime(comment.created_at)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 mt-16">
+                            <p>No comments yet.</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+                      <p>Select a commission note to view details</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Results Count and Pagination */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Showing {notes.length} of {pagination.total} commission notes
+          </div>
+          
+          {/* Pagination */}
+          <div className="flex items-center gap-2">
+            <button 
+              className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
             >
-              <span>Search</span>
+              Previous
+            </button>
+            
+            {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+              let pageNum;
+              if (pagination.pages <= 5) {
+                pageNum = i + 1;
+              } else if (pagination.page <= 3) {
+                pageNum = i + 1;
+              } else if (pagination.page >= pagination.pages - 2) {
+                pageNum = pagination.pages - 4 + i;
+              } else {
+                pageNum = pagination.page - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    pagination.page === pageNum
+                      ? 'bg-blue-600 text-white dark:bg-blue-700 dark:text-white'
+                      : 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                  onClick={() => handlePageChange(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            
+            {pagination.pages > 5 && pagination.page < pagination.pages - 2 && (
+              <span className="px-2 text-gray-500 dark:text-gray-400">...</span>
+            )}
+            
+            {pagination.pages > 5 && pagination.page < pagination.pages - 2 && (
+              <button
+                className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handlePageChange(pagination.pages)}
+              >
+                {pagination.pages}
+              </button>
+            )}
+            
+            <button 
+              className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page === pagination.pages}
+            >
+              Next
             </button>
           </div>
         </div>
       </div>
-
-     
-
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[1200px]">
-            <Table>
-              {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                <TableRow>
-                  {[
-                    { key: "acknowledge_no", label: "Acknowledge No." },
-                    { key: "created_at", label: "Date Created" },
-                    { key: "student_name", label: "Student Name" },
-                    { key: "university_name", label: "University Name" },
-                    { key: "program_name", label: "Program Name" },
-                    { key: "intake", label: "Intake" },
-                    { key: "created_by", label: "Created By" },
-                    { key: "application_status", label: "Application Status" },
-                    { key: "igs_assigned", label: "IGS Assigned" },
-                  ].map(({ key, label }) => (
-                    <TableCell
-                      key={key}
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => handleSort(key as keyof Application)}
-                    >
-                      <div className="flex items-center gap-1">
-                        {label}
-                        <span className="text-xs">{getSortIcon(key as keyof Application)}</span>
-                      </div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHeader>
-
-              {/* Table Body */}
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((application) => (
-                    <TableRow key={application.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300 font-medium">
-                        <Link href={`/partner/applications/${application.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
-                          {application.acknowledge_no}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
-                        {formatDate(application.created_at)}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300 font-medium">
-                        <Link href={`/partner/editProfile/1`}>
-                        {application.student_name}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
-                        {application.university_name}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
-                        {application.program_name}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
-                        {application.intake}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
-                        {application.created_by}
-                      </TableCell>
-                      <TableCell className="px-5 py-4">
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(application.application_status)}`}>
-                          {application.application_status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4">
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                          application.igs_assigned === 'Not Assigned' 
-                            ? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-                            : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300'
-                        }`}>
-                          {application.igs_assigned}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
-                    >
-                      {applications.length === 0 ? "No applications found." : "No applications found matching your criteria."}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </div>
-
-      {/* Results Count and Pagination */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {filteredAndSortedData.length} of {applications.length} applications
-        </div>
-        
-        {/* Pagination - Static for now */}
-        <div className="flex items-center gap-2">
-          <button className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            Previous
-          </button>
-          <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm">
-            1
-          </button>
-          <button className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            2
-          </button>
-          <button className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            3
-          </button>
-          <span className="px-2 text-gray-500 dark:text-gray-400">...</span>
-          <button className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            10
-          </button>
-          <button className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            Next
-          </button>
-        </div>
-      </div>
-    </div>
     </>
   );
 }
