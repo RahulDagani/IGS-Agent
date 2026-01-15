@@ -1164,7 +1164,7 @@ const CourseCard: React.FC<{
       {/* Buttons */}
       <div className="mt-6 flex gap-3">
         <Link
-          href={`/partner/programs/${course.id}`}
+          href={`/student/programs/${course.id}`}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-center dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all"
         >
           View Course Details
@@ -1492,6 +1492,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         study_level_id: selectedCourse.study_level_id,
         remarks: "Student wants to apply for this course",
         course_intake_id: intakeId,
+        student_user_id: studentId,
         application_login: appLogin,  
         application_password: appPassword
       };
@@ -1518,7 +1519,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         setAlertMessage(`Your application for ${selectedCourse.course_name} at ${selectedCourse.university_name} has been submitted successfully!`);
 
         setTimeout(()=>{
-          router.push(`/partner/editProfile/${studentId}?tab=applications&app=${app_id}`);
+          router.push(`/student/editProfile/${studentId}?tab=applications&app=${app_id}`);
         },2000)
       } else {
         throw new Error(result.message || 'Application failed');

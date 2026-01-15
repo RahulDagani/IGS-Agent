@@ -261,7 +261,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
 
       
       const endpoint = isCommon 
-        ? `${BASE_URL}/student/application/upload/common/document/${studentId}`
+        ? `${BASE_URL}/student/application/upload/common/document`
         : `${BASE_URL}/student/application/upload/document/${applicationId}`;
       
       xhr.open('PUT', endpoint);

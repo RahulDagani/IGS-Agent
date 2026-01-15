@@ -36,11 +36,11 @@ export const navItems: NavItem[] = [
     icon: <LayoutDashboard size={18} />,
     path: "/",
   },
-  {
-        name: "Apply",
-        path: "/apply",
-        icon: <GraduationCap size={18} />,
-      },
+  // {
+  //       name: "Apply",
+  //       path: "/apply",
+  //       icon: <GraduationCap size={18} />,
+  //     },
       {
         name: "Programs",
         path: "/programs",

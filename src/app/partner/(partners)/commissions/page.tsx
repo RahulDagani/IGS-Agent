@@ -2,22 +2,23 @@
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Metadata } from "next";
 import React from "react";
-import Applications from "./Applications";
+
+import PaymentsTable from "./Payment";
 
 export const metadata: Metadata = {
-  title: "Applications",
+  title: "Commissions",
   description:
-    "List of All Applications on your Partner Platform",
+    "List of Commission Payments on your Partner Platform",
   // other metadata
 };
 
-export default function AgentsTable() {
+export default function Commissions() {
   return (
     <div>
-      {/* <PageBreadcrumb pageTitle="Applications" /> */}
+      {/* <PageBreadcrumb pageTitle="Commission Payments" /> */}
       <div className="space-y-6">
         
-          <Applications />
+          <PaymentsTable />
        
       </div>
     </div>

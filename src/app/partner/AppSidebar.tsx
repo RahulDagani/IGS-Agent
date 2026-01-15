@@ -19,6 +19,7 @@ import {
   Settings,
 
   ArrowLeft,
+  Percent,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -58,6 +59,11 @@ const studentItems: NavItem[] = [
         name: "Applications",
         path: "/applications",
         icon: <FileText size={18} />,
+      },
+      {
+        name: "Commissions",
+        path: "/commissions",
+        icon: <Percent size={18} />,
       },
       {
         name: "Wallet",
