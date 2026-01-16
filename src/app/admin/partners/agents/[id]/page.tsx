@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function AgentsTable() {
   return (
     <div>
-      <PageBreadcrumb pageTitle="Agents Details" />
+      {/* <PageBreadcrumb pageTitle="Agents Details" /> */}
       <div className="space-y-6">
           <AgentDetails />
       </div>
