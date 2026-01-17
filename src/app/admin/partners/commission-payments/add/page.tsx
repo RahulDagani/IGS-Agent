@@ -17,9 +17,9 @@ import {
   ChevronUp,
   Users,
   School,
-  BookOpen
+  BookOpen,
+  Percent
 } from "lucide-react";
-
 
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -29,6 +29,7 @@ interface Agent {
   agent_id: number;
   name: string | null;
   email: string;
+  agent_share: number; // Added this field
 }
 
 interface University {
@@ -50,20 +51,30 @@ interface Application {
   university_name: string;
   application_status: string;
   selected?: boolean;
-  installment_no?: string;
-  commission_amt?: number;
-  bank_charges?: number;
-  gst_amt?: number;
-  tds_amt?: number;
 }
 
 interface ApplicationFormData {
   application_id: number;
-  installment_no: string;
+  Commissionable_tuition_fee: number;
   commission_amt: number;
   bank_charges: number;
-  gst_amt: number;
+  comm_after_charges: number;
+  less_gst_amt: number;
+  net_commission_amt: number;
+  partner_share: number;
+  conversion_currency: string;
+  exchange_rate: number;
+  shared_amt_inr: number;
+  gross_comm_payable: number;
   tds_amt: number;
+  net_pay: number;
+}
+
+interface Currency {
+  id: number;
+  from_currency: string;
+  to_currency: string;
+  conversion_rate: string;
 }
 
 interface FormData {
@@ -81,10 +92,8 @@ interface FormData {
 const AddCommissionNote = () => {
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
   const router = useRouter();
   
-
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +102,7 @@ const AddCommissionNote = () => {
   // Data states
   const [agents, setAgents] = useState<Agent[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [availableApplications, setAvailableApplications] = useState<Application[]>([]);
   const [selectedApplications, setSelectedApplications] = useState<Application[]>([]);
 
@@ -144,6 +154,7 @@ const AddCommissionNote = () => {
   // Fetch agents on component mount
   useEffect(() => {
     fetchAgents();
+    fetchCurrencies();
   }, []);
 
   // Fetch universities when agent is selected
@@ -188,6 +199,66 @@ const AddCommissionNote = () => {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCurrencies = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${BASE_URL}/tenant/currency/list`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch currencies: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setCurrencies(data.data || []);
+      } else {
+        throw new Error(data.message || "Failed to fetch currencies");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExchangeRate = async (currencyId: number) => {
+    try {
+      const response = await fetch(
+        `${BASE_URL}/tenant/currency/get/${currencyId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch exchange rate: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        return parseFloat(data.data.conversion_rate);
+      } else {
+        throw new Error(data.message || "Failed to fetch exchange rate");
+      }
+    } catch (err) {
+      console.error("Error fetching exchange rate:", err);
+      return 1;
     }
   };
 
@@ -256,12 +327,14 @@ const AddCommissionNote = () => {
     }
   };
 
-  const handleAgentSelect = (agent: Agent) => {
+  const handleAgentSelect = async (agent: Agent) => {
     setSelectedAgent(agent);
     setFormData(prev => ({ ...prev, agent_id: agent.agent_id, university_id: null }));
     setSelectedUniversity(null);
+    setUniversities([]);
     setAvailableApplications([]);
     setSelectedApplications([]);
+    setFormData(prev => ({ ...prev, applications: [] }));
     setShowAgentDropdown(false);
     setAgentSearch("");
   };
@@ -273,7 +346,7 @@ const AddCommissionNote = () => {
     setUniversitySearch("");
   };
 
-  const handleApplicationSelect = (application: Application) => {
+  const handleApplicationSelect = async (application: Application) => {
     // Check if already selected
     const isSelected = selectedApplications.some(a => a.application_id === application.application_id);
     
@@ -287,32 +360,91 @@ const AddCommissionNote = () => {
     } else {
       // Add to selected with default values
       setSelectedApplications(prev => [...prev, application]);
+      
+      // Get default currency and exchange rate
+      const defaultCurrency = currencies.find(c => c.from_currency === application.currency_code);
+      let exchangeRate = 1;
+      
+      if (defaultCurrency) {
+        exchangeRate = await fetchExchangeRate(defaultCurrency.id);
+      }
+      
+      const initialData: ApplicationFormData = {
+        application_id: application.application_id,
+        Commissionable_tuition_fee: parseFloat(application.tuition_fee) || 0,
+        commission_amt: 0,
+        bank_charges: 0,
+        comm_after_charges: 0,
+        less_gst_amt: 0,
+        net_commission_amt: 0,
+        partner_share: selectedAgent?.agent_share || 0,
+        conversion_currency: application.currency_code,
+        exchange_rate: exchangeRate,
+        shared_amt_inr: 0,
+        gross_comm_payable: 0,
+        tds_amt: 0,
+        net_pay: 0
+      };
+      
       setFormData(prev => ({
         ...prev,
-        applications: [
-          ...prev.applications,
-          {
-            application_id: application.application_id,
-            installment_no: "1/1",
-            commission_amt: 0,
-            bank_charges: 0,
-            gst_amt: 0,
-            tds_amt: 0
-          }
-        ]
+        applications: [...prev.applications, initialData]
       }));
     }
   };
 
   const handleApplicationUpdate = (applicationId: number, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      applications: prev.applications.map(app => 
-        app.application_id === applicationId 
-          ? { ...app, [field]: value }
-          : app
-      )
-    }));
+    setFormData(prev => {
+      const updatedApps = prev.applications.map(app => {
+        if (app.application_id === applicationId) {
+          const updatedApp = { ...app, [field]: value };
+          
+          // Recalculate derived fields
+          updatedApp.comm_after_charges = updatedApp.commission_amt - updatedApp.bank_charges;
+          updatedApp.net_commission_amt = updatedApp.commission_amt - (updatedApp.bank_charges + updatedApp.less_gst_amt);
+          updatedApp.shared_amt_inr = updatedApp.net_commission_amt * updatedApp.exchange_rate;
+          updatedApp.gross_comm_payable = Math.round(updatedApp.shared_amt_inr * (updatedApp.partner_share / 100));
+          updatedApp.net_pay = updatedApp.gross_comm_payable - updatedApp.tds_amt;
+          
+          return updatedApp;
+        }
+        return app;
+      });
+      
+      return { ...prev, applications: updatedApps };
+    });
+  };
+
+  const handleCurrencyChange = async (applicationId: number, currencyId: number) => {
+    try {
+      const exchangeRate = await fetchExchangeRate(currencyId);
+      const selectedCurrency = currencies.find(c => c.id === currencyId);
+      
+      setFormData(prev => {
+        const updatedApps = prev.applications.map(app => {
+          if (app.application_id === applicationId) {
+            const updatedApp = { 
+              ...app, 
+              conversion_currency: selectedCurrency?.from_currency || app.conversion_currency,
+              exchange_rate: exchangeRate 
+            };
+            
+            // Recalculate with new exchange rate
+            updatedApp.shared_amt_inr = updatedApp.net_commission_amt * exchangeRate;
+            updatedApp.gross_comm_payable = Math.round(updatedApp.shared_amt_inr * (updatedApp.partner_share / 100));
+            updatedApp.net_pay = updatedApp.gross_comm_payable - updatedApp.tds_amt;
+            
+            return updatedApp;
+          }
+          return app;
+        });
+        
+        return { ...prev, applications: updatedApps };
+      });
+    } catch (err) {
+      console.error("Error changing currency:", err);
+      setError("Failed to update exchange rate");
+    }
   };
 
   const handleRemoveApplication = (applicationId: number) => {
@@ -357,7 +489,7 @@ const AddCommissionNote = () => {
 
     // Validate application data
     const invalidApps = formData.applications.filter(app => 
-      !app.installment_no || app.commission_amt <= 0
+      !app.commission_amt || app.commission_amt <= 0
     );
     
     if (invalidApps.length > 0) {
@@ -432,18 +564,21 @@ const AddCommissionNote = () => {
     }
   };
 
+  // Calculate totals
   const totalCommission = formData.applications.reduce((sum, app) => sum + (app.commission_amt || 0), 0);
   const totalBankCharges = formData.applications.reduce((sum, app) => sum + (app.bank_charges || 0), 0);
-  const totalGST = formData.applications.reduce((sum, app) => sum + (app.gst_amt || 0), 0);
+  const totalLessGST = formData.applications.reduce((sum, app) => sum + (app.less_gst_amt || 0), 0);
+  const totalNetCommission = formData.applications.reduce((sum, app) => sum + (app.net_commission_amt || 0), 0);
+  const totalSharedAmtINR = formData.applications.reduce((sum, app) => sum + (app.shared_amt_inr || 0), 0);
+  const totalGrossCommPayable = formData.applications.reduce((sum, app) => sum + (app.gross_comm_payable || 0), 0);
   const totalTDS = formData.applications.reduce((sum, app) => sum + (app.tds_amt || 0), 0);
-  const netAmount = totalCommission - totalBankCharges - totalGST - totalTDS;
+  const totalNetPay = formData.applications.reduce((sum, app) => sum + (app.net_pay || 0), 0);
 
   return (
     <div className="max-w-7xl">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-3">
-          {/* <PlusCircle className="h-8 w-8 text-blue-600 dark:text-blue-400" /> */}
           <span>Add Commission Note</span>
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
@@ -509,6 +644,9 @@ const AddCommissionNote = () => {
                           <div className="text-sm text-gray-600 dark:text-gray-400">
                             {selectedAgent.email}
                           </div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Share: {selectedAgent.agent_share}%
+                          </div>
                         </div>
                       </>
                     ) : (
@@ -570,6 +708,9 @@ const AddCommissionNote = () => {
                               </div>
                               <div className="text-sm text-gray-600 dark:text-gray-400">
                                 {agent.email}
+                              </div>
+                              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                Share: {agent.agent_share}%
                               </div>
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -867,24 +1008,21 @@ const AddCommissionNote = () => {
                     PO Date *
                   </label>
                   <div className="relative">
-                   
-
                     <DatePicker
-  selected={formData.po_date ? new Date(formData.po_date) : null}
-  onChange={(date) => setFormData(prev => ({ 
-    ...prev, 
-    po_date: date ? date.toISOString().split("T")[0] : "" 
-  }))}
-  dateFormat="yyyy-MM-dd"
-  placeholderText="Select date"
-  showYearDropdown
-  showMonthDropdown
-  dropdownMode="select"
-  yearDropdownItemNumber={50}
-  scrollableYearDropdown
-  className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
-/>
-                    {/* <Calendar className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" /> */}
+                      selected={formData.po_date ? new Date(formData.po_date) : null}
+                      onChange={(date) => setFormData(prev => ({ 
+                        ...prev, 
+                        po_date: date ? date.toISOString().split("T")[0] : "" 
+                      }))}
+                      dateFormat="yyyy-MM-dd"
+                      placeholderText="Select date"
+                      showYearDropdown
+                      showMonthDropdown
+                      dropdownMode="select"
+                      yearDropdownItemNumber={50}
+                      scrollableYearDropdown
+                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
+                    />
                   </div>
                 </div>
               </div>
@@ -924,230 +1062,404 @@ const AddCommissionNote = () => {
                   </select>
                 </div>
               </div>
-              
-              {/* Currency Details */}
-              <div className="space-y-4 md:col-span-2">
-                <h3 className="font-medium text-gray-900 dark:text-white flex items-center space-x-2">
-                  <DollarSign className="h-5 w-5 text-green-600" />
-                  <span>Currency Details</span>
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Currency
-                    </label>
-                    <select
-                      value={formData.currency}
-                      onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
-                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="INR">INR</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Exchange Rate
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.exchange_rate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, exchange_rate: parseFloat(e.target.value) }))}
-                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                      placeholder="Exchange rate"
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Application Details Table */}
-        {selectedApplications.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-              Application Commission Details
-            </h3>
+    {/* Application Details Table */}
+{/* Application Details Table */}
+{selectedApplications.length > 0 && (
+  <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+      Application Commission Details
+    </h3>
+    
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-gray-700">
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Student
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Commissionable Tuition Fee
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Commission Amt
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Bank Charges
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Less GST Amt
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Partner Share (%)
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Conversion Currency
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              TDS Amount
+            </th>
+            <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {selectedApplications.map((app) => {
+            const appData = formData.applications.find(
+              a => a.application_id === app.application_id
+            );
             
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Student
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Installment
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Commission
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Bank Charges
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      GST
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      TDS
-                    </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedApplications.map((app) => {
-                    const appData = formData.applications.find(
-                      a => a.application_id === app.application_id
-                    );
-                    
-                    return (
-                      <tr key={app.application_id} className="border-b border-gray-200 dark:border-gray-700">
-                        <td className="py-3 px-4">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {app.student_name}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              App ID: {app.application_id}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <input
-                            type="text"
-                            value={appData?.installment_no || ""}
-                            onChange={(e) => handleApplicationUpdate(app.application_id, "installment_no", e.target.value)}
-                            className="text-gray-700 dark:text-gray-300 w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="e.g., 1/2"
-                            required
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="relative">
-                            <span className="absolute left-3 top-1.5 text-gray-500">₹</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={appData?.commission_amt || ""}
-                              onChange={(e) => handleApplicationUpdate(app.application_id, "commission_amt", parseFloat(e.target.value))}
-                              className="text-gray-700 dark:text-gray-300 w-full px-3 py-1.5 pl-8 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="0.00"
-                              required
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="relative">
-                            <span className="absolute left-3 top-1.5 text-gray-500">₹</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={appData?.bank_charges || ""}
-                              onChange={(e) => handleApplicationUpdate(app.application_id, "bank_charges", parseFloat(e.target.value))}
-                              className="text-gray-700 dark:text-gray-300 w-full px-3 py-1.5 pl-8 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="relative">
-                            <span className="absolute left-3 top-1.5 text-gray-500">₹</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={appData?.gst_amt || ""}
-                              onChange={(e) => handleApplicationUpdate(app.application_id, "gst_amt", parseFloat(e.target.value))}
-                              className="text-gray-700 dark:text-gray-300 w-full px-3 py-1.5 pl-8 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="relative">
-                            <span className="absolute left-3 top-1.5 text-gray-500">₹</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={appData?.tds_amt || ""}
-                              onChange={(e) => handleApplicationUpdate(app.application_id, "tds_amt", parseFloat(e.target.value))}
-                              className="text-gray-700 dark:text-gray-300 w-full px-3 py-1.5 pl-8 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveApplication(app.application_id)}
-                            className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            if (!appData) return null;
             
-            {/* Summary */}
-            <div className="mt-6 p-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-4">Commission Summary</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Commission</div>
-                  <div className="text-lg font-semibold text-green-600 dark:text-green-400">₹{totalCommission.toFixed(2)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Bank Charges</div>
-                  <div className="text-lg font-semibold text-red-600 dark:text-red-400">₹{totalBankCharges.toFixed(2)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total GST</div>
-                  <div className="text-lg font-semibold text-red-600 dark:text-red-400">₹{totalGST.toFixed(2)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total TDS</div>
-                  <div className="text-lg font-semibold text-red-600 dark:text-red-400">₹{totalTDS.toFixed(2)}</div>
-                </div>
-                <div className="md:col-span-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                  <div className="flex justify-between items-center">
-                    <div className="space-y-1">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Net Amount</div>
-                      <div className="text-xl font-bold text-blue-600 dark:text-blue-400">₹{netAmount.toFixed(2)}</div>
+            return (
+              <>
+                {/* Main Row - Input Fields */}
+                <tr key={`${app.application_id}-main`} className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="py-3 px-4">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {app.student_name}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        App ID: {app.application_id}
+                      </div>
                     </div>
-                    <button
-                      type="submit"
-                      disabled={submitting || selectedApplications.length === 0}
-                      className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1.5 text-sm text-gray-500">
+                        {app.currency_code}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={appData.Commissionable_tuition_fee === 0 ? '' : appData.Commissionable_tuition_fee}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            handleApplicationUpdate(app.application_id, "Commissionable_tuition_fee", 0);
+                          } else {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                              handleApplicationUpdate(app.application_id, "Commissionable_tuition_fee", numValue);
+                            }
+                          }
+                        }}
+                        className="text-gray-700 dark:text-gray-300 w-[180px] px-3 py-1.5 pl-12 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                        required
+                      />
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1.5 text-sm text-gray-500">
+                        {app.currency_code}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={appData.commission_amt === 0 ? '' : appData.commission_amt}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            handleApplicationUpdate(app.application_id, "commission_amt", 0);
+                          } else {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                              handleApplicationUpdate(app.application_id, "commission_amt", numValue);
+                            }
+                          }
+                        }}
+                        className="text-gray-700 dark:text-gray-300 w-[180px] px-3 py-1.5 pl-12 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                        required
+                      />
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1.5 text-sm text-gray-500">
+                        {app.currency_code}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={appData.bank_charges === 0 ? '' : appData.bank_charges}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            handleApplicationUpdate(app.application_id, "bank_charges", 0);
+                          } else {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                              handleApplicationUpdate(app.application_id, "bank_charges", numValue);
+                            }
+                          }
+                        }}
+                        className="text-gray-700 dark:text-gray-300 w-[180px] px-3 py-1.5 pl-12 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1.5 text-sm text-gray-500">
+                        {app.currency_code}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={appData.less_gst_amt === 0 ? '' : appData.less_gst_amt}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            handleApplicationUpdate(app.application_id, "less_gst_amt", 0);
+                          } else {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                              handleApplicationUpdate(app.application_id, "less_gst_amt", numValue);
+                            }
+                          }
+                        }}
+                        className="text-gray-700 dark:text-gray-300 w-[180px] px-3 py-1.5 pl-12 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={appData.partner_share === 0 ? '' : appData.partner_share}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '') {
+                              handleApplicationUpdate(app.application_id, "partner_share", 0);
+                            } else {
+                              const numValue = parseFloat(value);
+                              if (!isNaN(numValue)) {
+                                handleApplicationUpdate(app.application_id, "partner_share", numValue);
+                              }
+                            }
+                          }}
+                          className="text-gray-700 dark:text-gray-300 w-32 px-2 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <Percent className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <select
+                      value={currencies.find(c => c.from_currency === appData.conversion_currency)?.id || ""}
+                      onChange={(e) => handleCurrencyChange(app.application_id, parseInt(e.target.value) || 1)}
+                      className="text-gray-700 dark:text-gray-300 w-[180px] px-2 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                     >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          <span>Creating Commission Note...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="h-5 w-5" />
-                          <span>Create Commission Note</span>
-                        </>
-                      )}
+                      <option value="">Select Currency</option>
+                      {currencies.map((currency) => (
+                        <option key={currency.id} value={currency.id}>
+                          {currency.from_currency} → {currency.to_currency}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="relative">
+                      <span className="absolute left-2 top-1.5 text-sm text-gray-500">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={appData.tds_amt === 0 ? '' : appData.tds_amt}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '') {
+                            handleApplicationUpdate(app.application_id, "tds_amt", 0);
+                          } else {
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                              handleApplicationUpdate(app.application_id, "tds_amt", numValue);
+                            }
+                          }
+                        }}
+                        className="text-gray-700 dark:text-gray-300 w-[180px] px-3 py-1.5 pl-8 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveApplication(app.application_id)}
+                      className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                  </div>
-                </div>
+                  </td>
+                </tr>
+                
+                {/* Calculated Values Row */}
+                <tr key={`${app.application_id}-calc`} className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                  <td className="py-3 px-4">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Calculated Values
+                    </div>
+                  </td>
+                  <td className="py-3 px-4" colSpan={2}>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Comm. After Charges:</span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          {app.currency_code} {appData.comm_after_charges.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Net Commission Amt:</span>
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          {app.currency_code} {appData.net_commission_amt.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Exchange Rate:</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {appData.exchange_rate.toFixed(6)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Shared Amt in INR:</span>
+                        <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                          ₹{appData.shared_amt_inr.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Gross Comm. Payable:</span>
+                        <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                          ₹{appData.gross_comm_payable.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Pay Status:</span>
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+                          {formData.payment_type}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Net Pay:</span>
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                          ₹{appData.net_pay.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4"></td>
+                </tr>
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+    
+    {/* Summary */}
+    <div className="mt-6 p-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+      <h4 className="font-medium text-gray-900 dark:text-white mb-4">Commission Summary</h4>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Commission</div>
+          <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+            ${totalCommission.toFixed(2)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Bank Charges</div>
+          <div className="text-lg font-semibold text-red-600 dark:text-red-400">
+            ${totalBankCharges.toFixed(2)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Less GST</div>
+          <div className="text-lg font-semibold text-red-600 dark:text-red-400">
+            ${totalLessGST.toFixed(2)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Net Commission</div>
+          <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            ${totalNetCommission.toFixed(2)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Shared Amt (INR)</div>
+          <div className="text-lg font-semibold text-purple-600 dark:text-purple-400">
+            ₹{totalSharedAmtINR.toFixed(2)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Gross Comm Payable</div>
+          <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+            ₹{totalGrossCommPayable.toFixed(2)}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total TDS</div>
+          <div className="text-lg font-semibold text-red-600 dark:text-red-400">
+            ₹{totalTDS.toFixed(2)}
+          </div>
+        </div>
+        <div className="lg:col-span-7 pt-4 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex justify-between items-center">
+            <div className="space-y-1">
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total Net Pay</div>
+              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                ₹{totalNetPay.toFixed(2)}
               </div>
             </div>
+            <button
+              type="submit"
+              disabled={submitting || selectedApplications.length === 0}
+              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Creating Commission Note...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-5 w-5" />
+                  <span>Create Commission Note</span>
+                </>
+              )}
+            </button>
           </div>
-        )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       </form>
     </div>
   );
