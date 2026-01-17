@@ -55,7 +55,7 @@ interface Application {
 
 interface ApplicationFormData {
   application_id: number;
-  Commissionable_tuition_fee: number;
+  commissionable_tuition_fee: number;
   commission_amt: number;
   bank_charges: number;
   comm_after_charges: number;
@@ -371,7 +371,7 @@ const AddCommissionNote = () => {
       
       const initialData: ApplicationFormData = {
         application_id: application.application_id,
-        Commissionable_tuition_fee: parseFloat(application.tuition_fee) || 0,
+        commissionable_tuition_fee: parseFloat(application.tuition_fee) || 0,
         commission_amt: 0,
         bank_charges: 0,
         comm_after_charges: 0,
@@ -415,37 +415,41 @@ const AddCommissionNote = () => {
     });
   };
 
-  const handleCurrencyChange = async (applicationId: number, currencyId: number) => {
-    try {
-      const exchangeRate = await fetchExchangeRate(currencyId);
-      const selectedCurrency = currencies.find(c => c.id === currencyId);
-      
-      setFormData(prev => {
-        const updatedApps = prev.applications.map(app => {
-          if (app.application_id === applicationId) {
-            const updatedApp = { 
-              ...app, 
-              conversion_currency: selectedCurrency?.from_currency || app.conversion_currency,
-              exchange_rate: exchangeRate 
-            };
-            
-            // Recalculate with new exchange rate
-            updatedApp.shared_amt_inr = updatedApp.net_commission_amt * exchangeRate;
-            updatedApp.gross_comm_payable = Math.round(updatedApp.shared_amt_inr * (updatedApp.partner_share / 100));
-            updatedApp.net_pay = updatedApp.gross_comm_payable - updatedApp.tds_amt;
-            
-            return updatedApp;
-          }
-          return app;
-        });
-        
-        return { ...prev, applications: updatedApps };
+const handleCurrencyChange = async (applicationId: number, currencyId: number) => {
+  try {
+    const exchangeRate = await fetchExchangeRate(currencyId);
+    const selectedCurrency = currencies.find(c => c.id === currencyId);
+    
+    if (!selectedCurrency) return;
+    
+    setFormData(prev => {
+      const updatedApps = prev.applications.map(app => {
+        if (app.application_id === applicationId) {
+          const updatedApp = { 
+            ...app, 
+            // Store the to_currency as conversion_currency
+            conversion_currency: selectedCurrency.to_currency,
+            exchange_rate: exchangeRate 
+          };
+          
+          // Recalculate with new exchange rate
+          updatedApp.shared_amt_inr = updatedApp.net_commission_amt * exchangeRate;
+          updatedApp.gross_comm_payable = Math.round(updatedApp.shared_amt_inr * (updatedApp.partner_share / 100));
+          updatedApp.net_pay = updatedApp.gross_comm_payable - updatedApp.tds_amt;
+          
+          return updatedApp;
+        }
+        return app;
       });
-    } catch (err) {
-      console.error("Error changing currency:", err);
-      setError("Failed to update exchange rate");
-    }
-  };
+      
+      return { ...prev, applications: updatedApps };
+    });
+  } catch (err) {
+    console.error("Error changing currency:", err);
+    setError("Failed to update exchange rate");
+  }
+};
+
 
   const handleRemoveApplication = (applicationId: number) => {
     setSelectedApplications(prev => prev.filter(a => a.application_id !== applicationId));
@@ -512,7 +516,7 @@ const AddCommissionNote = () => {
         exchange_rate: formData.exchange_rate,
         applications: formData.applications
       };
-
+     
       const response = await fetch(
         `${BASE_URL}/tenant/agent/commissionnote`,
         {
@@ -1137,15 +1141,15 @@ const AddCommissionNote = () => {
                       <input
                         type="number"
                         step="0.01"
-                        value={appData.Commissionable_tuition_fee === 0 ? '' : appData.Commissionable_tuition_fee}
+                        value={appData.commissionable_tuition_fee === 0 ? '' : appData.commissionable_tuition_fee}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '') {
-                            handleApplicationUpdate(app.application_id, "Commissionable_tuition_fee", 0);
+                            handleApplicationUpdate(app.application_id, "commissionable_tuition_fee", 0);
                           } else {
                             const numValue = parseFloat(value);
                             if (!isNaN(numValue)) {
-                              handleApplicationUpdate(app.application_id, "Commissionable_tuition_fee", numValue);
+                              handleApplicationUpdate(app.application_id, "commissionable_tuition_fee", numValue);
                             }
                           }
                         }}
@@ -1256,19 +1260,40 @@ const AddCommissionNote = () => {
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <select
-                      value={currencies.find(c => c.from_currency === appData.conversion_currency)?.id || ""}
-                      onChange={(e) => handleCurrencyChange(app.application_id, parseInt(e.target.value) || 1)}
-                      className="text-gray-700 dark:text-gray-300 w-[180px] px-2 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Currency</option>
-                      {currencies.map((currency) => (
-                        <option key={currency.id} value={currency.id}>
-                          {currency.from_currency} → {currency.to_currency}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+  <select
+    value={(() => {
+      // Try to find a currency where to_currency matches appData.conversion_currency
+      // If multiple exist, prefer the one where from_currency matches the application's currency_code
+      const matchingCurrencies = currencies.filter(c => c.to_currency === appData.conversion_currency);
+      
+      if (matchingCurrencies.length === 0) return "";
+      
+      // If there's only one match, use it
+      if (matchingCurrencies.length === 1) return matchingCurrencies[0].id;
+      
+      // If multiple matches, try to find the one where from_currency matches app.currency_code
+      const exactMatch = matchingCurrencies.find(c => c.from_currency === app.currency_code);
+      if (exactMatch) return exactMatch.id;
+      
+      // Otherwise, use the first one
+      return matchingCurrencies[0].id;
+    })()}
+    onChange={(e) => {
+      const value = e.target.value;
+      if (value) {
+        handleCurrencyChange(app.application_id, parseInt(value));
+      }
+    }}
+    className="text-gray-700 dark:text-gray-300 w-[180px] px-2 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+  >
+    <option value="">Select Currency</option>
+    {currencies.map((currency) => (
+      <option key={currency.id} value={currency.id}>
+        {currency.from_currency} → {currency.to_currency}
+      </option>
+    ))}
+  </select>
+</td>
                   <td className="py-3 px-4">
                     <div className="relative">
                       <span className="absolute left-2 top-1.5 text-sm text-gray-500">

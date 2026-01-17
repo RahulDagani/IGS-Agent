@@ -27,6 +27,7 @@ interface CommissionNoteDetail {
   date_received_on: string;
   date_of_payment: string;
   last_updated_on: string;
+  agent_id: string;
   comments: Comment[];
 }
 
@@ -393,7 +394,7 @@ export default function PaymentsTable() {
           },
           body: JSON.stringify({
             comment: comment.trim(),
-            // agent_id: agentId
+            agent_id: activeNoteDetail.agent_id || null
           })
         }
       );
