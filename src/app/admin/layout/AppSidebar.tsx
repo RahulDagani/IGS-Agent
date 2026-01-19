@@ -83,11 +83,11 @@ const partnerItems: NavItem[] = [
       // },
     ],
   },
-   {
-    name: "Commission Payments",
-    icon: <Percent size={18} />,
-    path: "/partners/commission-payments",
-  },
+  //  {
+  //   name: "Commission Payments",
+  //   icon: <Percent size={18} />,
+  //   path: "/partners/commission-payments",
+  // },
   {
     name: "Commissions",
     icon: <Percent size={18} />,
