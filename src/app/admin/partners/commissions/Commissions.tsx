@@ -15,10 +15,10 @@ import { useAuth } from "@/context/AuthContext";
 interface Commission {
   id: number;
   tenant_id: number;
-  country_code: string;
+  // country_code: string;
   university_id: number;
   study_level_id: number;
-  agent_commission: string;
+  tenant_commission: string;
   commission_type: string;
   remark: string;
   created_at: string;
@@ -40,7 +40,7 @@ type SortDirection = "asc" | "desc";
 interface FilterOptions {
   study_level_name: string;
   university_name: string;
-  country_code: string;
+  // country_code: string;
   commission_type: string;
 }
 
@@ -50,7 +50,7 @@ interface FilterModalProps {
   onApply: (filters: FilterOptions) => void;
   studyLevels: string[];
   universityNames: string[];
-  countries: string[];
+  // countries: string[];
   commissionTypes: string[];
 }
 
@@ -60,19 +60,19 @@ const FilterModal: React.FC<FilterModalProps> = ({
   onApply,
   studyLevels,
   universityNames,
-  countries,
+  // countries,
   commissionTypes,
 }) => {
   const [selectedStudyLevel, setSelectedStudyLevel] = useState<string>("all");
   const [selectedUniversityName, setSelectedUniversityName] = useState<string>("all");
-  const [selectedCountry, setSelectedCountry] = useState<string>("all");
+  // const [selectedCountry, setSelectedCountry] = useState<string>("all");
   const [selectedCommissionType, setSelectedCommissionType] = useState<string>("all");
 
   const handleApply = () => {
     const filters: FilterOptions = {
       study_level_name: selectedStudyLevel,
       university_name: selectedUniversityName,
-      country_code: selectedCountry,
+      // country_code: selectedCountry,
       commission_type: selectedCommissionType,
     };
     onApply(filters);
@@ -82,7 +82,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const handleReset = () => {
     setSelectedStudyLevel("all");
     setSelectedUniversityName("all");
-    setSelectedCountry("all");
+    // setSelectedCountry("all");
     setSelectedCommissionType("all");
   };
 
@@ -107,7 +107,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
         <div className="space-y-4">
           {/* Country Filter */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Country
             </label>
@@ -123,7 +123,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           {/* University Name Filter */}
           <div>
@@ -213,7 +213,7 @@ export default function CommissionsTable() {
   const [filters, setFilters] = useState<FilterOptions>({
     study_level_name: "all",
     university_name: "all",
-    country_code: "all",
+    // country_code: "all",
     commission_type: "all",
   });
 
@@ -261,9 +261,9 @@ export default function CommissionsTable() {
     return Array.from(new Set(commissions.map(commission => commission.university_name)));
   }, [commissions]);
 
-  const countries = useMemo(() => {
-    return Array.from(new Set(commissions.map(commission => commission.country_code)));
-  }, [commissions]);
+  // const countries = useMemo(() => {
+  //   return Array.from(new Set(commissions.map(commission => commission.country_code)));
+  // }, [commissions]);
 
   const commissionTypes = useMemo(() => {
     return Array.from(new Set(commissions.map(commission => commission.commission_type)));
@@ -273,19 +273,19 @@ export default function CommissionsTable() {
   const filteredAndSortedData = useMemo(() => {
     const filtered = commissions.filter((commission) => {
       const matchesSearch = 
-        commission.country_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        // commission.country_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commission.university_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commission.study_level_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        commission.agent_commission.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        commission.tenant_commission.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commission.remark.toLowerCase().includes(searchTerm.toLowerCase()) ||
         commission.commission_type.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStudyLevel = filters.study_level_name === "all" || commission.study_level_name === filters.study_level_name;
       const matchesUniversityName = filters.university_name === "all" || commission.university_name === filters.university_name;
-      const matchesCountry = filters.country_code === "all" || commission.country_code === filters.country_code;
+      // const matchesCountry = filters.country_code === "all" || commission.country_code === filters.country_code;
       const matchesCommissionType = filters.commission_type === "all" || commission.commission_type === filters.commission_type;
       
-      return matchesSearch && matchesStudyLevel && matchesUniversityName && matchesCountry && matchesCommissionType;
+      return matchesSearch && matchesStudyLevel && matchesUniversityName  && matchesCommissionType // && matchesCountry;
     });
 
     // Sorting
@@ -328,20 +328,20 @@ export default function CommissionsTable() {
 
   const getCommissionDisplay = (commission: Commission) => {
     if (commission.commission_type === "percentage") {
-      return `${commission.agent_commission}%`;
+      return `${commission.tenant_commission}`;
     } else {
-      return `$${commission.agent_commission}`;
+      return `${commission.tenant_commission}`;
     }
   };
 
   const getCommissionColor = (commission: Commission) => {
     if (commission.commission_type === "percentage") {
-      const percentage = parseFloat(commission.agent_commission);
+      const percentage = parseFloat(commission.tenant_commission);
       if (percentage >= 15) return "success";
       if (percentage >= 10) return "warning";
       return "error";
     } else {
-      const amount = parseFloat(commission.agent_commission);
+      const amount = parseFloat(commission.tenant_commission);
       if (amount >= 1000) return "success";
       if (amount >= 500) return "warning";
       return "error";
@@ -358,14 +358,14 @@ export default function CommissionsTable() {
 
   const hasActiveFilters = filters.study_level_name !== "all" || 
                           filters.university_name !== "all" || 
-                          filters.country_code !== "all" ||
+                          // filters.country_code !== "all" ||
                           filters.commission_type !== "all";
 
   const clearAllFilters = () => {
     setFilters({
       study_level_name: "all",
       university_name: "all",
-      country_code: "all",
+      // country_code: "all",
       commission_type: "all",
     });
   };
@@ -446,7 +446,7 @@ export default function CommissionsTable() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by country, university, study level, commission, or remark..."
+              placeholder="Search by university, study level, commission, or remark..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
@@ -502,11 +502,11 @@ export default function CommissionsTable() {
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2">
-          {filters.country_code !== "all" && (
+          {/* {filters.country_code !== "all" && (
             <Badge size="sm" color="primary">
               Country: {filters.country_code}
             </Badge>
-          )}
+          )} */}
           {filters.university_name !== "all" && (
             <Badge size="sm" color="primary">
               University: {filters.university_name}
@@ -535,11 +535,11 @@ export default function CommissionsTable() {
                 <TableRow>
                   {[
                     { key: "id", label: "ID" },
-                    { key: "country_code", label: "Country" },
+                    // { key: "country_code", label: "Country" },
                     { key: "university_name", label: "University Name" },
                     { key: "study_level_name", label: "Study Level" },
                     { key: "commission_type", label: "Type" },
-                    { key: "agent_commission", label: "Agent Commission" },
+                    { key: "tenant_commission", label: "Tenant Commission" },
                     { key: "no_of_installments", label: "No of Installment" },
                     { key: "remark", label: "Remark" },
                     { key: "created_at", label: "Created" },
@@ -572,11 +572,11 @@ export default function CommissionsTable() {
                           #{commission.id}
                         </div>
                       </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
+                      {/* <TableCell className="px-5 py-4 text-start">
                         <Badge size="sm" color="primary">
                           {commission.country_code}
                         </Badge>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="px-5 py-4 text-start">
                         <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {commission.university_name}
@@ -660,7 +660,7 @@ export default function CommissionsTable() {
         onApply={handleApplyFilters}
         studyLevels={studyLevels}
         universityNames={universityNames}
-        countries={countries}
+        // countries={countries}
         commissionTypes={commissionTypes}
       />
     </div>

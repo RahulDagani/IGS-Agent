@@ -6,12 +6,12 @@ import { Country } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
 
 interface CommissionFormData {
-  country_code: string;
+  // country_code: string;
   university_id: string;
   study_level_id: string;
-  agent_commission: string;
+  tenant_commission: string;
   commission_type: string;
-  total_installments: string; // Added this field
+  no_of_installments: string; // Added this field
   remark: string;
 }
 
@@ -22,7 +22,7 @@ interface University {
   university: string;
   university_slug: string;
   description: string;
-  country_code: string;
+  // country_code: string;
   state_code: string;
   city_code: string;
   address: string | null;
@@ -58,10 +58,11 @@ interface ApiResponse {
   };
 }
 
-interface Country {
-  code: string;
-  name: string;
-}
+// interface Country {
+//   code: string;
+//   name: string;
+// }
+
 
 interface StudyLevel {
   id: number;
@@ -77,16 +78,16 @@ interface UniversityType {
 export default function AddCommission() {
   const router = useRouter();
   const [formData, setFormData] = useState<CommissionFormData>({
-    country_code: "",
+    // country_code: "",
     university_id: "",
     study_level_id: "",
-    agent_commission: "",
+    tenant_commission: "",
     commission_type: "percentage",
-    total_installments: "1", // Default to 1 installment
+    no_of_installments: "1", // Default to 1 installment
     remark: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [countries, setCountries] = useState<Country[]>([]);
+  // const [countries, setCountries] = useState<Country[]>([]);
   const [universities, setUniversities] = useState<UniversityType[]>([]);
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,11 +103,11 @@ export default function AddCommission() {
       try {
         setIsLoading(true);
         
-        const allCountries = Country.getAllCountries();
-        const countries: Country[] = allCountries.map(country => ({
-          code: country.isoCode,
-          name: country.name
-        }));
+        // const allCountries = Country.getAllCountries();
+        // const countries: Country[] = allCountries.map(country => ({
+        //   code: country.isoCode,
+        //   name: country.name
+        // }));
 
         const response = await fetch(`${BASE_URL}/tenant/university/names`, {
           method: "GET",
@@ -141,7 +142,7 @@ export default function AddCommission() {
 
         const studylevels: StudyLevel[] = resultStudylevels.data;
 
-        setCountries(countries);
+        // setCountries(countries);
         setUniversities(universities);
         setStudyLevels(studylevels);
         
@@ -159,8 +160,8 @@ export default function AddCommission() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // Only allow numbers for total_installments, but let user clear the field
-    if (name === "total_installments") {
+    // Only allow numbers for no_of_installments, but let user clear the field
+    if (name === "no_of_installments") {
       // Allow only numbers or empty string
       const numericValue = value.replace(/\D/g, '');
       setFormData(prev => ({
@@ -176,11 +177,11 @@ export default function AddCommission() {
   };
 
   const handleCommissionTypeChange = (value: string) => {
-    const numericValue = formData.agent_commission.replace(/[^0-9.]/g, '');
+    const numericValue = formData.tenant_commission.replace(/[^0-9.]/g, '');
     setFormData(prev => ({
       ...prev,
       commission_type: value,
-      agent_commission: numericValue
+      tenant_commission: numericValue
     }));
   };
 
@@ -189,14 +190,14 @@ export default function AddCommission() {
     
     setFormData(prev => ({
       ...prev,
-      agent_commission: cleanValue
+      tenant_commission: cleanValue
     }));
   };
 
   const getCommissionDisplayValue = () => {
-    if (!formData.agent_commission) return "";
+    if (!formData.tenant_commission) return "";
     
-    const numericValue = formData.agent_commission.replace(/[^0-9.]/g, '');
+    const numericValue = formData.tenant_commission.replace(/[^0-9.]/g, '');
     if (formData.commission_type === "percentage") {
       return `${numericValue}%`;
     } else {
@@ -211,18 +212,18 @@ export default function AddCommission() {
 
     try {
       // Validate form data
-      if (!formData.country_code || !formData.university_id || !formData.study_level_id || !formData.agent_commission) {
-        setError("Please fill in all required fields");
-        return;
-      }
+      // if (!formData.country_code || !formData.university_id || !formData.study_level_id || !formData.tenant_commission) {
+      //   setError("Please fill in all required fields");
+      //   return;
+      // }
 
-      // Validate total_installments - now done before submit
-      if (!formData.total_installments.trim()) {
+      // Validate no_of_installments - now done before submit
+      if (!formData.no_of_installments.trim()) {
         setError("Total installments is required");
         return;
       }
 
-      const totalInstallments = parseInt(formData.total_installments);
+      const totalInstallments = parseInt(formData.no_of_installments);
       if (isNaN(totalInstallments) || totalInstallments < 1) {
         setError("Total installments must be a positive number (1 or greater)");
         return;
@@ -230,10 +231,10 @@ export default function AddCommission() {
 
       // Prepare data for API
       const apiData = {
-        country_code: formData.country_code,
+        // country_code: formData.country_code,
         university_id: parseInt(formData.university_id),
         study_level_id: parseInt(formData.study_level_id),
-        agent_commission: parseFloat(formData.agent_commission),
+        tenant_commission: parseFloat(formData.tenant_commission),
         commission_type: formData.commission_type,
         no_of_installments: totalInstallments, // Added this field
         remark: formData.remark || "Standard commission"
@@ -291,7 +292,7 @@ export default function AddCommission() {
           Add New Commission
         </h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Create a new commission structure for agents.
+          Create a new commission structure for tenants.
         </p>
       </div>
       
@@ -315,7 +316,7 @@ export default function AddCommission() {
         <form onSubmit={handleSubmit}>
           <div className="-mx-2.5 flex flex-wrap gap-y-5">
             {/* Country Field */}
-            <div className="w-full px-2.5">
+            {/* <div className="w-full px-2.5">
               <label htmlFor="country_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 Country
               </label>
@@ -344,7 +345,7 @@ export default function AddCommission() {
                   </svg>
                 </span>
               </div>
-            </div>
+            </div> */}
 
             {/* University Name Field */}
             <div className="w-full px-2.5">
@@ -413,7 +414,7 @@ export default function AddCommission() {
             {/* Commission Type and Value Fields */}
             <div className="w-full px-2.5">
               <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Agent Commission
+                Tenant Commission
               </label>
               <div className="flex gap-3">
                 {/* Commission Type */}
@@ -426,8 +427,8 @@ export default function AddCommission() {
                       required
                       className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
                     >
-                      <option value="percentage">Percentage (%)</option>
-                      <option value="fixed">Fixed Amount ($)</option>
+                      <option value="percentage">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
                     </select>
                     <span className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
                       <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -440,12 +441,13 @@ export default function AddCommission() {
                 {/* Commission Value */}
                 <div className="flex-1">
                   <div className="relative">
-                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <Percent size={18} />
-                    </span>
+                    {/* <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                      
+                      {formData.commission_type === "percentage" ? <Percent size={18} /> : ""}
+                    </span> */}
                     <input
                       type="text"
-                      name="agent_commission"
+                      name="tenant_commission"
                       value={getCommissionDisplayValue()}
                       onChange={(e) => handleCommissionValueChange(e.target.value)}
                       placeholder={formData.commission_type === "percentage" ? "e.g., 15%" : "e.g., 500"}
@@ -459,7 +461,7 @@ export default function AddCommission() {
 
             {/* Total Installments Field */}
             <div className="w-full px-2.5">
-              <label htmlFor="total_installments" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+              <label htmlFor="no_of_installments" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 Total Installments
               </label>
               <div className="relative">
@@ -468,9 +470,9 @@ export default function AddCommission() {
                 </span>
                 <input
                   type="text"
-                  id="total_installments"
-                  name="total_installments"
-                  value={formData.total_installments}
+                  id="no_of_installments"
+                  name="no_of_installments"
+                  value={formData.no_of_installments}
                   onChange={handleChange}
                   placeholder="e.g., 1, 2, 3, etc."
                   required

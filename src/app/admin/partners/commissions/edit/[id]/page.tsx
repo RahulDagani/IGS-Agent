@@ -1,16 +1,17 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Globe, GraduationCap, Pencil, Percent, University } from "lucide-react";
+import { Globe, GraduationCap, Pencil, Percent, University, Calendar } from "lucide-react";
 import { Country } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
 
 interface CommissionFormData {
-  country_code: string;
+  // country_code: string;
   university_id: string;
   study_level_id: string;
-  agent_commission: string;
+  tenant_commission: string;
   commission_type: string;
+  no_of_installments: string; // Added this field
   remark: string;
 }
 
@@ -33,11 +34,12 @@ interface CountryType {
 interface CommissionData {
   id: number;
   tenant_id: number;
-  country_code: string;
+  // country_code: string;
   university_id: number;
   study_level_id: number;
-  agent_commission: string;
+  tenant_commission: string;
   commission_type: string;
+  no_of_installments: string; // Added this field (or it might be no_of_installments from API)
   remark: string;
   created_at: string;
   updated_at: string;
@@ -51,17 +53,18 @@ export default function EditCommission() {
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
   
   const [formData, setFormData] = useState<CommissionFormData>({
-    country_code: "",
+    // country_code: "",
     university_id: "",
     study_level_id: "",
-    agent_commission: "",
+    tenant_commission: "",
     commission_type: "percentage",
+    no_of_installments: "1", // Default to 1 installment
     remark: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [countries, setCountries] = useState<CountryType[]>([]);
+  // const [countries, setCountries] = useState<CountryType[]>([]);
   const [universities, setUniversities] = useState<UniversityType[]>([]);
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
 
@@ -94,11 +97,11 @@ export default function EditCommission() {
         const commissionData: CommissionData = commissionResult.data;
 
         // Fetch countries
-        const allCountries = Country.getAllCountries();
-        const countriesData: CountryType[] = allCountries.map(country => ({
-          code: country.isoCode,
-          name: country.name
-        }));
+        // const allCountries = Country.getAllCountries();
+        // const countriesData: CountryType[] = allCountries.map(country => ({
+        //   code: country.isoCode,
+        //   name: country.name
+        // }));
 
         // Fetch universities
         const universitiesResponse = await fetch(`${BASE_URL}/tenant/university/names`, {
@@ -133,17 +136,20 @@ export default function EditCommission() {
         const studyLevelsData: StudyLevel[] = studyLevelsResult.data;
 
         // Set all data
-        setCountries(countriesData);
+        // setCountries(countriesData);
         setUniversities(universitiesData);
         setStudyLevels(studyLevelsData);
 
         // Set form data with commission data
+        // Note: The API might return the field as no_of_installments instead of no_of_installments
+        // Adjust the property name based on your actual API response
         setFormData({
-          country_code: commissionData.country_code,
+          // country_code: commissionData.country_code,
           university_id: commissionData.university_id.toString(),
           study_level_id: commissionData.study_level_id.toString(),
-          agent_commission: commissionData.agent_commission,
+          tenant_commission: commissionData.tenant_commission,
           commission_type: commissionData.commission_type,
+          no_of_installments: commissionData.no_of_installments?.toString() || "1", // Use API value or default to 1
           remark: commissionData.remark,
         });
 
@@ -162,19 +168,30 @@ export default function EditCommission() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Only allow numbers for no_of_installments, but let user clear the field
+    if (name === "no_of_installments") {
+      // Allow only numbers or empty string
+      const numericValue = value.replace(/\D/g, '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: numericValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleCommissionTypeChange = (value: string) => {
     // Extract numeric value from commission input
-    const numericValue = formData.agent_commission.replace(/[^0-9.]/g, '');
+    const numericValue = formData.tenant_commission.replace(/[^0-9.]/g, '');
     setFormData(prev => ({
       ...prev,
       commission_type: value,
-      agent_commission: numericValue
+      tenant_commission: numericValue
     }));
   };
 
@@ -184,14 +201,14 @@ export default function EditCommission() {
     
     setFormData(prev => ({
       ...prev,
-      agent_commission: cleanValue
+      tenant_commission: cleanValue
     }));
   };
 
   const getCommissionDisplayValue = () => {
-    if (!formData.agent_commission) return "";
+    if (!formData.tenant_commission) return "";
     
-    const numericValue = formData.agent_commission.replace(/[^0-9.]/g, '');
+    const numericValue = formData.tenant_commission.replace(/[^0-9.]/g, '');
     if (formData.commission_type === "percentage") {
       return `${numericValue}%`;
     } else {
@@ -206,18 +223,31 @@ export default function EditCommission() {
 
     try {
       // Validate form data
-      if (!formData.country_code || !formData.university_id || !formData.study_level_id || !formData.agent_commission) {
+      if (!formData.university_id || !formData.study_level_id || !formData.tenant_commission) {
         setError("Please fill in all required fields");
         return;
       }
 
-      // Prepare data for API
+      // Validate no_of_installments
+      if (!formData.no_of_installments.trim()) {
+        setError("Total installments is required");
+        return;
+      }
+
+      const totalInstallments = parseInt(formData.no_of_installments);
+      if (isNaN(totalInstallments) || totalInstallments < 1) {
+        setError("Total installments must be a positive number (1 or greater)");
+        return;
+      }
+
+      // Prepare data for API - using no_of_installments as the API key
       const apiData = {
-        country_code: formData.country_code,
+        // country_code: formData.country_code,
         university_id: parseInt(formData.university_id),
         study_level_id: parseInt(formData.study_level_id),
-        agent_commission: parseFloat(formData.agent_commission),
+        tenant_commission: parseFloat(formData.tenant_commission),
         commission_type: formData.commission_type,
+        no_of_installments: totalInstallments, // Using no_of_installments as per API requirement
         remark: formData.remark || "Standard commission"
       };
 
@@ -273,7 +303,7 @@ export default function EditCommission() {
           Edit Commission
         </h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Update commission structure for agents.
+          Update commission structure for tenants.
         </p>
       </div>
       
@@ -297,7 +327,7 @@ export default function EditCommission() {
         <form onSubmit={handleSubmit}>
           <div className="-mx-2.5 flex flex-wrap gap-y-5">
             {/* Country Field */}
-            <div className="w-full px-2.5">
+            {/* <div className="w-full px-2.5">
               <label htmlFor="country_code" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 Country
               </label>
@@ -326,7 +356,7 @@ export default function EditCommission() {
                   </svg>
                 </span>
               </div>
-            </div>
+            </div> */}
 
             {/* University Name Field */}
             <div className="w-full px-2.5">
@@ -395,7 +425,7 @@ export default function EditCommission() {
             {/* Commission Type and Value Fields */}
             <div className="w-full px-2.5">
               <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Agent Commission
+                Tenant Commission
               </label>
               <div className="flex gap-3">
                 {/* Commission Type */}
@@ -408,8 +438,8 @@ export default function EditCommission() {
                       required
                       className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
                     >
-                      <option value="percentage">Percentage (%)</option>
-                      <option value="fixed">Fixed Amount ($)</option>
+                      <option value="percentage">Percentage </option>
+                      <option value="fixed">Fixed Amount </option>
                     </select>
                     <span className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none">
                       <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -422,12 +452,12 @@ export default function EditCommission() {
                 {/* Commission Value */}
                 <div className="flex-1">
                   <div className="relative">
-                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                    {/* <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
                       <Percent size={18} />
-                    </span>
+                    </span> */}
                     <input
                       type="text"
-                      name="agent_commission"
+                      name="tenant_commission"
                       value={getCommissionDisplayValue()}
                       onChange={(e) => handleCommissionValueChange(e.target.value)}
                       placeholder={formData.commission_type === "percentage" ? "e.g., 15%" : "e.g., 500"}
@@ -437,6 +467,31 @@ export default function EditCommission() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Total Installments Field */}
+            <div className="w-full px-2.5">
+              <label htmlFor="no_of_installments" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                Total Installments
+              </label>
+              <div className="relative">
+                <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
+                  <Calendar size={18} />
+                </span>
+                <input
+                  type="text"
+                  id="no_of_installments"
+                  name="no_of_installments"
+                  value={formData.no_of_installments}
+                  onChange={handleChange}
+                  placeholder="e.g., 1, 2, 3, etc."
+                  required
+                  className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Number of installments for commission payment (e.g., 1 for one-time payment, 2 for two installments, etc.)
+              </p>
             </div>
 
             {/* Remark Field */}
