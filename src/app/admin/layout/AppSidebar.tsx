@@ -105,6 +105,11 @@ const partnerItems: NavItem[] = [
     path: "/partners/commission-payments",
   },
   {
+    name: "University Payments",
+    icon: <Wallet2 size={18} />,
+    path: "/partners/university-payments",
+  },
+  {
     name: "Setup ",
     icon: <Settings size={18} />,
     subItems: [
