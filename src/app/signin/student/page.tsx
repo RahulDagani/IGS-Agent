@@ -131,7 +131,7 @@ function StudentLoginContent() {
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
     try {
-      const response = await fetch(`${BASE_URL}/student/login`, {
+      const response = await fetch(`${BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -148,13 +148,8 @@ function StudentLoginContent() {
         const { user, token } = data.data;
        
         if (user && token) {
-          const sessionUser = {
-                id: user.id,
-                name: user.first_name,
-                email: user.email,
-                role: user.role
-            }
-            login(sessionUser, token);
+          
+            login(user, token);
         
             router.push(callbackUrl);
           

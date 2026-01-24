@@ -122,7 +122,7 @@ function LoginContent() {
   const { login } = useAuth();
   
 
-   const validateForm = (): boolean => {
+  const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
 
     if (!formData.email.trim()) newErrors.email = "Email is required";
@@ -144,7 +144,7 @@ function LoginContent() {
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
     try {
-      const response = await fetch(`${BASE_URL}/tenant/login`, {
+      const response = await fetch(`${BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -163,6 +163,9 @@ function LoginContent() {
         router.push(callbackUrl);
       }
 
+      if(data.status == "fail") {
+        throw new Error(data.message || "Login failed");
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Login failed");
@@ -171,6 +174,7 @@ function LoginContent() {
       // Redirect to intended page or admin dashboard
       
     } catch (error) {
+      
       setErrors({ submit: error instanceof Error ? error.message : "Login failed" });
     } finally {
       setLoading(false);

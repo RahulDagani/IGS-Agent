@@ -33,13 +33,13 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
       const returnUrl = encodeURIComponent(pathname || "/");
       router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
 
-    } else if (user && !allowedRoles.includes(user.role)) {
+    } else if (user && !allowedRoles.includes(user.panel_type)) {
 
-      if(adminToken && user.role == "agent"){ //Prevent Admin from /signin after session change for Agent access
+      if(adminToken && user.panel_type == "agent"){ //Prevent Admin from /signin after session change for Agent access
         router.replace(`/partner`);
         return;
       }
-      else if(adminToken && user.role == "tenant"){ //Prevent admin from /signin/agent after session change for ReLogin of Admin
+      else if(adminToken && user.panel_type == "admin"){ //Prevent admin from /signin/agent after session change for ReLogin of Admin
         router.replace(`/admin/partners/agents`);
         return;
       }else{
@@ -72,7 +72,7 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
     );
   }
 
-  if (!isAuthenticated || !user || !allowedRoles.includes(user.role)) {
+  if (!isAuthenticated || !user || !allowedRoles.includes(user.panel_type)) {
     return null;
   }
 

@@ -3,12 +3,22 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 
+// interface User {
+//   id: number;
+//   name: string;
+//   email: string;
+//   subdomain?: string | null;
+//   role: string;
+// }
+
 interface User {
   id: number;
   name: string;
   email: string;
-  subdomain?: string | null;
-  role: string;
+  role_id: number;
+  role_name: string;
+  role_key: string;
+  panel_type: string;
 }
 
 interface AuthContextType {
@@ -83,17 +93,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const logout = () => {
-    const role = user?.role;
+    const panel = user?.panel_type;
     setUser(null);
     setToken(null);
 
     Cookies.remove("user");
     Cookies.remove("token");
     Cookies.remove("adminToken");
-    if(role == "agent"){
+    if(panel == "agent"){
       window.location.href = '/signin/agent';
 
-      }else if(role == "student"){
+      }else if(panel == "student"){
         window.location.href = '/signin/student';
       }else{
         window.location.href = '/signin';

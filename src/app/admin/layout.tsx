@@ -25,7 +25,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
     : "lg:ml-[90px]";
 
   return (
-        <RoleGuard allowedRoles={["tenant"]}>
+        <RoleGuard allowedRoles={["admin"]}>
     
     <div className="min-h-screen xl:flex">
       {/* Sidebar and Backdrop */}
