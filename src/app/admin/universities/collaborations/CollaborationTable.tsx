@@ -493,34 +493,6 @@ export default function CollaborationTypesTable() {
 
   return (
     <div className="space-y-4">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Types</div>
-          <div className="text-2xl font-bold text-gray-800 dark:text-white">
-            {totalItems}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Current Page</div>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {currentPage}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Showing</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {filteredAndSortedData.length}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Pages</div>
-          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {totalPages}
-          </div>
-        </div>
-      </div>
-
       {/* Search, Add, and Pagination Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         {/* Search Input */}
