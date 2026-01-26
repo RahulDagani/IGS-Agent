@@ -10,7 +10,7 @@ export default function LogoutPage() {
 
   useEffect(() => {
     const performLogout = async () => {
-        const role  = user?.role;
+        const role  = user?.panel_type;
       try {
         logout();
 

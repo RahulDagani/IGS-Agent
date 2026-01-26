@@ -183,13 +183,13 @@ export default function StudentRegisterPage() {
         const { user, token } = data.data;
 
         if (user && token) {
-            const sessionUser = {
-                id: user.id,
-                name: user.first_name,
-                email: user.email,
-                role: user.role
-            }
-            login(sessionUser, token);
+            // const sessionUser = {
+            //     id: user.id,
+            //     name: user.first_name,
+            //     email: user.email,
+            //     role: user.role
+            // }
+            login(user, token);
           
             router.push('/student');
         } else {  

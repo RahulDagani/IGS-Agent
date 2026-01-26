@@ -7,7 +7,7 @@ import React from "react";
 
 export default function Error404() {
   const {user} = useAuth();
-  const role = user?.role;
+  const role = user?.panel_type;
   let home_url = "/"
   if(role == "agent"){
     home_url = "/partner"
