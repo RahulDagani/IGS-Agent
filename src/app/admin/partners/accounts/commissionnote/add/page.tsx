@@ -556,7 +556,7 @@ const handleCurrencyChange = async (applicationId: number, currencyId: number) =
           setSuccess(false);
         }, 3000);
 
-        router.push(`/admin/partners/commission-payments`);
+        router.push(`/admin/partners/accounts/commissionnote`);
         
       } else {
         throw new Error(data.message || "Failed to create commission note");

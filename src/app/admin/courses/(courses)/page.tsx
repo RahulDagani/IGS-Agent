@@ -1056,7 +1056,7 @@ export default function CoursesTable() {
             </svg>
             Filter Courses
           </button>
-          <Link href="/admin/universities/courses/add">
+          <Link href="/admin/courses/add">
             <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1292,7 +1292,7 @@ export default function CoursesTable() {
                         <TableCell className="px-5 py-4 text-start">
                           <div className="flex items-center gap-2">
                             <Link
-                              href={`/admin/universities/courses/edit/${course.id}`}
+                              href={`/admin/courses/edit/${course.id}`}
                               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                               title="Edit Course"
                             >

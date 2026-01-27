@@ -755,7 +755,7 @@ export default function CoursesTable() {
                             <Eye size={18} />
                           </Link> */}
                           <Link
-                            href={`/admin/universities/courses/edit/${course.id}`}
+                            href={`/admin/courses/edit/${course.id}`}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                             title="Edit Course"
                           >

@@ -488,7 +488,7 @@ export default function CommissionsTable() {
             </svg>
             Apply Filters
           </button>
-          <Link href={"/admin/partners/commissions/add"}>
+          <Link href={"/admin/partners/accounts/commission/add"}>
             <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -618,7 +618,7 @@ export default function CommissionsTable() {
                       <TableCell className="px-5 py-4 text-start">
                         <div className="flex items-center gap-2">
                           <Link
-                            href={'/admin/partners/commissions/edit/'+commission.id}
+                            href={'/admin/partners/accounts/commission/edit/'+commission.id}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                           >
                             <Edit size={18}/>

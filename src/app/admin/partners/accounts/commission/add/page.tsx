@@ -258,7 +258,7 @@ export default function AddCommission() {
       console.log("Commission created successfully:", result);
       
       // Redirect back to commissions list
-      router.push('/admin/partners/commissions');
+      router.push('/admin/partners/accounts/commission');
       router.refresh();
       
     } catch (error) {

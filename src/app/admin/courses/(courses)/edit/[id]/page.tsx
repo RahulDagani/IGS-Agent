@@ -431,7 +431,7 @@ export default function EditCourse({ params }: EditCoursePageProps) {
       
       // Redirect back to courses list after 2 seconds
       setTimeout(() => {
-        router.push('/admin/universities/courses');
+        router.push('/admin/courses');
         router.refresh();
       }, 2000);
 

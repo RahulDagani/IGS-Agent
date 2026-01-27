@@ -269,7 +269,7 @@ export default function EditCommission() {
       console.log("Commission updated successfully:", result);
       
       // Redirect back to commissions list
-      router.push('/admin/partners/commissions');
+      router.push('/admin/partners/accounts/commission');
       router.refresh();
       
     } catch (error) {

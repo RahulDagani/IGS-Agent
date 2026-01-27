@@ -477,9 +477,9 @@ export default function AddCourse() {
      
       if(id){
 
-        router.push(`/admin/universities/courses/edit/${id}?tab=intakes`);
+        router.push(`/admin/courses/edit/${id}?tab=intakes`);
       }else{
-        router.push(`/admin/universities/courses`);
+        router.push(`/admin/courses`);
       }
       router.refresh();
     } catch (error) {

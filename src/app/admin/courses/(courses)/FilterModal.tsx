@@ -1,4 +1,4 @@
-// app/admin/universities/courses/FilterModal.tsx
+// app/admin/courses/FilterModal.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";

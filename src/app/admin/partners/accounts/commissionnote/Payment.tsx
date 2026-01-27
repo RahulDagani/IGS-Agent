@@ -718,7 +718,7 @@ export default function PaymentsTable() {
           </div>
 
           <Link
-            href="/admin/partners/university-payments/add"
+            href="/admin/partners/accounts/commissionnote/add"
             type="button"
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
           >
