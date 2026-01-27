@@ -199,13 +199,14 @@ function LoginContent() {
       {/* Left Side - Form Content */}
       <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
         <div className="w-full max-w-md sm:pt-10 mx-auto mb-5 px-4 sm:px-0">
-          <Link
-            href="/"
+          <button
+           onClick={() => router.back()}
+
             className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
             <ChevronLeftIcon className="w-4 h-4 mr-1" />
-            Back to dashboard
-          </Link>
+            Back
+          </button>
         </div>
 
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
@@ -277,7 +278,7 @@ function LoginContent() {
                     </span>
                   </div>
                   <Link
-                    href="/forgot-password"
+                    href="/reset/verify"
                     className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
                   >
                     Forgot password?

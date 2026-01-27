@@ -264,7 +264,7 @@ function AgentLoginContent() {
                     </span>
                   </div>
                   <Link
-                    href="/signin/agent/forgot-password"
+                    href="/reset/verify"
                     className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
                   >
                     Forgot password?
