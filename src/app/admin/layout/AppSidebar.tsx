@@ -405,7 +405,7 @@ const NavItemComponent: React.FC<{
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-center"
         }`}
       >
-        <Link href="/admin">
+        <Link href="/admin/dashboard">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
             <div className="flex justify-center items-center">

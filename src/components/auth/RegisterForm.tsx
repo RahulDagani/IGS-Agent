@@ -181,7 +181,7 @@ export default function RegisterPage() {
       }
 
       // Redirect to success page or login
-      router.push("/admin");
+      router.push("/admin/dashboard");
     } catch (error) {
       setErrors({ submit: error instanceof Error ? error.message : "Registration failed" });
     } finally {

@@ -562,7 +562,7 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-         <Link href="/admin">
+         <Link href="/admin/dashboard">
                   {isExpanded || isHovered || isMobileOpen ? (
                     <>
                     <div className="flex justify-center items-center">

@@ -16,7 +16,7 @@ export default function NotFound() {
     }else if(role == "student"){
       home_url = "/student"
     }else if(role == "tenant"){
-      home_url = "/admin"
+      home_url = "/admin/dashboard"
     }
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden z-1">
