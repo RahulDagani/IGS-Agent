@@ -682,10 +682,10 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
 };
 
 export default function Applications() {
-  const { studentId } = useParams();
+  const { studentId, id: agentId } = useParams();
   const [activeTab, setActiveTab] = useState<'applied' | 'apply'>('applied');
   const [activeProgram, setActiveProgram] = useState<number | null>(null);
-  const [agentId, setAgentId] = useState<number | null>(null);
+  // const [agentId, setAgentId] = useState<number | null>(null);
 
   const [commentTab, setCommentTab] = useState<'Igs' | 'agent' | 'specific-doc'>('Igs');
   
@@ -759,7 +759,7 @@ const [selectedApplicationForStatus, setSelectedApplicationForStatus] = useState
   useEffect(() => {
     if (applications.length > 0 && !activeProgram) {
       setActiveProgram(applications[0].id);
-      setAgentId(applications[0].agent_id);
+      // setAgentId(applications[0].agent_id);
     }
   }, [applications]);
 

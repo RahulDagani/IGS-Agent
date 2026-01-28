@@ -1193,6 +1193,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function StudentProgramsPage({ studentId }: ProgramsProps) {
 
+  const { id: agentId } = useParams();  
   const router = useRouter();
   const { token, logout } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -1533,7 +1534,8 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         student_user_id: studentId,
         course_intake_id: intakeId,
         application_login: appLogin,  
-        application_password: appPassword
+        application_password: appPassword,
+        agent_id: agentId || ""
       };
 
       const response = await fetch(`${BASE_URL}/tenant/agent/application`, {
@@ -1558,7 +1560,9 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         setAlertMessage(`Your application for ${selectedCourse.course_name} at ${selectedCourse.university_name} has been submitted successfully!`);
 
         setTimeout(()=>{
-          router.push(`/partner/editProfile/${studentId}?tab=applications&app=${app_id}`);
+          if(agentId){
+            router.push(`/admin/partners/agents/${agentId}/students/editProfile/${studentId}?tab=applications&app=${app_id}`);
+          }
         },2000)
       } else {
         throw new Error(result.message || 'Application failed');

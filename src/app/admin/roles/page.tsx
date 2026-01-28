@@ -403,7 +403,7 @@ export default function RolesAndPermissionsPage() {
                                                         {role.role_key}
                                                     </code>
                                                 </div> */}
-                                                {role.modules.length > 0 && (
+                                                {role.modules?.length > 0 && (
                                                     <div className="mt-2">
                                                         <div className="flex flex-wrap gap-1">
                                                             {getTopModules(role).map((moduleName, idx) => (
@@ -414,9 +414,9 @@ export default function RolesAndPermissionsPage() {
                                                                     {moduleName}
                                                                 </span>
                                                             ))}
-                                                            {role.modules.length > 3 && (
+                                                            {role.modules?.length > 3 && (
                                                                 <span className="px-2 py-1 text-xs bg-gray-700/50 text-gray-400 rounded">
-                                                                    +{role.modules.length - 3} more
+                                                                    +{role.modules?.length - 3} more
                                                                 </span>
                                                             )}
                                                         </div>
@@ -456,7 +456,7 @@ export default function RolesAndPermissionsPage() {
                                             </span>
                                         </div>
                                         <div className="text-xs text-gray-500 mt-1">
-                                            across {role.modules.length} modules
+                                            across {role.modules?.length} modules
                                         </div>
                                     </div>
 

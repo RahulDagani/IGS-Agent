@@ -199,9 +199,9 @@ export default function AddCommission() {
     
     const numericValue = formData.tenant_commission.replace(/[^0-9.]/g, '');
     if (formData.commission_type === "percentage") {
-      return `${numericValue}%`;
+      return `${numericValue}`;
     } else {
-      return `$${numericValue}`;
+      return `${numericValue}`;
     }
   };
 
@@ -448,7 +448,7 @@ export default function AddCommission() {
                     <input
                       type="text"
                       name="tenant_commission"
-                      value={getCommissionDisplayValue()}
+                      value={formData.tenant_commission}
                       onChange={(e) => handleCommissionValueChange(e.target.value)}
                       placeholder={formData.commission_type === "percentage" ? "e.g., 15%" : "e.g., 500"}
                       required

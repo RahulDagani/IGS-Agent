@@ -18,65 +18,129 @@ import {
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
-interface RolePermission {
-    permission_id: number;
-    permission_name: string;
-    permission_key: string;
-    has_permission: boolean;
-}
-
-interface RoleModule {
-    module_id: number;
-    module_name: string;
-    module_key: string;
-    permissions: RolePermission[];
+// Interfaces for Role API Response
+interface RoleDetailApiResponse {
+    success: boolean;
+    data: Role;
 }
 
 interface Role {
     id: number;
     tenant_id: number;
     role_name: string;
-    // role_key: string;
+    role_key: string;
+    panel_type: string;
     data_access: string;
+    is_active: boolean;
     created_at: string;
     updated_at: string;
-    modules?: RoleModule[];
 }
 
-interface RoleDetailApiResponse {
-    success: boolean;
-    data: Role;
+// Interfaces for Modules API Response
+interface ChildModule {
+    id: number;
+    sub_module_id: number;
+    panel_type: string;
+    name: string;
+    slug: string;
+    route: string | null;
+    icon: string;
+    sort_order: number;
+    is_active: number;
 }
 
-interface Permission {
+interface SubModule {
     id: number;
     module_id: number;
-    permission_name: string;
-    permission_key: string;
+    panel_type: string;
+    name: string;
+    slug: string;
+    icon: string;
+    route: string | null;
+    sort_order: number;
+    is_active: number;
+    created_at: string;
+    child_modules: ChildModule[];
 }
 
 interface Module {
     id: number;
-    module_name: string;
-    module_key: string;
-    permissions: Permission[];
+    name: string;
+    sort_order: number;
+    is_active: number;
+    created_at: string;
+    sub_modules: SubModule[];
 }
 
-interface ModuleApiResponse {
+interface ModulesApiResponse {
     success: boolean;
-    data: Module[];
+    data: {
+        hierarchical: Module[];
+        flat: {
+            modules: Array<{
+                id: number;
+                name: string;
+                sort_order: number;
+                is_active: number;
+                created_at: string;
+            }>;
+            sub_modules: Array<{
+                id: number;
+                module_id: number;
+                panel_type: string;
+                name: string;
+                slug: string;
+                icon: string;
+                route: string | null;
+                sort_order: number;
+                is_active: number;
+                created_at: string;
+            }>;
+            child_modules: ChildModule[];
+        };
+        counts: Record<string, number>;
+        filters_applied: Record<string, any>;
+    };
 }
 
-interface PermissionPayload {
+// Interfaces for Role Permissions API Response
+interface ModulePermission {
     module_id: number;
-    permission_id: number;
+    status: number;
 }
 
+interface SubModulePermission {
+    sub_module_id: number;
+    status: number;
+}
+
+interface ChildModulePermission {
+    child_module_id: number;
+    status: number;
+}
+
+interface RolePermissionsApiResponse {
+    success: boolean;
+    data: {
+        role: Role;
+        permissions: {
+            module_permissions: ModulePermission[];
+            sub_module_permissions: SubModulePermission[];
+            child_module_permissions: ChildModulePermission[];
+        };
+    };
+}
+
+// Interface for Update Role Payload
 interface UpdateRolePayload {
     role_name: string;
-    // role_key: string;
+    role_key: string;
+    panel_type: string;
     data_access: string;
-    permissions: PermissionPayload[];
+    is_active: boolean;
+    module_permissions: ModulePermission[];
+    sub_module_permissions: SubModulePermission[];
+    child_module_permissions: ChildModulePermission[];
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
@@ -87,24 +151,29 @@ export default function EditRolePage() {
     
     const [formData, setFormData] = useState({
         role_name: "",
-        // role_key: "",
-        data_access: "all"
+        role_key: "",
+        panel_type: "admin",
+        data_access: "all",
+        is_active: true
     });
     
     const [modules, setModules] = useState<Module[]>([]);
-    const [selectedPermissions, setSelectedPermissions] = useState<Record<number, number[]>>({});
+    const [selectedModules, setSelectedModules] = useState<Record<number, number>>({}); // module_id: status
+    const [selectedSubModules, setSelectedSubModules] = useState<Record<number, number>>({}); // sub_module_id: status
+    const [selectedChildModules, setSelectedChildModules] = useState<Record<number, number>>({}); // child_module_id: status
     const [loading, setLoading] = useState(false);
     const [modulesLoading, setModulesLoading] = useState(true);
     const [roleLoading, setRoleLoading] = useState(true);
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
     const [expandedModules, setExpandedModules] = useState<Record<number, boolean>>({});
+    const [expandedSubModules, setExpandedSubModules] = useState<Record<number, boolean>>({});
     const [roleDetails, setRoleDetails] = useState<Role | null>(null);
 
     const router = useRouter();
     const { token } = useAuth();
 
-    // Fetch modules with their permissions
+    // Fetch modules with their hierarchical structure
     const fetchModules = useCallback(async () => {
         try {
             const response = await fetch(`${BASE_URL}/tenant/modules`, {
@@ -112,22 +181,29 @@ export default function EditRolePage() {
                     "Authorization": `Bearer ${token}`
                 }
             });
-            const data: ModuleApiResponse = await response.json();
+            const data: ModulesApiResponse = await response.json();
 
             if (data.success) {
-                // Sort modules alphabetically by module_name
-                const sortedModules = [...data.data].sort((a, b) => 
-                    a.module_name.localeCompare(b.module_name)
+                // Sort modules alphabetically by name
+                const sortedModules = [...data.data.hierarchical].sort((a, b) => 
+                    a.name.localeCompare(b.name)
                 );
                 
                 setModules(sortedModules);
                 
                 // Initialize expanded state
                 const initialExpandedModules: Record<number, boolean> = {};
+                const initialExpandedSubModules: Record<number, boolean> = {};
+                
                 sortedModules.forEach(module => {
                     initialExpandedModules[module.id] = true;
+                    module.sub_modules.forEach(subModule => {
+                        initialExpandedSubModules[subModule.id] = true;
+                    });
                 });
+                
                 setExpandedModules(initialExpandedModules);
+                setExpandedSubModules(initialExpandedSubModules);
             } else {
                 showToast("Failed to load modules", "error");
             }
@@ -139,52 +215,87 @@ export default function EditRolePage() {
         }
     }, [token]);
 
-    // Fetch role details
+    // Fetch role details and permissions
     const fetchRoleDetails = useCallback(async () => {
         if (!roleId) return;
         
         try {
             setRoleLoading(true);
-            const response = await fetch(`${BASE_URL}/tenant/roles/${roleId}`, {
+            // Fetch role basic details
+            const roleResponse = await fetch(`${BASE_URL}/tenant/roles/${roleId}`, {
                 headers: {
                     "Authorization": `Bearer ${token}`
                 }
             });
-            const data: RoleDetailApiResponse = await response.json();
+            const roleData = await roleResponse.json();
 
-            if (data.success) {
-                const role = data.data;
+            if (roleData.success) {
+                const role = roleData.data;
                 setRoleDetails(role);
                 
                 // Set form data
                 setFormData({
                     role_name: role.role_name,
-                    // role_key: role.role_key,
-                    data_access: role.data_access
+                    role_key: role.role_key,
+                    panel_type: role.panel_type || "admin",
+                    data_access: role.data_access,
+                    is_active: role.is_active
                 });
                 
-                // Initialize selected permissions based on role's modules and permissions
-                const initialSelectedPermissions: Record<number, number[]> = {};
-                
-                if (role.modules && role.modules.length > 0) {
-                    role.modules.forEach(module => {
-                        const selectedPerms = module.permissions
-                            .filter(perm => perm.has_permission)
-                            .map(perm => perm.permission_id);
-                        
-                        initialSelectedPermissions[module.module_id] = [...new Set(selectedPerms)]; // Remove duplicates
+                // Fetch role permissions
+                const permissionsResponse = await fetch(`${BASE_URL}/tenant/roles/${roleId}/permissions`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                const permissionsData: RolePermissionsApiResponse = await permissionsResponse.json();
+
+                if (permissionsData.success) {
+                    const { module_permissions, sub_module_permissions, child_module_permissions } = 
+                        permissionsData.data.permissions;
+                    
+                    // Initialize selected permissions from API response
+                    const initialSelectedModules: Record<number, number> = {};
+                    const initialSelectedSubModules: Record<number, number> = {};
+                    const initialSelectedChildModules: Record<number, number> = {};
+
+                    // Set module permissions
+                    module_permissions.forEach(perm => {
+                        initialSelectedModules[perm.module_id] = perm.status;
                     });
+
+                    // Set sub-module permissions
+                    sub_module_permissions.forEach(perm => {
+                        initialSelectedSubModules[perm.sub_module_id] = perm.status;
+                    });
+
+                    // Set child module permissions
+                    child_module_permissions.forEach(perm => {
+                        initialSelectedChildModules[perm.child_module_id] = perm.status;
+                    });
+
+                    setSelectedModules(initialSelectedModules);
+                    setSelectedSubModules(initialSelectedSubModules);
+                    setSelectedChildModules(initialSelectedChildModules);
+                } else {
+                    // If permissions endpoint doesn't exist, initialize with all zeros
+                    const initialSelectedModules: Record<number, number> = {};
+                    const initialSelectedSubModules: Record<number, number> = {};
+                    const initialSelectedChildModules: Record<number, number> = {};
+
+                    // TODO: You might want to fetch modules here to initialize properly
+                    setSelectedModules(initialSelectedModules);
+                    setSelectedSubModules(initialSelectedSubModules);
+                    setSelectedChildModules(initialSelectedChildModules);
                 }
-                
-                setSelectedPermissions(initialSelectedPermissions);
             } else {
                 showToast("Failed to load role details", "error");
-                router.push("/admin/roles");
+                // router.push("/admin/roles");
             }
         } catch (error) {
             console.error("Error fetching role details:", error);
             showToast("Failed to load role details", "error");
-            router.push("/admin/roles");
+            // router.push("/admin/roles");
         } finally {
             setRoleLoading(false);
         }
@@ -195,55 +306,129 @@ export default function EditRolePage() {
         fetchRoleDetails();
     }, [fetchModules, fetchRoleDetails]);
 
-    const togglePermission = (moduleId: number, permissionId: number) => {
-        setSelectedPermissions(prev => {
-            const currentPermissions = prev[moduleId] || [];
-            const isSelected = currentPermissions.includes(permissionId);
-            
-            return {
-                ...prev,
-                [moduleId]: isSelected
-                    ? currentPermissions.filter(id => id !== permissionId)
-                    : [...currentPermissions, permissionId]
-            };
-        });
+    // Toggle module selection
+    const toggleModule = (moduleId: number) => {
+        setSelectedModules(prev => ({
+            ...prev,
+            [moduleId]: prev[moduleId] === 1 ? 0 : 1
+        }));
     };
 
+    // Toggle sub-module selection
+    const toggleSubModule = (subModuleId: number) => {
+        setSelectedSubModules(prev => ({
+            ...prev,
+            [subModuleId]: prev[subModuleId] === 1 ? 0 : 1
+        }));
+    };
+
+    // Toggle child module selection
+    const toggleChildModule = (childModuleId: number) => {
+        setSelectedChildModules(prev => ({
+            ...prev,
+            [childModuleId]: prev[childModuleId] === 1 ? 0 : 1
+        }));
+    };
+
+    // Toggle all permissions in a module (including sub-modules and child modules)
     const toggleAllPermissionsInModule = (moduleId: number) => {
         const module = modules.find(m => m.id === moduleId);
         if (!module) return;
 
-        setSelectedPermissions(prev => {
-            const currentPermissions = prev[moduleId] || [];
-            const allPermissions = module.permissions.map(p => p.id);
-            const allSelected = currentPermissions.length === allPermissions.length;
-            
-            return {
-                ...prev,
-                [moduleId]: allSelected ? [] : allPermissions
-            };
-        });
-    };
+        const allSelected = selectedModules[moduleId] === 1;
+        const newStatus = allSelected ? 0 : 1;
 
-    const toggleAllPermissions = () => {
-        const allModulesHaveAllPermissions = modules.every(module => {
-            const modulePermissions = module.permissions.map(p => p.id);
-            return selectedPermissions[module.id]?.length === modulePermissions.length;
-        });
+        // Update module
+        setSelectedModules(prev => ({
+            ...prev,
+            [moduleId]: newStatus
+        }));
 
-        setSelectedPermissions(prev => {
-            const newState: Record<number, number[]> = {};
+        // Update all sub-modules in this module
+        const updatedSubModules = { ...selectedSubModules };
+        module.sub_modules.forEach(subModule => {
+            updatedSubModules[subModule.id] = newStatus;
             
-            modules.forEach(module => {
-                newState[module.id] = allModulesHaveAllPermissions 
-                    ? [] 
-                    : module.permissions.map(p => p.id);
+            // Update all child modules in this sub-module
+            const updatedChildModules = { ...selectedChildModules };
+            subModule.child_modules.forEach(childModule => {
+                updatedChildModules[childModule.id] = newStatus;
             });
-            
-            return newState;
+            setSelectedChildModules(updatedChildModules);
         });
+        setSelectedSubModules(updatedSubModules);
     };
 
+    // Toggle all permissions in a sub-module (including child modules)
+    const toggleAllPermissionsInSubModule = (subModuleId: number, moduleId: number) => {
+        const module = modules.find(m => m.id === moduleId);
+        if (!module) return;
+
+        const subModule = module.sub_modules.find(sm => sm.id === subModuleId);
+        if (!subModule) return;
+
+        const allSelected = selectedSubModules[subModuleId] === 1;
+        const newStatus = allSelected ? 0 : 1;
+
+        // Update sub-module
+        setSelectedSubModules(prev => ({
+            ...prev,
+            [subModuleId]: newStatus
+        }));
+
+        // Update all child modules in this sub-module
+        const updatedChildModules = { ...selectedChildModules };
+        subModule.child_modules.forEach(childModule => {
+            updatedChildModules[childModule.id] = newStatus;
+        });
+        setSelectedChildModules(updatedChildModules);
+
+        // Check if all sub-modules in the module are now selected
+        const allSubModulesSelected = module.sub_modules.every(sm => 
+            selectedSubModules[sm.id] === 1 || (sm.id === subModuleId ? newStatus === 1 : selectedSubModules[sm.id] === 1)
+        );
+        
+        // Update module status based on sub-modules
+        if (allSubModulesSelected) {
+            setSelectedModules(prev => ({
+                ...prev,
+                [moduleId]: 1
+            }));
+        } else {
+            setSelectedModules(prev => ({
+                ...prev,
+                [moduleId]: 0
+            }));
+        }
+    };
+
+    // Toggle all permissions
+    const toggleAllPermissions = () => {
+        const allSelected = Object.values(selectedModules).every(status => status === 1);
+        const newStatus = allSelected ? 0 : 1;
+
+        const updatedModules: Record<number, number> = {};
+        const updatedSubModules: Record<number, number> = {};
+        const updatedChildModules: Record<number, number> = {};
+
+        modules.forEach(module => {
+            updatedModules[module.id] = newStatus;
+            
+            module.sub_modules.forEach(subModule => {
+                updatedSubModules[subModule.id] = newStatus;
+                
+                subModule.child_modules.forEach(childModule => {
+                    updatedChildModules[childModule.id] = newStatus;
+                });
+            });
+        });
+
+        setSelectedModules(updatedModules);
+        setSelectedSubModules(updatedSubModules);
+        setSelectedChildModules(updatedChildModules);
+    };
+
+    // Toggle module expansion
     const toggleModuleExpansion = (moduleId: number) => {
         setExpandedModules(prev => ({
             ...prev,
@@ -251,13 +436,21 @@ export default function EditRolePage() {
         }));
     };
 
+    // Toggle sub-module expansion
+    const toggleSubModuleExpansion = (subModuleId: number) => {
+        setExpandedSubModules(prev => ({
+            ...prev,
+            [subModuleId]: !prev[subModuleId]
+        }));
+    };
+
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: value,
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
         }));
     };
 
@@ -274,19 +467,19 @@ export default function EditRolePage() {
         setFormData(prev => ({
             ...prev,
             role_name: roleName,
-            // role_key: generateRoleKey(roleName)
+            role_key: generateRoleKey(roleName)
         }));
     };
 
     const handleRoleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // const roleKey = e.target.value
-        //     .toLowerCase()
-        //     .replace(/[^a-z0-9_]/g, '')
-        //     .replace(/\s+/g, '_');
+        const roleKey = e.target.value
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '')
+            .replace(/\s+/g, '_');
         
         setFormData(prev => ({
             ...prev,
-            // role_key: roleKey
+            role_key: roleKey
         }));
     };
 
@@ -308,18 +501,12 @@ export default function EditRolePage() {
         //     return;
         // }
 
-        // Prepare permissions array
-        const permissionsArray: PermissionPayload[] = [];
-        Object.entries(selectedPermissions).forEach(([moduleId, permissionIds]) => {
-            permissionIds.forEach(permissionId => {
-                permissionsArray.push({
-                    module_id: parseInt(moduleId),
-                    permission_id: permissionId
-                });
-            });
-        });
+        // Check if at least one permission is selected
+        const hasModulePermissions = Object.values(selectedModules).some(status => status === 1);
+        const hasSubModulePermissions = Object.values(selectedSubModules).some(status => status === 1);
+        const hasChildModulePermissions = Object.values(selectedChildModules).some(status => status === 1);
 
-        if (permissionsArray.length === 0) {
+        if (!hasModulePermissions && !hasSubModulePermissions && !hasChildModulePermissions) {
             showToast("Please select at least one permission", "error");
             return;
         }
@@ -327,11 +514,31 @@ export default function EditRolePage() {
         setLoading(true);
 
         try {
+            // Prepare permissions arrays
+            const modulePermissions = Object.entries(selectedModules).map(([moduleId, status]) => ({
+                module_id: parseInt(moduleId),
+                status: status
+            }));
+
+            const subModulePermissions = Object.entries(selectedSubModules).map(([subModuleId, status]) => ({
+                sub_module_id: parseInt(subModuleId),
+                status: status
+            }));
+
+            const childModulePermissions = Object.entries(selectedChildModules).map(([childModuleId, status]) => ({
+                child_module_id: parseInt(childModuleId),
+                status: status
+            }));
+
             const payload: UpdateRolePayload = {
                 role_name: formData.role_name,
-                // role_key: formData.role_key,
+                role_key: formData.role_key,
+                panel_type: formData.panel_type,
                 data_access: formData.data_access,
-                permissions: permissionsArray
+                is_active: formData.is_active,
+                module_permissions: modulePermissions,
+                sub_module_permissions: subModulePermissions,
+                child_module_permissions: childModulePermissions
             };
 
             const response = await fetch(`${BASE_URL}/tenant/roles/${roleId}`, {
@@ -375,71 +582,50 @@ export default function EditRolePage() {
         if (roleDetails) {
             setFormData({
                 role_name: roleDetails.role_name,
-                // role_key: roleDetails.role_key,
-                data_access: roleDetails.data_access
+                role_key: roleDetails.role_key,
+                panel_type: roleDetails.panel_type || "admin",
+                data_access: roleDetails.data_access,
+                is_active: roleDetails.is_active
             });
             
-            // Reset to original permissions
-            const resetSelectedPermissions: Record<number, number[]> = {};
-            
-            if (roleDetails.modules && roleDetails.modules.length > 0) {
-                roleDetails.modules.forEach(module => {
-                    const selectedPerms = module.permissions
-                        .filter(perm => perm.has_permission)
-                        .map(perm => perm.permission_id);
-                    
-                    resetSelectedPermissions[module.module_id] = [...new Set(selectedPerms)];
-                });
-            }
-            
-            setSelectedPermissions(resetSelectedPermissions);
+            // Note: We can't reset permissions without making another API call
+            // The current implementation assumes we want to keep the current selections
         }
     };
 
     // Calculate total selected permissions
-    const totalSelectedPermissions = Object.values(selectedPermissions).reduce(
-        (total, permissionIds) => total + permissionIds.length,
-        0
-    );
+    const totalSelectedModules = Object.values(selectedModules).filter(status => status === 1).length;
+    const totalSelectedSubModules = Object.values(selectedSubModules).filter(status => status === 1).length;
+    const totalSelectedChildModules = Object.values(selectedChildModules).filter(status => status === 1).length;
+    const totalSelectedPermissions = totalSelectedModules + totalSelectedSubModules + totalSelectedChildModules;
 
-    // Calculate total modules with at least one permission selected
-    const modulesWithPermissions = Object.values(selectedPermissions).filter(
-        permissionIds => permissionIds.length > 0
-    ).length;
+    // Check if all modules are selected
+    const isAllModulesSelected = modules.length > 0 && 
+        modules.every(module => selectedModules[module.id] === 1);
 
-    // Check if all permissions are selected for all modules
-    const isAllSelected = modules.length > 0 && modules.every(module => {
-        const modulePermissions = module.permissions.map(p => p.id);
-        return selectedPermissions[module.id]?.length === modulePermissions.length;
-    });
+    // Check if some modules are selected (for indeterminate state)
+    const isSomeModulesSelected = modules.some(module => 
+        selectedModules[module.id] === 1
+    ) && !isAllModulesSelected;
 
-    // Check if some permissions are selected (for indeterminate state)
-    const isSomeSelected = modules.some(module => 
-        selectedPermissions[module.id]?.length > 0
-    ) && !isAllSelected;
-
-    // Get all unique permission names for summary
-    const getAllPermissionNames = () => {
-        const allPermissions: Permission[] = [];
+    // Get all unique module names for summary
+    const getAllModuleNames = () => {
+        const allModules: { id: number; name: string; type: 'module' | 'sub_module' | 'child_module' }[] = [];
+        
         modules.forEach(module => {
-            allPermissions.push(...module.permissions);
+            allModules.push({ id: module.id, name: module.name, type: 'module' });
+            module.sub_modules.forEach(subModule => {
+                allModules.push({ id: subModule.id, name: subModule.name, type: 'sub_module' });
+                subModule.child_modules.forEach(childModule => {
+                    allModules.push({ id: childModule.id, name: childModule.name, type: 'child_module' });
+                });
+            });
         });
         
-        // Group by permission_key prefix (e.g., 'view', 'create', 'update')
-        const groupedPermissions: Record<string, Permission[]> = {};
-        
-        allPermissions.forEach(permission => {
-            const prefix = permission.permission_key.split('_')[0];
-            if (!groupedPermissions[prefix]) {
-                groupedPermissions[prefix] = [];
-            }
-            groupedPermissions[prefix].push(permission);
-        });
-        
-        return groupedPermissions;
+        return allModules;
     };
 
-    const permissionGroups = getAllPermissionNames();
+    const allModules = getAllModuleNames();
 
     if (roleLoading) {
         return (
@@ -518,9 +704,12 @@ export default function EditRolePage() {
                                 <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
                                     ID: {roleDetails.id}
                                 </span>
-                                {/* <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded">
+                                <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded">
                                     {roleDetails.role_key}
-                                </span> */}
+                                </span>
+                                <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
+                                    {roleDetails.panel_type}
+                                </span>
                                 <span className="text-xs text-gray-500 dark:text-gray-500">
                                     Created: {new Date(roleDetails.created_at).toLocaleDateString()}
                                 </span>
@@ -576,6 +765,26 @@ export default function EditRolePage() {
                             </p>
                         </div> */}
 
+                        {/* Panel Type Select */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Panel Type{" "}
+                                <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="panel_type"
+                                value={formData.panel_type}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                                required
+                            >
+                                <option value="admin">Admin</option>
+                                <option value="agent">Agent</option>
+                                <option value="student">Student</option>
+                                <option value="university">University</option>
+                            </select>
+                        </div>
+
                         {/* Data Access Select */}
                         <div className="mb-6">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -591,13 +800,25 @@ export default function EditRolePage() {
                             >
                                 <option value="all">Allowed Access to All data</option>
                                 <option value="assigned">Allowed Access to Assigned Data</option>
-                                
                             </select>
                         </div>
 
-                      
+                        {/* Active Status */}
+                        <div className="mb-6 flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                name="is_active"
+                                id="is_active"
+                                checked={formData.is_active}
+                                onChange={handleChange}
+                                className="w-4 h-4 accent-indigo-600 rounded"
+                            />
+                            <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Active Role
+                            </label>
+                        </div>
 
-                        {/* Permissions Section - Card Design */}
+                        {/* Permissions Section - Hierarchical Design */}
                         <div className="mb-6">
                             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
                                 <div>
@@ -605,26 +826,27 @@ export default function EditRolePage() {
                                         Module Permissions
                                     </h3>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                        Update permissions for each module
+                                        Update permissions for each module, sub-module, and child module
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="text-sm text-gray-700 dark:text-gray-300">
-                                        {totalSelectedPermissions} permission{totalSelectedPermissions !== 1 ? 's' : ''} selected across {modulesWithPermissions} module{modulesWithPermissions !== 1 ? 's' : ''}
+                                        {totalSelectedPermissions} permission{totalSelectedPermissions !== 1 ? 's' : ''} selected
+                                        ({totalSelectedModules} modules, {totalSelectedSubModules} sub-modules, {totalSelectedChildModules} child modules)
                                     </div>
                                     <button
                                         type="button"
                                         onClick={toggleAllPermissions}
                                         className="flex items-center gap-2 px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition"
                                     >
-                                        {isAllSelected ? (
+                                        {isAllModulesSelected ? (
                                             <CheckSquare className="w-3 h-3" />
-                                        ) : isSomeSelected ? (
+                                        ) : isSomeModulesSelected ? (
                                             <div className="w-3 h-3 border border-gray-400 dark:border-gray-500 bg-gray-400 dark:bg-gray-500" />
                                         ) : (
                                             <Square className="w-3 h-3" />
                                         )}
-                                        {isAllSelected ? 'Deselect All' : 'Select All'}
+                                        {isAllModulesSelected ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
                             </div>
@@ -639,10 +861,24 @@ export default function EditRolePage() {
                             ) : (
                                 <div className="space-y-4">
                                     {modules.map((module) => {
-                                        const modulePermissions = selectedPermissions[module.id] || [];
-                                        const allPermissionsSelected = modulePermissions.length === module.permissions.length;
-                                        const somePermissionsSelected = modulePermissions.length > 0 && !allPermissionsSelected;
-                                        const isExpanded = expandedModules[module.id] || false;
+                                        const isModuleSelected = selectedModules[module.id] === 1;
+                                        const isModuleExpanded = expandedModules[module.id] || false;
+                                        
+                                        // Count selected sub-modules in this module
+                                        const selectedSubModulesCount = module.sub_modules.filter(
+                                            sm => selectedSubModules[sm.id] === 1
+                                        ).length;
+                                        
+                                        // Count selected child modules in this module
+                                        const selectedChildModulesCount = module.sub_modules.reduce(
+                                            (total, sm) => total + sm.child_modules.filter(
+                                                cm => selectedChildModules[cm.id] === 1
+                                            ).length,
+                                            0
+                                        );
+                                        
+                                        const totalItemsInModule = module.sub_modules.length + 
+                                            module.sub_modules.reduce((total, sm) => total + sm.child_modules.length, 0);
                                         
                                         return (
                                             <div 
@@ -658,10 +894,11 @@ export default function EditRolePage() {
                                                         <div className="relative">
                                                             <input
                                                                 type="checkbox"
-                                                                checked={allPermissionsSelected}
+                                                                checked={isModuleSelected}
                                                                 ref={input => {
                                                                     if (input) {
-                                                                        input.indeterminate = somePermissionsSelected;
+                                                                        const someSubSelected = selectedSubModulesCount > 0 || selectedChildModulesCount > 0;
+                                                                        input.indeterminate = someSubSelected && !isModuleSelected;
                                                                     }
                                                                 }}
                                                                 onChange={(e) => {
@@ -673,20 +910,20 @@ export default function EditRolePage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-gray-800 dark:text-white font-medium">
-                                                                {module.module_name}
+                                                                {module.name}
                                                             </div>
                                                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                                Module Key: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{module.module_key}</code>
+                                                                ID: {module.id} • Sort Order: {module.sort_order}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4">
                                                         <span className={`px-3 py-1 text-xs rounded-full ${
-                                                            modulePermissions.length > 0
+                                                            isModuleSelected || selectedSubModulesCount > 0 || selectedChildModulesCount > 0
                                                                 ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                                                                 : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
                                                         }`}>
-                                                            {modulePermissions.length} / {module.permissions.length} selected
+                                                            {selectedSubModulesCount + selectedChildModulesCount} / {totalItemsInModule} selected
                                                         </span>
                                                         <button
                                                             type="button"
@@ -696,7 +933,7 @@ export default function EditRolePage() {
                                                             }}
                                                             className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white transition"
                                                         >
-                                                            {isExpanded ? (
+                                                            {isModuleExpanded ? (
                                                                 <ChevronUp className="w-5 h-5" />
                                                             ) : (
                                                                 <ChevronDown className="w-5 h-5" />
@@ -705,35 +942,111 @@ export default function EditRolePage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Permissions Grid */}
-                                                {isExpanded && (
-                                                    <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                            {module.permissions.map((permission) => {
-                                                                const isSelected = modulePermissions.includes(permission.id);
-                                                                return (
-                                                                    <label 
-                                                                        key={permission.id} 
-                                                                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/30 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-lg cursor-pointer transition"
+                                                {/* Sub-modules and Child Modules */}
+                                                {isModuleExpanded && (
+                                                    <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                                                        {module.sub_modules.map((subModule) => {
+                                                            const isSubModuleSelected = selectedSubModules[subModule.id] === 1;
+                                                            const isSubModuleExpanded = expandedSubModules[subModule.id] || false;
+                                                            
+                                                            // Count selected child modules in this sub-module
+                                                            const selectedChildModulesInSub = subModule.child_modules.filter(
+                                                                cm => selectedChildModules[cm.id] === 1
+                                                            ).length;
+                                                            
+                                                            return (
+                                                                <div key={subModule.id} className="ml-6">
+                                                                    {/* Sub-module Header */}
+                                                                    <div 
+                                                                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition"
+                                                                        onClick={() => toggleSubModuleExpansion(subModule.id)}
                                                                     >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={isSelected}
-                                                                            onChange={() => togglePermission(module.id, permission.id)}
-                                                                            className="w-4 h-4 accent-indigo-600 rounded"
-                                                                        />
-                                                                        <div className="flex-1">
-                                                                            <div className="text-sm text-gray-800 dark:text-white">
-                                                                                {permission.permission_name}
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="relative">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isSubModuleSelected}
+                                                                                    ref={input => {
+                                                                                        if (input) {
+                                                                                            input.indeterminate = selectedChildModulesInSub > 0 && !isSubModuleSelected;
+                                                                                        }
+                                                                                    }}
+                                                                                    onChange={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        toggleAllPermissionsInSubModule(subModule.id, module.id);
+                                                                                    }}
+                                                                                    className="w-4 h-4 accent-indigo-600 rounded"
+                                                                                />
                                                                             </div>
-                                                                            {/* <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                                                Key: <code className="px-1 py-0.5 bg-white dark:bg-gray-900 rounded">{permission.permission_key}</code>
-                                                                            </div> */}
+                                                                            <div>
+                                                                                <div className="text-gray-800 dark:text-white text-sm font-medium">
+                                                                                    {subModule.name}
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                                                    Slug: {subModule.slug} • Route: {subModule.route || 'N/A'}
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
-                                                                    </label>
-                                                                );
-                                                            })}
-                                                        </div>
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className={`px-2 py-1 text-xs rounded-full ${
+                                                                                isSubModuleSelected || selectedChildModulesInSub > 0
+                                                                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                                                                            }`}>
+                                                                                {selectedChildModulesInSub} / {subModule.child_modules.length} child modules
+                                                                            </span>
+                                                                            {subModule.child_modules.length > 0 && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        toggleSubModuleExpansion(subModule.id);
+                                                                                    }}
+                                                                                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                                                                                >
+                                                                                    {isSubModuleExpanded ? (
+                                                                                        <ChevronUp className="w-4 h-4" />
+                                                                                    ) : (
+                                                                                        <ChevronDown className="w-4 h-4" />
+                                                                                    )}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Child Modules */}
+                                                                    {isSubModuleExpanded && subModule.child_modules.length > 0 && (
+                                                                        <div className="ml-6 mt-3 space-y-2">
+                                                                            {subModule.child_modules.map((childModule) => {
+                                                                                const isChildSelected = selectedChildModules[childModule.id] === 1;
+                                                                                
+                                                                                return (
+                                                                                    <label 
+                                                                                        key={childModule.id} 
+                                                                                        className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800/20 hover:bg-gray-100 dark:hover:bg-gray-800/30 rounded-lg cursor-pointer transition"
+                                                                                    >
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            checked={isChildSelected}
+                                                                                            onChange={() => toggleChildModule(childModule.id)}
+                                                                                            className="w-4 h-4 accent-indigo-600 rounded"
+                                                                                        />
+                                                                                        <div className="flex-1">
+                                                                                            <div className="text-sm text-gray-800 dark:text-white">
+                                                                                                {childModule.name}
+                                                                                            </div>
+                                                                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                                                                Slug: {childModule.slug} • Route: {childModule.route || 'N/A'}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </label>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
@@ -748,43 +1061,64 @@ export default function EditRolePage() {
                                                     Permissions Summary
                                                 </h4>
                                                 <p className="text-sm text-indigo-600/70 dark:text-indigo-200/70">
-                                                    {totalSelectedPermissions} permission{totalSelectedPermissions !== 1 ? 's' : ''} selected across {modulesWithPermissions} module{modulesWithPermissions !== 1 ? 's' : ''}
+                                                    {totalSelectedPermissions} permission{totalSelectedPermissions !== 1 ? 's' : ''} selected
+                                                    ({totalSelectedModules} modules, {totalSelectedSubModules} sub-modules, {totalSelectedChildModules} child modules)
                                                 </p>
                                             </div>
                                             <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                         </div>
                                         
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-                                            {Object.entries(permissionGroups).map(([prefix, permissions]) => {
-                                                const count = modules.reduce((total, module) => {
-                                                    const modulePermissions = selectedPermissions[module.id] || [];
-                                                    const matchingPermissions = permissions.filter(p => 
-                                                        p.permission_key.startsWith(prefix) && modulePermissions.includes(p.id)
-                                                    );
-                                                    return total + matchingPermissions.length;
-                                                }, 0);
-                                                
-                                                if (count === 0) return null;
-                                                
-                                                return (
-                                                    <div key={prefix} className="bg-white dark:bg-gray-800/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                                                                {prefix} Permissions
-                                                            </span>
-                                                            <span className={`px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300`}>
-                                                                {count} selected
-                                                            </span>
-                                                        </div>
-                                                        <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                                                                style={{ width: `${(count / modules.length) * 100}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                            <div className="bg-white dark:bg-gray-800/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                        Modules
+                                                    </span>
+                                                    <span className={`px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300`}>
+                                                        {totalSelectedModules} selected
+                                                    </span>
+                                                </div>
+                                                <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                                                        style={{ width: `${(totalSelectedModules / modules.length) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="bg-white dark:bg-gray-800/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                        Sub-modules
+                                                    </span>
+                                                    <span className={`px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300`}>
+                                                        {totalSelectedSubModules} selected
+                                                    </span>
+                                                </div>
+                                                <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                                                        style={{ width: `${(totalSelectedSubModules / Object.keys(selectedSubModules).length) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="bg-white dark:bg-gray-800/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                        Child modules
+                                                    </span>
+                                                    <span className={`px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300`}>
+                                                        {totalSelectedChildModules} selected
+                                                    </span>
+                                                </div>
+                                                <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-purple-500 rounded-full transition-all duration-300"
+                                                        style={{ width: `${(totalSelectedChildModules / Object.keys(selectedChildModules).length) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -834,12 +1168,14 @@ export default function EditRolePage() {
                         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded-lg">
                             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes:</h4>
                             <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                <li>{`• Role key will be auto-generated from role name but can be edited`}</li>
-                                <li>{`• Role key must be lowercase with underscores (e.g., admission_officer)`}</li>
+                                {/* <li>{`• Role key will be auto-generated from role name but can be edited`}</li> */}
+                                {/* <li>{`• Role key must be lowercase with underscores (e.g., admission_officer)`}</li> */}
                                 <li>{`• Select at least one permission to enable the Update Role button`}</li>
-                                <li>{`• Use "Select All" button to quickly toggle all permissions for all modules`}</li>
-                                <li>{`• Click on module headers to expand/collapse permissions`}</li>
+                                <li>{`• Use "Select All" button to quickly toggle all permissions`}</li>
+                                <li>{`• Click on module headers to expand/collapse sub-modules`}</li>
+                                <li>{`• Click on sub-module headers to expand/collapse child modules`}</li>
                                 <li>{`• Data access determines what data the role can access`}</li>
+                                <li>{`• Panel type determines which interface this role can access`}</li>
                             </ul>
                         </div>
                     </form>
