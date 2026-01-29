@@ -13,7 +13,7 @@ interface StudentFormData {
   last_name: string;
   email: string;
   phone: string;
-  passport_number: string;
+  // passport_number: string;
   country_code: string;
   dob: string;
   agent_id: string;
@@ -63,7 +63,7 @@ export default function AddStudent() {
     last_name: "",
     email: "",
     phone: "",
-    passport_number: "",
+    // passport_number: "",
     country_code: "",
     dob: "",
     agent_id: "",
@@ -125,9 +125,9 @@ export default function AddStudent() {
       newErrors.phone = "Please enter a valid phone number with country code (e.g., +1234567890)";
     }
 
-    if (!formData.passport_number.trim()) {
-      newErrors.passport_number = "Passport number is required";
-    }
+    // if (!formData.passport_number.trim()) {
+    //   newErrors.passport_number = "Passport number is required";
+    // }
 
     if (!formData.dob) {
       newErrors.dob = "Date of birth is required";
@@ -487,7 +487,7 @@ export default function AddStudent() {
                 </div>
 
                 {/* Passport Number */}
-                <div className="">
+                {/* <div className="">
                   <label htmlFor="passport_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                     Passport Number *
                   </label>
@@ -509,7 +509,7 @@ export default function AddStudent() {
                   {errors.passport_number && (
                     <p className="mt-1 text-sm text-red-500">{errors.passport_number}</p>
                   )}
-                </div>
+                </div> */}
 
               </div>
             </div>
