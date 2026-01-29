@@ -185,9 +185,7 @@ export default function EditRolePage() {
 
             if (data.success) {
                 // Sort modules alphabetically by name
-                const sortedModules = [...data.data.hierarchical].sort((a, b) => 
-                    a.name.localeCompare(b.name)
-                );
+                const sortedModules = [...data.data.hierarchical];
                 
                 setModules(sortedModules);
                 
@@ -901,8 +899,9 @@ export default function EditRolePage() {
                                                                         input.indeterminate = someSubSelected && !isModuleSelected;
                                                                     }
                                                                 }}
+                                                                onClick={(e) => e.stopPropagation()}
                                                                 onChange={(e) => {
-                                                                    e.stopPropagation();
+                                                                  
                                                                     toggleAllPermissionsInModule(module.id);
                                                                 }}
                                                                 className="w-5 h-5 accent-indigo-600 rounded"
@@ -971,8 +970,9 @@ export default function EditRolePage() {
                                                                                             input.indeterminate = selectedChildModulesInSub > 0 && !isSubModuleSelected;
                                                                                         }
                                                                                     }}
+                                                                                     onClick={(e) => e.stopPropagation()}
                                                                                     onChange={(e) => {
-                                                                                        e.stopPropagation();
+                                                                                        
                                                                                         toggleAllPermissionsInSubModule(subModule.id, module.id);
                                                                                     }}
                                                                                     className="w-4 h-4 accent-indigo-600 rounded"
