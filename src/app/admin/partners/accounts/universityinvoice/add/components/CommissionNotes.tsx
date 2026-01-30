@@ -361,7 +361,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Tuition Fee</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                ${totalTuitionFee.toFixed(2)}
+                {totalTuitionFee.toFixed(2)}
               </p>
             </div>
           )}
@@ -370,7 +370,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Commission</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                ${totalCommission.toFixed(2)}
+                {totalCommission.toFixed(2)}
               </p>
             </div>
           )}
@@ -472,7 +472,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                         <div className="text-sm">
                           <span className="text-gray-500 dark:text-gray-400">Commission: </span>
                           <span className="font-medium text-gray-900 dark:text-gray-100">
-                            {commissionType === 'percentage' ? `${tenantCommission}%` : `$${parseFloat(tenantCommission).toFixed(2)}`}
+                            {commissionType === 'percentage' ? `${tenantCommission}%` : `${parseFloat(tenantCommission).toFixed(2)}`}
                           </span>
                         </div>
                       </div>
@@ -518,11 +518,11 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                           </div>
                           <div className="text-right">
                             <div className="font-semibold text-gray-900 dark:text-gray-100">
-                              ${parseFloat(installment.commission_amt).toFixed(2)}
+                              {parseFloat(installment.commission_amt).toFixed(2)}
                             </div>
                             {installment.commissionable_tuition_fee && (
                               <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Fee: ${installment.commissionable_tuition_fee}
+                                Fee: {installment.commissionable_tuition_fee}
                               </div>
                             )}
                           </div>
@@ -578,7 +578,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                           {commissionType.charAt(0).toUpperCase() + commissionType.slice(1)}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {commissionType === 'percentage' ? `${tenantCommission}% of fee` : `Fixed: $${parseFloat(tenantCommission).toFixed(2)}`}
+                          {commissionType === 'percentage' ? `${tenantCommission}% of fee` : `Fixed: ${parseFloat(tenantCommission).toFixed(2)}`}
                         </p>
                       </div>
                       
@@ -587,7 +587,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                           Calculated Commission
                         </label>
                         <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
-                          ${calculatedCommission.toFixed(2)}
+                          {calculatedCommission.toFixed(2)}
                         </div>
                         <button
                           type="button"
@@ -600,13 +600,13 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Commission Amount ($)
+                          Commission Amount 
                           <span className="text-red-500 ml-1">*</span>
                         </label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          {/* <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <span className="text-gray-500">$</span>
-                          </div>
+                          </div> */}
                           <input
                             type="number"
                             step="0.01"
@@ -646,11 +646,11 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
               </p>
               <div className="flex gap-4 mt-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Total Tuition Fee: ${totalTuitionFee.toFixed(2)}
+                  Total Tuition Fee: {totalTuitionFee.toFixed(2)}
                 </p>
                 {totalCommission > 0 && (
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Total Commission: ${totalCommission.toFixed(2)}
+                    Total Commission: {totalCommission.toFixed(2)}
                   </p>
                 )}
               </div>
