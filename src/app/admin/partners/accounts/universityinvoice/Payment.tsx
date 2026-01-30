@@ -63,7 +63,7 @@ interface FilterOptions {
   dateRange: [Date | null, Date | null];
   universities: string[];
   status: string[];
-  commissionNoteNumber: string;
+  invoiceNoteNumber: string;
   studentSearch: string;
   acknowledgementNo: string;
   agentId: string | null;
@@ -115,7 +115,7 @@ export default function PaymentsTable() {
     dateRange: [null, null],
     universities: [],
     status: [],
-    commissionNoteNumber: "",
+    invoiceNoteNumber: "",
     studentSearch: "",
     acknowledgementNo: "",
     agentId: null,
@@ -205,8 +205,8 @@ export default function PaymentsTable() {
         params.append('agent_id', filterOptions.agentId);
       }
       
-      if (filterOptions.commissionNoteNumber) {
-        params.append('commission_note_number', filterOptions.commissionNoteNumber);
+      if (filterOptions.invoiceNoteNumber) {
+        params.append('commission_note_number', filterOptions.invoiceNoteNumber);
       }
       
       if (filterOptions.status.length > 0) {
@@ -456,7 +456,7 @@ export default function PaymentsTable() {
       dateRange: [null, null],
       universities: [],
       status: [],
-      commissionNoteNumber: "",
+      invoiceNoteNumber: "",
       studentSearch: "",
       acknowledgementNo: "",
       agentId: null,
@@ -722,7 +722,7 @@ export default function PaymentsTable() {
             type="button"
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
           >
-            <span>Create Commission Note</span>
+            <span>Create Invoice</span>
           </Link>
         </div>
       </div>
@@ -736,14 +736,14 @@ export default function PaymentsTable() {
             <div className="SF-Keyword">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Commission Note
+                  Invoice Note
                 </label>
                 <input
                   type="text"
-                  placeholder="Search by commission note Number"
+                  placeholder="Search by invoice note Number"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-                  value={filters.commissionNoteNumber}
-                  onChange={(e) => handleFilterChange('commissionNoteNumber', e.target.value)}
+                  value={filters.invoiceNoteNumber}
+                  onChange={(e) => handleFilterChange('invoiceNoteNumber', e.target.value)}
                 />
               </div>
             </div>

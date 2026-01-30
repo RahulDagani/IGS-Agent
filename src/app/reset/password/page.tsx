@@ -176,7 +176,7 @@ function ResetPasswordContent() {
     
     // Validate that we have both token and userId
     if (!tokenParam || !idParam) {
-      setErrors({ submit: "Invalid or expired reset link. Please request a new password reset." });
+      setErrors({ submit: "Invalid or expired verification link." });
     }
   }, [searchParams]);
 
@@ -184,7 +184,7 @@ function ResetPasswordContent() {
     const newErrors: { newPassword?: string; confirmPassword?: string } = {};
 
     if (!formData.newPassword.trim()) {
-      newErrors.newPassword = "New password is required";
+      newErrors.newPassword = "Password is required";
     } else if (formData.newPassword.length < 8) {
       newErrors.newPassword = "Password must be at least 8 characters";
     } else if (!/(?=.*[A-Z])/.test(formData.newPassword)) {
@@ -209,7 +209,7 @@ function ResetPasswordContent() {
     setSuccess(false);
 
     if (!token || !userId) {
-      setErrors({ submit: "Invalid reset link. Please request a new password reset." });
+      setErrors({ submit: "Invalid Verification link." });
       return;
     }
 
@@ -217,7 +217,7 @@ function ResetPasswordContent() {
 
     setLoading(true);
 
-    const BASE_URL = 'https://api.applystore.org/api';
+    const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
     try {
       const response = await fetch(`${BASE_URL}/reset/password`, {
@@ -237,7 +237,7 @@ function ResetPasswordContent() {
       
       if (response.ok) {
         setSuccess(true);
-        setErrors({ success: "Password reset successfully! Redirecting to login..." });
+        setErrors({ success: "Password set successfully! Redirecting to login..." });
         
         // Clear the form
         setFormData({
@@ -251,11 +251,11 @@ function ResetPasswordContent() {
         },3000)
        
       } else {
-        throw new Error(data.message || data.error || "Failed to reset password");
+        throw new Error(data.message || data.error || "Failed to set password");
       }
     } catch (error) {
       setErrors({ 
-        submit: error instanceof Error ? error.message : "Failed to reset password. Please try again." 
+        submit: error instanceof Error ? error.message : "Failed to set password. Please try again." 
       });
     } finally {
       setLoading(false);
@@ -298,19 +298,19 @@ function ResetPasswordContent() {
           <div>
             <div className="mb-5 sm:mb-8">
               <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
-                Reset Password
+                Set Password
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Enter your new password below.
+                Enter your password below.
               </p>
             </div>
 
-            {/* Reset Password Form */}
+            {/* Set Password Form */}
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
                 <div>
                   <Label>
-                    New Password <span className="text-red-500">*</span>
+                    Password <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <InputField 
@@ -405,7 +405,7 @@ function ResetPasswordContent() {
                     ) : (
                       <Lock className="w-5 h-5" />
                     )}
-                    {loading ? "RESETTING..." : "RESET PASSWORD"}
+                    {loading ? "SETTING..." : "SET PASSWORD"}
                   </Button>
 
                   

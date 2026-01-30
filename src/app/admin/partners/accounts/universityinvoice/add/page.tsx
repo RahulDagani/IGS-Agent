@@ -52,7 +52,7 @@ const handleSuccess = () => {
             University Payments
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Manage commission payments for universities
+            Manage invoice payments for universities
           </p>
         </div>
         
@@ -67,7 +67,7 @@ const handleSuccess = () => {
           </div>
           <div className="text-gray-400">→</div>
           <div className={`px-4 py-2 rounded-lg ${currentStep === 'commission-notes' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
-            3. Commission Notes
+            3. Raise Invoice
           </div>
         </div>
       </div>

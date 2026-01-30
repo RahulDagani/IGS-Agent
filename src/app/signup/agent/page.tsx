@@ -1,18 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn, ChevronLeftIcon, Eye, EyeOff } from "lucide-react";
+import { LogIn, ChevronLeftIcon, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
-
-
 interface FormData {
   name: string;
   email: string;
-  password: string;
-  confirmPassword: string;
   phoneNumber: string;
   agreeToTerms: boolean;
 }
@@ -20,8 +16,6 @@ interface FormData {
 interface FormErrors {
   name?: string;
   email?: string;
-  password?: string;
-  confirmPassword?: string;
   phoneNumber?: string;
   agreeToTerms?: string;
   submit?: string;
@@ -105,14 +99,13 @@ const Label = ({ children, required }: { children: React.ReactNode; required?: b
 export default function AgentRegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
-    password: "",
-    confirmPassword: "",
     phoneNumber: "",
     agreeToTerms: false,
   });
@@ -121,21 +114,12 @@ export default function AgentRegisterPage() {
     ? window.location.origin 
     : "";
 
-
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
     if (!formData.name.trim()) newErrors.name = "Name is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email is invalid";
-    
-    if (!formData.password) newErrors.password = "Password is required";
-    if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
     
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = "Phone number is required";
@@ -154,10 +138,9 @@ export default function AgentRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setRegistrationSuccess(false);
 
     if (!validateForm()) return;
-
-
 
     setLoading(true);
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
@@ -171,7 +154,6 @@ export default function AgentRegisterPage() {
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          password: formData.password,
           phone_number: formData.phoneNumber,
           domain: baseDomain,
         }),
@@ -180,26 +162,31 @@ export default function AgentRegisterPage() {
       const data = await response.json();
       
       if (data.success) {
-
         const { user, token } = data.data;
 
-        if(user && token){
-          login(user, token);
-            // Redirect to intended page or partner dashboard
+        if (user && token) {
+          // Check if user is already verified
+          if (user.isVerified) {
+            // If already verified, login and redirect
+            login(user, token);
             router.push('/signup/agent/onboarding/business');
-          
-        }else{  
+          } else {
+            // Show verification email message
+            setRegistrationSuccess(true);
+            setRegisteredEmail(user.email || formData.email);
+            
+            // Optionally store the token for later use after verification
+            // You might want to store this in a temporary storage
+            sessionStorage.setItem('pending_verification_token', token);
+            sessionStorage.setItem('pending_verification_email', formData.email);
+          }
+        } else {
           throw new Error(data.message || "Registration failed");
         }
-        
-      }else{
+      } else {
         throw new Error(data.message || "Registration failed");
       }
-
-      // Redirect to success page or login
-      // router.push("/partner");
     } catch (error) {
-      
       setErrors({ submit: error instanceof Error ? error.message : "Registration failed" });
     } finally {
       setLoading(false);
@@ -219,18 +206,85 @@ export default function AgentRegisterPage() {
     }
   };
 
+  const handleResendVerification = async () => {
+    try {
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      const response = await fetch(`${BASE_URL}/agent/resend-verification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: registeredEmail,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert("Verification email has been resent. Please check your inbox.");
+      } else {
+        alert("Failed to resend verification email. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error resending verification:", error);
+      alert("An error occurred. Please try again.");
+    }
+  };
+
+  // Success Message Component
+  const VerificationSuccessMessage = () => (
+    <div className="p-6 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-800">
+      <div className="flex items-start gap-3">
+        <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <h3 className="font-semibold text-green-800 dark:text-green-300">
+            Check Your Email to Continue!
+          </h3>
+          <p className="mt-2 text-sm text-green-700 dark:text-green-400">
+            We've sent a verification link to <strong>{registeredEmail}</strong>. 
+            Please click the link in the email to verify your account and continue the registration process.
+          </p>
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-green-600 dark:text-green-400">
+              <strong>Next Steps:</strong>
+            </p>
+            <ol className="text-sm text-green-600 dark:text-green-400 space-y-1 ml-4 list-decimal">
+              <li>Check your inbox (and spam folder)</li>
+              <li>Click the verification link in the email</li>
+              <li>Return to this page to complete your business setup</li>
+            </ol>
+          </div>
+          <div className="mt-4 flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleResendVerification}
+              className="px-4 py-2 text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-lg transition-colors dark:text-green-300 dark:bg-green-900/30 dark:hover:bg-green-900/50"
+            >
+              Resend Verification Email
+            </button>
+            <button
+              onClick={() => setRegistrationSuccess(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700"
+            >
+              Back to Registration
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       {/* Left Side - Form Content */}
       <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
         <div className="w-full max-w-md sm:pt-10 mx-auto mb-5 px-4 sm:px-0">
-          <Link
-            href="/"
+          <button
+            onClick={() => router.back()}
             className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
             <ChevronLeftIcon className="w-4 h-4 mr-1" />
-            Back to home
-          </Link>
+            Back
+          </button>
         </div>
 
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
@@ -244,144 +298,115 @@ export default function AgentRegisterPage() {
               </p>
             </div>
 
-            {/* Register Form */}
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-6">
-                <div>
-                  <Label required>Full Name</Label>
-                  <InputField 
-                    type="text"
-                    name="name"
-                    placeholder="Enter your full name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    error={errors.name}
-                  />
-                </div>
-
-                <div>
-                  <Label required>Email</Label>
-                  <InputField 
-                    type="email"
-                    name="email"
-                    placeholder="agent@example.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    error={errors.email}
-                  />
-                </div>
-
-                <div>
-                  <Label required>Phone Number</Label>
-                  <InputField 
-                    type="tel"
-                    name="phoneNumber"
-                    placeholder="+1 (555) 123-4567"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                    error={errors.phoneNumber}
-                  />
-                </div>
-
-                <div>
-                  <Label required>Password</Label>
-                  <div className="relative">
-                    <InputField 
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      placeholder="Enter your password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      error={errors.password}
-                    />
-                    <span
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+            {registrationSuccess ? (
+              <>
+                <VerificationSuccessMessage />
+                <div className="mt-8 text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    After verifying your email, you can{" "}
+                    <Link
+                      href="/signin"
+                      className="text-brand-500 hover:text-brand-600 dark:text-brand-400 font-medium"
                     >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      ) : (
-                        <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <Label required>Confirm Password</Label>
-                  <div className="relative">
-                    <InputField 
-                      type={showConfirmPassword ? "text" : "password"}
-                      name="confirmPassword"
-                      placeholder="Confirm your password"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      error={errors.confirmPassword}
-                    />
-                    <span
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      ) : (
-                        <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Checkbox 
-                    checked={formData.agreeToTerms} 
-                    onChange={(checked) => setFormData(prev => ({ ...prev, agreeToTerms: checked }))}
-                    error={errors.agreeToTerms}
-                  />
-                  <span className="block font-normal text-gray-700 text-sm dark:text-gray-400">
-                    I agree to the{" "}
-                    <Link href="/terms" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link href="/privacy" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
-                      Privacy Policy
+                      sign in here
                     </Link>
-                  </span>
+                  </p>
                 </div>
+              </>
+            ) : (
+              <>
+                {/* Register Form */}
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-6">
+                    <div>
+                      <Label required>Full Name</Label>
+                      <InputField 
+                        type="text"
+                        name="name"
+                        placeholder="Enter your full name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        error={errors.name}
+                      />
+                    </div>
 
-                {errors.submit && (
-                  <div className="p-3 text-sm text-red-500 bg-red-50 rounded-lg dark:bg-red-900/20">
-                    {errors.submit}
-                  </div>
-                )}
+                    <div>
+                      <Label required>Email</Label>
+                      <InputField 
+                        type="email"
+                        name="email"
+                        placeholder="agent@example.com"
+                        value={formData.email}
+                        onChange={handleChange}
+                        error={errors.email}
+                      />
+                    </div>
 
-                <div>
-                  <Button 
-                    size="sm" 
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <LogIn className="w-5 h-5" />
+                    <div>
+                      <Label required>Phone Number</Label>
+                      <InputField 
+                        type="tel"
+                        name="phoneNumber"
+                        placeholder="+1 (555) 123-4567"
+                        value={formData.phoneNumber}
+                        onChange={handleChange}
+                        error={errors.phoneNumber}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Checkbox 
+                        checked={formData.agreeToTerms} 
+                        onChange={(checked) => setFormData(prev => ({ ...prev, agreeToTerms: checked }))}
+                        error={errors.agreeToTerms}
+                      />
+                      <span className="block font-normal text-gray-700 text-sm dark:text-gray-400">
+                        I agree to the{" "}
+                        <Link href="/terms" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                          Terms of Service
+                        </Link>{" "}
+                        and{" "}
+                        <Link href="/privacy" className="text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                          Privacy Policy
+                        </Link>
+                      </span>
+                    </div>
+
+                    {errors.submit && (
+                      <div className="p-3 text-sm text-red-500 bg-red-50 rounded-lg dark:bg-red-900/20">
+                        {errors.submit}
+                      </div>
                     )}
-                    {loading ? "CREATING ACCOUNT..." : "CREATE AGENT ACCOUNT"}
-                  </Button>
-                </div>
-              </div>
-            </form>
 
-            <div className="mt-5">
-              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Already have an account? {""}
-                <Link
-                  href="/signin"
-                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                >
-                  Sign In
-                </Link>
-              </p>
-            </div>
+                    <div>
+                      <Button 
+                        size="sm" 
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <LogIn className="w-5 h-5" />
+                        )}
+                        {loading ? "CREATING ACCOUNT..." : "CREATE AGENT ACCOUNT"}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="mt-5">
+                  <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
+                    Already have an account? {""}
+                    <Link
+                      href="/signin"
+                      className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                    >
+                      Sign In
+                    </Link>
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

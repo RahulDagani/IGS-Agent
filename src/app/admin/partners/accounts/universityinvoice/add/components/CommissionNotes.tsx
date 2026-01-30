@@ -7,13 +7,36 @@ interface CommissionNotesProps {
   applications: Application[];
   universityId: number;
   onBack: () => void;
-  onSuccess: () => void; // Add success callback
+  onSuccess: () => void;
 }
 
 // Define extended type for local state
 interface ExtendedApplicationWithInstallments extends ApplicationWithInstallments {
   newCommissionAmt?: number;
   newInstallmentNo?: number;
+  editableTuitionFee?: string;
+}
+
+// API response interface
+interface ApiApplicationResponse {
+  application_id: number;
+  acknowledgement_no: string;
+  student_name: string;
+  intake_year: number;
+  course_level: string;
+  currency_code: string;
+  tuition_fee: string;
+  generated_intallments: number;
+  no_of_installments: number;
+  commission_type: 'percentage' | 'fixed';
+  tenant_commission: string;
+  installments: Array<{
+    id: number;
+    installment_no: number;
+    commission_amt: string;
+    commissionable_tuition_fee?: string;
+    created_at: string;
+  }>;
 }
 
 const CommissionNotes: React.FC<CommissionNotesProps> = ({
@@ -36,12 +59,11 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
     }
   }, [applications]);
 
-const fetchApplicationNotes = async () => {
+  const fetchApplicationNotes = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Get unique application IDs
       const applicationIds = [...new Set(applications.map(app => app.application_id))];
       const params = new URLSearchParams();
       applicationIds.forEach(id => params.append('application_id', id.toString()));
@@ -63,11 +85,23 @@ const fetchApplicationNotes = async () => {
       const data = await response.json();
       
       if (data.success) {
-        // Initialize with next installment number and no commission amount
-        const appsWithDefaults: ExtendedApplicationWithInstallments[] = (data.data || []).map((app: ApplicationWithInstallments) => ({
-          ...app,
-          newInstallmentNo: app.generated_intallments + 1, // Auto-set next installment
-          newCommissionAmt: undefined // Start with undefined
+        const apiApps = data.data as ApiApplicationResponse[];
+        const appsWithDefaults: ExtendedApplicationWithInstallments[] = apiApps.map((app: ApiApplicationResponse) => ({
+          application_id: app.application_id,
+          acknowledgement_no: app.acknowledgement_no,
+          student_name: app.student_name,
+          intake_year: app.intake_year,
+          course_level: app.course_level,
+          generated_intallments: app.generated_intallments,
+          no_of_installments: app.no_of_installments,
+          tuition_fee: app.tuition_fee,
+          currency_code: app.currency_code,
+          commission_type: app.commission_type,
+          tenant_commission: app.tenant_commission,
+          installments: app.installments,
+          newInstallmentNo: app.generated_intallments + 1,
+          newCommissionAmt: undefined,
+          editableTuitionFee: app.tuition_fee
         }));
         setAppsWithInstallments(appsWithDefaults);
       } else {
@@ -93,10 +127,40 @@ const fetchApplicationNotes = async () => {
     }));
   };
 
+  const handleTuitionFeeChange = (applicationId: number, value: string) => {
+    const sanitizedValue = value.replace(/[^\d.]/g, '');
+    
+    setAppsWithInstallments(prev => prev.map(app => {
+      if (app.application_id === applicationId) {
+        return {
+          ...app,
+          editableTuitionFee: sanitizedValue
+        };
+      }
+      return app;
+    }));
+  };
+
+  const calculateCommissionFromTuitionFee = (app: ExtendedApplicationWithInstallments) => {
+    if (!app.editableTuitionFee || parseFloat(app.editableTuitionFee) <= 0) {
+      return 0;
+    }
+    
+    const tuitionFee = parseFloat(app.editableTuitionFee);
+    const commissionValue = parseFloat(app.tenant_commission || "0");
+    
+    if (app.commission_type === 'percentage') {
+      return (tuitionFee * commissionValue) / 100;
+    } else if (app.commission_type === 'fixed') {
+      return commissionValue;
+    }
+    
+    return 0;
+  };
+
   const validateForm = () => {
     const errors = [];
     
-    // Check if all applications have commission amount
     const appsWithoutCommission = appsWithInstallments.filter(
       app => app.generated_intallments < app.no_of_installments && !app.newCommissionAmt
     );
@@ -105,13 +169,21 @@ const fetchApplicationNotes = async () => {
       errors.push("Please enter commission amount for all applications");
     }
     
-    // Check if commission amount is valid number
     const invalidCommission = appsWithInstallments.filter(
       app => app.newCommissionAmt !== undefined && (isNaN(app.newCommissionAmt) || app.newCommissionAmt <= 0)
     );
     
     if (invalidCommission.length > 0) {
       errors.push("Please enter valid commission amount (greater than 0)");
+    }
+    
+    const invalidTuitionFee = appsWithInstallments.filter(
+      app => app.generated_intallments < app.no_of_installments && 
+             (!app.editableTuitionFee || isNaN(parseFloat(app.editableTuitionFee)) || parseFloat(app.editableTuitionFee) <= 0)
+    );
+    
+    if (invalidTuitionFee.length > 0) {
+      errors.push("Please enter valid tuition fee amount (greater than 0) for all applications");
     }
     
     return errors;
@@ -128,11 +200,11 @@ const fetchApplicationNotes = async () => {
       setSubmitting(true);
       setError(null);
       
-      // Filter applications that can have new notes (installments available)
       const applicationsToSubmit = appsWithInstallments.filter(app => 
         app.generated_intallments < app.no_of_installments && 
         app.newCommissionAmt && 
-        app.newInstallmentNo
+        app.newInstallmentNo &&
+        app.editableTuitionFee
       );
       
       if (applicationsToSubmit.length === 0) {
@@ -140,20 +212,26 @@ const fetchApplicationNotes = async () => {
         return;
       }
       
+      const totalCommissionableTuitionFee = applicationsToSubmit.reduce((sum, app) => 
+        sum + parseFloat(app.editableTuitionFee!), 0
+      );
+      
+      // Get the commission type from the first application
+      const firstAppCommissionType = applicationsToSubmit[0]?.commission_type || 'percentage';
+      
       const payload = {
         university_id: universityId,
-        commission_type: "percentage",
-        commissionable_tuition_fee: applications.reduce((sum, app) => 
-          sum + parseFloat(app.tuition_fee || "0"), 0
-        ),
+        commission_type: firstAppCommissionType,
+        commissionable_tuition_fee: totalCommissionableTuitionFee,
         applications: applicationsToSubmit.map(app => ({
           application_id: app.application_id,
           commission_amt: app.newCommissionAmt!,
-          installment_no: app.newInstallmentNo! // This is auto-set to next installment
+          installment_no: app.newInstallmentNo!,
+          tuition_fee: parseFloat(app.editableTuitionFee!)
         }))
       };
       
-      console.log("Submitting payload:", payload); // For debugging
+      console.log("Submitting payload:", payload);
       
       const response = await fetch(
         `${BASE_URL}/tenant/invoice/note`,
@@ -176,7 +254,6 @@ const fetchApplicationNotes = async () => {
       if (data.success) {
         setSuccess("Commission notes created successfully!");
         
-        // Clear form after successful submission
         setTimeout(() => {
           onSuccess();
         }, 1500);
@@ -199,6 +276,15 @@ const fetchApplicationNotes = async () => {
     }, 0);
   };
 
+  const calculateTotalTuitionFee = () => {
+    return appsWithInstallments.reduce((total, app) => {
+      if (app.editableTuitionFee && app.generated_intallments < app.no_of_installments) {
+        return total + parseFloat(app.editableTuitionFee);
+      }
+      return total;
+    }, 0);
+  };
+
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/[0.05] p-6">
@@ -209,7 +295,6 @@ const fetchApplicationNotes = async () => {
     );
   }
 
-  // Success message
   if (success) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/[0.05] p-6">
@@ -241,10 +326,11 @@ const fetchApplicationNotes = async () => {
   }
 
   const hasPendingChanges = appsWithInstallments.some(
-    app => app.generated_intallments < app.no_of_installments && app.newCommissionAmt
+    app => app.generated_intallments < app.no_of_installments && app.newCommissionAmt && app.editableTuitionFee
   );
 
   const totalCommission = calculateTotalCommission();
+  const totalTuitionFee = calculateTotalTuitionFee();
   const eligibleApplicationsCount = appsWithInstallments.filter(
     app => app.generated_intallments < app.no_of_installments
   ).length;
@@ -271,6 +357,15 @@ const fetchApplicationNotes = async () => {
         </div>
         
         <div className="flex items-center gap-4">
+          {totalTuitionFee > 0 && (
+            <div className="text-right">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Tuition Fee</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                ${totalTuitionFee.toFixed(2)}
+              </p>
+            </div>
+          )}
+          
           {totalCommission > 0 && (
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Commission</p>
@@ -326,6 +421,9 @@ const fetchApplicationNotes = async () => {
           appsWithInstallments.map((app) => {
             const nextInstallmentNo = app.generated_intallments + 1;
             const canAddNote = app.generated_intallments < app.no_of_installments;
+            const commissionType = app.commission_type;
+            const tenantCommission = app.tenant_commission;
+            const calculatedCommission = calculateCommissionFromTuitionFee(app);
             
             return (
               <div
@@ -359,6 +457,22 @@ const fetchApplicationNotes = async () => {
                           <span className="text-gray-500 dark:text-gray-400">Year: </span>
                           <span className="font-medium text-gray-900 dark:text-gray-100">
                             {app.intake_year}
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">Commission Type: </span>
+                          <span className={`font-medium ${
+                            commissionType === 'percentage' 
+                              ? 'text-blue-600 dark:text-blue-400' 
+                              : 'text-green-600 dark:text-green-400'
+                          }`}>
+                            {commissionType.charAt(0).toUpperCase() + commissionType.slice(1)}
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">Commission: </span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            {commissionType === 'percentage' ? `${tenantCommission}%` : `$${parseFloat(tenantCommission).toFixed(2)}`}
                           </span>
                         </div>
                       </div>
@@ -433,8 +547,58 @@ const fetchApplicationNotes = async () => {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Tuition Fee ({app.currency_code})
+                          <span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">{app.currency_code}</span>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Enter tuition fee"
+                            value={app.editableTuitionFee || ''}
+                            onChange={(e) => handleTuitionFeeChange(app.application_id, e.target.value)}
+                            className="w-full pl-12 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Original: {app.currency_code} {app.tuition_fee}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Commission Type
+                        </label>
+                        <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+                          {commissionType.charAt(0).toUpperCase() + commissionType.slice(1)}
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {commissionType === 'percentage' ? `${tenantCommission}% of fee` : `Fixed: $${parseFloat(tenantCommission).toFixed(2)}`}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Calculated Commission
+                        </label>
+                        <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
+                          ${calculatedCommission.toFixed(2)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCommissionChange(app.application_id, calculatedCommission.toString())}
+                          className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Use calculated amount
+                        </button>
+                      </div>
+                      
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Commission Amount ($)
                           <span className="text-red-500 ml-1">*</span>
@@ -447,33 +611,14 @@ const fetchApplicationNotes = async () => {
                             type="number"
                             step="0.01"
                             min="0"
-                            placeholder="Enter commission amount"
+                            placeholder="Enter commission"
                             value={app.newCommissionAmt || ''}
                             onChange={(e) => handleCommissionChange(app.application_id, e.target.value)}
                             className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           />
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Enter the commission amount for installment #{nextInstallmentNo}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Next Installment Number
-                        </label>
-                        <div className="flex items-center">
-                          <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
-                            #{nextInstallmentNo}
-                          </div>
-                          <input
-                            type="hidden"
-                            value={nextInstallmentNo}
-                            onChange={(e) => {/* Auto-set, no manual input */}}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Auto-generated based on previous installments
+                          Installment #{nextInstallmentNo}
                         </p>
                       </div>
                     </div>
@@ -491,7 +636,7 @@ const fetchApplicationNotes = async () => {
         )}
       </div>
 
-      {/* Summary and Submit Section (Fixed at bottom) */}
+      {/* Summary and Submit Section */}
       {eligibleApplicationsCount > 0 && (
         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-white/[0.05]">
           <div className="flex justify-between items-center">
@@ -499,11 +644,16 @@ const fetchApplicationNotes = async () => {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {eligibleApplicationsCount} application(s) eligible for commission notes
               </p>
-              {totalCommission > 0 && (
-                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
-                  Total Commission: ${totalCommission.toFixed(2)}
+              <div className="flex gap-4 mt-1">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Total Tuition Fee: ${totalTuitionFee.toFixed(2)}
                 </p>
-              )}
+                {totalCommission > 0 && (
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Total Commission: ${totalCommission.toFixed(2)}
+                  </p>
+                )}
+              </div>
             </div>
             
             <div className="flex gap-3">

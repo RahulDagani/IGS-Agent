@@ -21,27 +21,27 @@ export interface Application {
 
 export interface Installment {
   id: number;
-  commission_note_id: number;
-  tuition_fee_currency: string;
-  commissionable_tuition_fee: string;
+  installment_no: number;
   commission_amt: string;
-  installment_no: string;
+  commissionable_tuition_fee?: string;
   created_at: string;
 }
 
 export interface ApplicationWithInstallments {
   application_id: number;
-  student_id: number;
   acknowledgement_no: string;
   student_name: string;
-  intake_year: string;
+  intake_year: number;
   course_level: string;
   generated_intallments: number;
   no_of_installments: number;
   installments: Installment[];
-
-   newCommissionAmt?: number;
-  newInstallmentNo?: number;
+  
+  // Add these properties from the API response
+  tuition_fee: string;
+  currency_code: string;
+  commission_type: 'percentage' | 'fixed';
+  tenant_commission: string;
 }
 
 export interface CommissionNoteItem {
