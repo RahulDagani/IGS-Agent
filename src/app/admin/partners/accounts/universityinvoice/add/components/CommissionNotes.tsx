@@ -15,6 +15,7 @@ interface ExtendedApplicationWithInstallments extends ApplicationWithInstallment
   newCommissionAmt?: number;
   newInstallmentNo?: number;
   editableTuitionFee?: string;
+  isCommissionEditable?: boolean;
 }
 
 // API response interface
@@ -86,23 +87,28 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
       
       if (data.success) {
         const apiApps = data.data as ApiApplicationResponse[];
-        const appsWithDefaults: ExtendedApplicationWithInstallments[] = apiApps.map((app: ApiApplicationResponse) => ({
-          application_id: app.application_id,
-          acknowledgement_no: app.acknowledgement_no,
-          student_name: app.student_name,
-          intake_year: app.intake_year,
-          course_level: app.course_level,
-          generated_intallments: app.generated_intallments,
-          no_of_installments: app.no_of_installments,
-          tuition_fee: app.tuition_fee,
-          currency_code: app.currency_code,
-          commission_type: app.commission_type,
-          tenant_commission: app.tenant_commission,
-          installments: app.installments,
-          newInstallmentNo: app.generated_intallments + 1,
-          newCommissionAmt: undefined,
-          editableTuitionFee: app.tuition_fee
-        }));
+        const appsWithDefaults: ExtendedApplicationWithInstallments[] = apiApps.map((app: ApiApplicationResponse) => {
+          const calculatedCommission = calculateCommissionFromTuitionFee(app.tuition_fee, app.commission_type, app.tenant_commission);
+          
+          return {
+            application_id: app.application_id,
+            acknowledgement_no: app.acknowledgement_no,
+            student_name: app.student_name,
+            intake_year: app.intake_year,
+            course_level: app.course_level,
+            generated_intallments: app.generated_intallments,
+            no_of_installments: app.no_of_installments,
+            tuition_fee: app.tuition_fee,
+            currency_code: app.currency_code,
+            commission_type: app.commission_type,
+            tenant_commission: app.tenant_commission,
+            installments: app.installments,
+            newInstallmentNo: app.generated_intallments + 1,
+            newCommissionAmt: calculatedCommission, // Set initial value to calculated commission
+            editableTuitionFee: app.tuition_fee,
+            isCommissionEditable: false // Initially disabled
+          };
+        });
         setAppsWithInstallments(appsWithDefaults);
       } else {
         throw new Error(data.message || "Failed to fetch notes");
@@ -112,6 +118,24 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to calculate commission from tuition fee
+  const calculateCommissionFromTuitionFee = (tuitionFee: string, commissionType: string, tenantCommission: string): number => {
+    if (!tuitionFee || parseFloat(tuitionFee) <= 0) {
+      return 0;
+    }
+    
+    const fee = parseFloat(tuitionFee);
+    const commissionValue = parseFloat(tenantCommission || "0");
+    
+    if (commissionType === 'percentage') {
+      return (fee * commissionValue) / 100;
+    } else if (commissionType === 'fixed') {
+      return commissionValue;
+    }
+    
+    return 0;
   };
 
   const handleCommissionChange = (applicationId: number, value: string) => {
@@ -132,30 +156,47 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
     
     setAppsWithInstallments(prev => prev.map(app => {
       if (app.application_id === applicationId) {
+        const newTuitionFee = sanitizedValue;
+        const calculatedCommission = calculateCommissionFromTuitionFee(
+          newTuitionFee, 
+          app.commission_type, 
+          app.tenant_commission
+        );
+        
         return {
           ...app,
-          editableTuitionFee: sanitizedValue
+          editableTuitionFee: sanitizedValue,
+          newCommissionAmt: !app.isCommissionEditable ? calculatedCommission : app.newCommissionAmt
         };
       }
       return app;
     }));
   };
 
-  const calculateCommissionFromTuitionFee = (app: ExtendedApplicationWithInstallments) => {
-    if (!app.editableTuitionFee || parseFloat(app.editableTuitionFee) <= 0) {
-      return 0;
-    }
-    
-    const tuitionFee = parseFloat(app.editableTuitionFee);
-    const commissionValue = parseFloat(app.tenant_commission || "0");
-    
-    if (app.commission_type === 'percentage') {
-      return (tuitionFee * commissionValue) / 100;
-    } else if (app.commission_type === 'fixed') {
-      return commissionValue;
-    }
-    
-    return 0;
+  const toggleCommissionEdit = (applicationId: number) => {
+    setAppsWithInstallments(prev => prev.map(app => {
+      if (app.application_id === applicationId) {
+        const isEditable = !app.isCommissionEditable;
+        
+        // When enabling edit, keep the current value
+        // When disabling edit, recalculate commission based on tuition fee
+        let newCommissionAmt = app.newCommissionAmt;
+        if (!isEditable && app.editableTuitionFee) {
+          newCommissionAmt = calculateCommissionFromTuitionFee(
+            app.editableTuitionFee, 
+            app.commission_type, 
+            app.tenant_commission
+          );
+        }
+        
+        return {
+          ...app,
+          isCommissionEditable: isEditable,
+          newCommissionAmt: newCommissionAmt
+        };
+      }
+      return app;
+    }));
   };
 
   const validateForm = () => {
@@ -208,7 +249,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
       );
       
       if (applicationsToSubmit.length === 0) {
-        setError("No applications available for commission notes");
+        setError("No applications available for Invoice Notes");
         return;
       }
       
@@ -252,7 +293,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
       }
       
       if (data.success) {
-        setSuccess("Commission notes created successfully!");
+        setSuccess("Invoice Notes created successfully!");
         
         setTimeout(() => {
           onSuccess();
@@ -309,7 +350,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
           <div className="mt-4 flex gap-2">
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              className="px-4 py-2 bg-blue-600 text-white  rounded-lg hover:bg-blue-700 transition-colors text-sm"
             >
               Back to Applications
             </button>
@@ -342,16 +383,16 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-gray-500 dark:text-gray-400"
           >
             ← Back to Applications
           </button>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              Commission Notes
+              Invoice Notes
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {eligibleApplicationsCount} application(s) eligible for new commission notes
+              {eligibleApplicationsCount} application(s) eligible for new Invoice Notes
             </p>
           </div>
         </div>
@@ -361,7 +402,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Tuition Fee</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                ${totalTuitionFee.toFixed(2)}
+                {totalTuitionFee.toFixed(2)}
               </p>
             </div>
           )}
@@ -370,7 +411,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Commission</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                ${totalCommission.toFixed(2)}
+                {totalCommission.toFixed(2)}
               </p>
             </div>
           )}
@@ -392,7 +433,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                 Submitting...
               </div>
             ) : (
-              'Submit Notes'
+              'Create Invoice Notes'
             )}
           </button>
         </div>
@@ -423,7 +464,6 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
             const canAddNote = app.generated_intallments < app.no_of_installments;
             const commissionType = app.commission_type;
             const tenantCommission = app.tenant_commission;
-            const calculatedCommission = calculateCommissionFromTuitionFee(app);
             
             return (
               <div
@@ -472,7 +512,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                         <div className="text-sm">
                           <span className="text-gray-500 dark:text-gray-400">Commission: </span>
                           <span className="font-medium text-gray-900 dark:text-gray-100">
-                            {commissionType === 'percentage' ? `${tenantCommission}%` : `$${parseFloat(tenantCommission).toFixed(2)}`}
+                            {commissionType === 'percentage' ? `${tenantCommission}%` : `${parseFloat(tenantCommission).toFixed(2)}`}
                           </span>
                         </div>
                       </div>
@@ -500,7 +540,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                 {app.installments && app.installments.length > 0 && (
                   <div className="mb-4">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Previous Commission Notes
+                      Previous Invoice Notes
                     </h4>
                     <div className="space-y-2">
                       {app.installments.map((installment) => (
@@ -518,11 +558,11 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                           </div>
                           <div className="text-right">
                             <div className="font-semibold text-gray-900 dark:text-gray-100">
-                              ${parseFloat(installment.commission_amt).toFixed(2)}
+                              {parseFloat(installment.commission_amt).toFixed(2)}
                             </div>
                             {installment.commissionable_tuition_fee && (
                               <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Fee: ${installment.commissionable_tuition_fee}
+                                Fee: {installment.commissionable_tuition_fee}
                               </div>
                             )}
                           </div>
@@ -537,7 +577,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                   <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Add New Commission Note
+                        Add New Invoice Note
                       </h4>
                       <div className="text-sm">
                         <span className="text-gray-500 dark:text-gray-400">Installment: </span>
@@ -578,47 +618,52 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                           {commissionType.charAt(0).toUpperCase() + commissionType.slice(1)}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {commissionType === 'percentage' ? `${tenantCommission}% of fee` : `Fixed: $${parseFloat(tenantCommission).toFixed(2)}`}
+                          {commissionType === 'percentage' ? `${tenantCommission}% of fee` : `Fixed: ${parseFloat(tenantCommission).toFixed(2)}`}
                         </p>
                       </div>
                       
-                      <div>
+                      <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Calculated Commission
-                        </label>
-                        <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
-                          ${calculatedCommission.toFixed(2)}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCommissionChange(app.application_id, calculatedCommission.toString())}
-                          className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          Use calculated amount
-                        </button>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Commission Amount ($)
+                          Commission Amount 
                           <span className="text-red-500 ml-1">*</span>
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span className="text-gray-500">$</span>
+                        <div className="flex gap-2">
+                          <div className="flex-1 relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500">{app.currency_code}</span>
+                            </div>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Enter commission"
+                              value={app.newCommissionAmt || ''}
+                              onChange={(e) => handleCommissionChange(app.application_id, e.target.value)}
+                              disabled={!app.isCommissionEditable}
+                              className={`w-full pl-12 pr-3 py-2 border rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                app.isCommissionEditable
+                                  ? 'border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800'
+                                  : 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900'
+                              }`}
+                            />
                           </div>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Enter commission"
-                            value={app.newCommissionAmt || ''}
-                            onChange={(e) => handleCommissionChange(app.application_id, e.target.value)}
-                            className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleCommissionEdit(app.application_id)}
+                            className={`px-4 py-2 border rounded-lg transition-colors ${
+                              app.isCommissionEditable
+                                ? 'bg-green-600 hover:bg-green-700 border-green-600 text-white'
+                                : 'bg-blue-600 hover:bg-blue-700 border-blue-600 text-white'
+                            }`}
+                          >
+                            {app.isCommissionEditable ? 'Save' : 'Edit'}
+                          </button>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Installment #{nextInstallmentNo}
+                          {app.isCommissionEditable 
+                            ? 'Edit mode enabled - you can modify the commission amount'
+                            : 'Commission is calculated based on original tuition fee. Click Edit to modify.'
+                          }
                         </p>
                       </div>
                     </div>
@@ -642,15 +687,15 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {eligibleApplicationsCount} application(s) eligible for commission notes
+                {eligibleApplicationsCount} application(s) eligible for Invoice Notes
               </p>
               <div className="flex gap-4 mt-1">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Total Tuition Fee: ${totalTuitionFee.toFixed(2)}
+                  Total Tuition Fee: {totalTuitionFee.toFixed(2)}
                 </p>
                 {totalCommission > 0 && (
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Total Commission: ${totalCommission.toFixed(2)}
+                    Total Commission: {totalCommission.toFixed(2)}
                   </p>
                 )}
               </div>
@@ -681,7 +726,7 @@ const CommissionNotes: React.FC<CommissionNotesProps> = ({
                     Creating Notes...
                   </div>
                 ) : (
-                  'Create Commission Notes'
+                  'Create Invoice Notes'
                 )}
               </button>
             </div>
