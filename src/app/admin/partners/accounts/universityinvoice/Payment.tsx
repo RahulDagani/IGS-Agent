@@ -7,9 +7,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import { ChevronLeft, ChevronRight, Send, Search } from "lucide-react";
 import Link from "next/link";
 
-interface CommissionNote {
-  commission_note_id?: number;
-  commission_note_number: string;
+interface InvoiceNote {
+  invoice_note_id?: number;
+  invoice_note_number: string;
   status: string;
   company: string;
   commission_amount: string;
@@ -17,8 +17,8 @@ interface CommissionNote {
   updated_at: string;
 }
 
-interface CommissionNoteDetail {
-  commission_note_number: string;
+interface InvoiceNoteDetail {
+  invoice_note_number: string;
   status: string;
   company: string;
   commission_amount: string;
@@ -27,7 +27,6 @@ interface CommissionNoteDetail {
   date_received_on: string;
   date_of_payment: string;
   last_updated_on: string;
-  agent_id: string;
   comments: Comment[];
 }
 
@@ -40,9 +39,7 @@ interface Comment {
 
 interface ApiComment {
   id: number;
-  tenant_id: number;
-  agent_id: number;
-  commission_note_id: number;
+  invoice_note_id: number;
   comment: string;
   who_has_created: string;
   created_by: number;
@@ -56,7 +53,7 @@ interface ApiComment {
   created_by_email: string | null;
 }
 
-type SortField = keyof CommissionNote | "";
+type SortField = keyof InvoiceNote | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
@@ -66,13 +63,6 @@ interface FilterOptions {
   invoiceNoteNumber: string;
   studentSearch: string;
   acknowledgementNo: string;
-  agentId: string | null;
-}
-
-interface Agent {
-  agent_id: number;
-  name: string | null;
-  email: string;
 }
 
 interface University {
@@ -88,8 +78,8 @@ interface Pagination {
 }
 
 export default function PaymentsTable() {
-  const [notes, setNotes] = useState<CommissionNote[]>([]);
-  const [activeNoteDetail, setActiveNoteDetail] = useState<CommissionNoteDetail | null>(null);
+  const [notes, setNotes] = useState<InvoiceNote[]>([]);
+  const [activeNoteDetail, setActiveNoteDetail] = useState<InvoiceNoteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notesLoading, setNotesLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -97,7 +87,6 @@ export default function PaymentsTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [agents, setAgents] = useState<Agent[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -118,7 +107,6 @@ export default function PaymentsTable() {
     invoiceNoteNumber: "",
     studentSearch: "",
     acknowledgementNo: "",
-    agentId: null,
   });
 
   const [appliedFilters, setAppliedFilters] = useState<FilterOptions>(filters);
@@ -127,40 +115,11 @@ export default function PaymentsTable() {
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-  // Fetch agents
-  const fetchAgents = useCallback(async () => {
+  // Fetch universities
+  const fetchUniversities = useCallback(async () => {
     try {
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/agents`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch agents: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setAgents(data.data || []);
-      } else {
-        throw new Error(data.message || "Failed to fetch agents");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    }
-  }, [BASE_URL, token]);
-
-  // Fetch universities based on selected agent
-  const fetchUniversities = useCallback(async (agentId: string) => {
-    try {
-      const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/universities?agent_id=${agentId}`,
+        `${BASE_URL}/tenant/invoice/universities`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -186,8 +145,8 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token]);
 
-  // Fetch commission notes
-  const fetchCommissionNotes = useCallback(async (page = 1, filterOptions = appliedFilters) => {
+  // Fetch Invoice notes
+  const fetchInvoiceNotes = useCallback(async (page = 1, filterOptions = appliedFilters) => {
     try {
       setNotesLoading(true);
       
@@ -201,12 +160,8 @@ export default function PaymentsTable() {
         params.append('status', 'commission_payment_done');
       }
       
-      if (filterOptions.agentId) {
-        params.append('agent_id', filterOptions.agentId);
-      }
-      
       if (filterOptions.invoiceNoteNumber) {
-        params.append('commission_note_number', filterOptions.invoiceNoteNumber);
+        params.append('invoice_note_number', filterOptions.invoiceNoteNumber);
       }
       
       if (filterOptions.status.length > 0) {
@@ -237,7 +192,7 @@ export default function PaymentsTable() {
       params.append('limit', pagination.limit.toString());
       
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/notes?${params.toString()}`,
+        `${BASE_URL}/tenant/invoice/notes?${params.toString()}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -253,7 +208,7 @@ export default function PaymentsTable() {
       const data = await response.json();
       
       if (data.success) {
-        const notesWithId = data.data.map((note: CommissionNote, index: number) => ({
+        const notesWithId = data.data.map((note: InvoiceNote, index: number) => ({
           ...note,
           id: index + 1
         }));
@@ -268,10 +223,10 @@ export default function PaymentsTable() {
         
         // Set first note as active if available
         if (notesWithId.length > 0 && !activeNoteId) {
-          setActiveNoteId(notesWithId[0].commission_note_id || null);
+          setActiveNoteId(notesWithId[0].invoice_note_id || null);
         }
       } else {
-        throw new Error(data.message || "Failed to fetch commission notes");
+        throw new Error(data.message || "Failed to fetch Invoice notes");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -280,13 +235,13 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token, active, pagination.limit, activeNoteId, appliedFilters]);
 
-  // Fetch commission note details
-  const fetchCommissionNoteDetail = useCallback(async (noteId: number) => {
+  // Fetch Invoice note details
+  const fetchInvoiceNoteDetail = useCallback(async (noteId: number) => {
     try {
       setDetailLoading(true);
       
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/notes/${noteId}`,
+        `${BASE_URL}/tenant/invoice/notes/${noteId}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -315,11 +270,11 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token]);
 
-  // Fetch comments for a commission note
+  // Fetch comments for a Invoice note
   const fetchComments = useCallback(async (noteId: number) => {
     try {
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/comments/${noteId}`,
+        `${BASE_URL}/tenant/invoice/comments/${noteId}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -368,24 +323,9 @@ export default function PaymentsTable() {
     try {
       setPostingComment(true);
       
-      // Find agent_id from the active note detail or filters
-      // let agentId: number | null = null;
-      
- 
-      // If not in filters, try to find from agents list
-      // if (activeNoteDetail.company) {
-      //   const agent = agents.find(a => a.name === activeNoteDetail.company || a.email === activeNoteDetail.company);
-      //   if (agent) {
-      //     agentId = agent.agent_id;
-      //   }
-      // }
-      
-      // if (!agentId) {
-      //   throw new Error("Agent ID is required to post a comment");
-      // }
       
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/comments/${noteId}`,
+        `${BASE_URL}/tenant/invoice/comments/${noteId}`,
         {
           method: 'POST',
           headers: {
@@ -393,8 +333,7 @@ export default function PaymentsTable() {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            comment: comment.trim(),
-            agent_id: activeNoteDetail.agent_id || null
+            comment: comment.trim()
           })
         }
       );
@@ -419,7 +358,7 @@ export default function PaymentsTable() {
     } finally {
       setPostingComment(false);
     }
-  }, [BASE_URL, token, activeNoteDetail, filters.agentId, agents, fetchComments]);
+  }, [BASE_URL, token, activeNoteDetail, fetchComments]);
 
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
@@ -429,16 +368,6 @@ export default function PaymentsTable() {
         [filterType]: value
       };
       
-      // If agent is changed, reset universities and fetch new ones
-      if (filterType === 'agentId') {
-        if (value) {
-          fetchUniversities(value);
-          newFilters.universities = [];
-        } else {
-          setUniversities([]);
-        }
-      }
-      
       return newFilters;
     });
   };
@@ -447,7 +376,7 @@ export default function PaymentsTable() {
   const handleSearch = () => {
     setAppliedFilters(filters);
     setDatePickerKey(prev => prev + 1);
-    fetchCommissionNotes(1, filters);
+    fetchInvoiceNotes(1, filters);
   };
 
   // Clear all filters
@@ -458,27 +387,26 @@ export default function PaymentsTable() {
       status: [],
       invoiceNoteNumber: "",
       studentSearch: "",
-      acknowledgementNo: "",
-      agentId: null,
+      acknowledgementNo: ""
     };
     
     setFilters(clearedFilters);
     setAppliedFilters(clearedFilters);
     setDatePickerKey(prev => prev + 1);
     setUniversities([]);
-    fetchCommissionNotes(1, clearedFilters);
+    fetchInvoiceNotes(1, clearedFilters);
   };
 
   // Handle note click
   const handleNoteClick = (noteId: number) => {
     setActiveNoteId(noteId);
-    fetchCommissionNoteDetail(noteId);
+    fetchInvoiceNoteDetail(noteId);
   };
 
   // Handle page change
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= pagination.pages) {
-      fetchCommissionNotes(newPage);
+      fetchInvoiceNotes(newPage);
     }
   };
 
@@ -547,7 +475,7 @@ export default function PaymentsTable() {
     { value: "invoice_uploaded", label: "Invoice Uploaded" },
     { value: "revisions_in_invoice_needed", label: "Revisions In Invoice Needed" },
     { value: "invoice_uploaded_after_corrections", label: "Invoice Uploaded After Corrections" },
-    { value: "revision_in_cn_needed", label: "Revision In CN Needed" },
+    { value: "revision_in_in_needed", label: "Revision In IN Needed" },
     { value: "commission_payment_done", label: "Commission Payment Done" },
   ];
 
@@ -555,25 +483,25 @@ export default function PaymentsTable() {
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
-      await fetchAgents();
-      await fetchCommissionNotes();
+      await fetchUniversities();
+      await fetchInvoiceNotes();
       setLoading(false);
     };
     
     fetchInitialData();
-  }, [fetchAgents, fetchCommissionNotes]);
+  }, [fetchUniversities, fetchInvoiceNotes]);
 
   // Fetch detail when active note changes
   useEffect(() => {
     if (activeNoteId) {
-      fetchCommissionNoteDetail(activeNoteId);
+      fetchInvoiceNoteDetail(activeNoteId);
     }
-  }, [activeNoteId, fetchCommissionNoteDetail]);
+  }, [activeNoteId, fetchInvoiceNoteDetail]);
 
   // Refresh notes when active tab changes
   useEffect(() => {
-    fetchCommissionNotes(1);
-  }, [active, fetchCommissionNotes]);
+    fetchInvoiceNotes(1);
+  }, [active, fetchInvoiceNotes]);
 
   // Custom styles for react-select
   const customSelectStyles = {
@@ -732,7 +660,7 @@ export default function PaymentsTable() {
         <div className="MSL-Searchform bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             
-            {/* Commission Note Number */}
+            {/* Invoice note Number */}
             <div className="SF-Keyword">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -774,35 +702,6 @@ export default function PaymentsTable() {
               </div>
             </div>
 
-            {/* Agent Select */}
-            <div className="SF-University all-countries">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Agent
-                </label>
-                <Select
-                  key={filters.agentId}
-                  options={agents.map(agent => ({
-                    value: agent.agent_id.toString(),
-                    label: agent.name || agent.email
-                  }))}
-                  value={agents
-                    .filter(agent => agent.agent_id.toString() === filters.agentId)
-                    .map(agent => ({
-                      value: agent.agent_id.toString(),
-                      label: agent.name || agent.email
-                    }))[0]}
-                  onChange={(selectedOption) => {
-                    handleFilterChange('agentId', selectedOption?.value || null);
-                  }}
-                  placeholder="Select agent"
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={darkSelectStyles}
-                />
-              </div>
-            </div>
-
             {/* University Multi-select */}
             <div className="SF-University all-countries">
               <div className="form-group">
@@ -810,7 +709,7 @@ export default function PaymentsTable() {
                   University
                 </label>
                 <Select
-                  key={JSON.stringify([filters.universities, filters.agentId])}
+                  key={JSON.stringify([filters.universities])}
                   isMulti
                   options={universities.map(univ => ({
                     value: univ.university_id.toString(),
@@ -827,8 +726,7 @@ export default function PaymentsTable() {
                       selectedOptions ? selectedOptions.map(option => option.value) : []
                     );
                   }}
-                  placeholder={filters.agentId ? "Select universities" : "Select agent first"}
-                  isDisabled={!filters.agentId}
+                  placeholder={"Select universities"}
                   className="react-select-container"
                   classNamePrefix="react-select"
                   styles={darkSelectStyles}
@@ -932,26 +830,26 @@ export default function PaymentsTable() {
                     </div>
                   ) : notes.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      No commission notes found
+                      No Invoice notes found
                     </div>
                   ) : (
                     <>
                       {notes.map((note) => (
                         <div 
-                          key={note.commission_note_number}
+                          key={note.invoice_note_number}
                           className={`rounded-xl p-4 space-y-2 mb-0 relative cursor-pointer transition-all ${
-                            activeNoteId === note.commission_note_id 
+                            activeNoteId === note.invoice_note_id 
                               ? 'border-l-4 border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500' 
                               : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-transparent'
                           }`}
-                          onClick={() => handleNoteClick(note.commission_note_id!)}
+                          onClick={() => handleNoteClick(note.invoice_note_id!)}
                         >
                           <span className={`absolute top-4 right-4 text-xs px-3 py-1 rounded-full ${getStatusColor(note.status)}`}>
                             {note.status}
                           </span>
 
                           <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                            {note.commission_note_number}
+                            {note.invoice_note_number}
                           </h3>
 
                           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1016,7 +914,7 @@ export default function PaymentsTable() {
                             ...prev,
                             limit: newLimit
                           }));
-                          fetchCommissionNotes(1);
+                          fetchInvoiceNotes(1);
                         }}
                       >
                         <option value="10">10/page</option>
@@ -1040,7 +938,7 @@ export default function PaymentsTable() {
                       <div className="flex justify-between items-start border-b border-gray-200 dark:border-white/[0.05] pb-4">
                         <div className="space-y-2">
                           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                            {activeNoteDetail.commission_note_number}
+                            {activeNoteDetail.invoice_note_number}
                           </h2>
 
                           <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1154,7 +1052,7 @@ export default function PaymentsTable() {
                     </>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-                      <p>Select a commission note to view details</p>
+                      <p>Select a Invoice note to view details</p>
                     </div>
                   )}
                 </div>
@@ -1166,7 +1064,7 @@ export default function PaymentsTable() {
         {/* Results Count and Pagination */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Showing {notes.length} of {pagination.total} commission notes
+            Showing {notes.length} of {pagination.total} Invoice notes
           </div>
           
           {/* Pagination */}
