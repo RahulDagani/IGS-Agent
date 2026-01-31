@@ -8,22 +8,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
-import { Edit, Trash, Plus, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit, Trash, Plus, Users, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface CollaborationType {
   id: number;
   name: string;
   slug: string;
-}
-
-interface PaginationInfo {
-  total: number;
-  per_page: number;
-  current_page: number;
-  last_page: number;
-  from: number;
-  to: number;
 }
 
 interface ApiResponse {
@@ -33,16 +24,21 @@ interface ApiResponse {
   limit: number;
   page: number;
   totalPages: number;
-  
-
+  message?: string;
 }
 
 interface AddEditCollaborationTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (typeData: { name: string }) => void;
+  onSave: (typeData: { name: string }) => Promise<void>;
   mode: "add" | "edit";
   initialData?: CollaborationType;
+}
+
+interface AlertMessage {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
 }
 
 const AddEditCollaborationTypeModal: React.FC<AddEditCollaborationTypeModalProps> = ({
@@ -56,6 +52,7 @@ const AddEditCollaborationTypeModal: React.FC<AddEditCollaborationTypeModalProps
     name: initialData?.name || "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (initialData) {
@@ -67,18 +64,24 @@ const AddEditCollaborationTypeModal: React.FC<AddEditCollaborationTypeModalProps
         name: "",
       });
     }
-  }, [initialData]);
+    setError(null); // Clear error when modal opens
+  }, [initialData, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (!formData.name.trim()) {
+      setError("Collaboration type name is required");
+      return;
+    }
 
     setIsSubmitting(true);
+    setError(null);
+    
     try {
       await onSave(formData);
       onClose();
-    } catch (error) {
-      console.error('Error saving collaboration type:', error);
+    } catch (error: any) {
+      setError(error.message || "Failed to save collaboration type");
     } finally {
       setIsSubmitting(false);
     }
@@ -88,6 +91,7 @@ const AddEditCollaborationTypeModal: React.FC<AddEditCollaborationTypeModalProps
     setFormData({
       name: initialData?.name || "",
     });
+    setError(null);
     onClose();
   };
 
@@ -104,13 +108,23 @@ const AddEditCollaborationTypeModal: React.FC<AddEditCollaborationTypeModalProps
             onClick={handleClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800/50">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-500 dark:text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm text-red-700 dark:text-red-300">{error}</span>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             {/* Collaboration Type Name */}
             <div>
@@ -125,7 +139,10 @@ const AddEditCollaborationTypeModal: React.FC<AddEditCollaborationTypeModalProps
                   type="text"
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, name: e.target.value }));
+                    setError(null); // Clear error on input change
+                  }}
                   placeholder="e.g., International, National, Industry"
                   required
                   className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
@@ -181,6 +198,7 @@ export default function CollaborationTypesTable() {
   const [collaborationTypes, setCollaborationTypes] = useState<CollaborationType[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<AlertMessage[]>([]);
   const {token} = useAuth();
 
   // Pagination state
@@ -188,6 +206,23 @@ export default function CollaborationTypesTable() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalItems, setTotalItems] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
+
+  // Function to add alert
+  const addAlert = (type: 'success' | 'error' | 'info', message: string) => {
+    const id = Date.now().toString();
+    const newAlert: AlertMessage = { id, type, message };
+    setAlerts(prev => [newAlert, ...prev]);
+    
+    // Auto remove alert after 5 seconds
+    setTimeout(() => {
+      removeAlert(id);
+    }, 5000);
+  };
+
+  // Function to remove alert
+  const removeAlert = (id: string) => {
+    setAlerts(prev => prev.filter(alert => alert.id !== id));
+  };
 
   // Fetch collaboration types from API with pagination
   const fetchCollaborationTypes = async (page: number = 1, limit: number = itemsPerPage) => {
@@ -333,21 +368,21 @@ export default function CollaborationTypesTable() {
         body: JSON.stringify(typeData),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to add collaboration type: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       
-      if (result.success) {
+      if (response.ok && result.success) {
         // Refresh the collaboration types list
         await fetchCollaborationTypes(currentPage, itemsPerPage);
+        addAlert('success', 'Collaboration type added successfully!');
       } else {
-        throw new Error('Failed to add collaboration type');
+        // Handle API error
+        const errorMessage = result.message || `Failed to add collaboration type: ${response.status}`;
+        throw new Error(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding collaboration type:', error);
-      throw error;
+      addAlert('error', error.message || 'Failed to add collaboration type');
+      throw error; // Re-throw to handle in modal
     }
   };
 
@@ -364,22 +399,22 @@ export default function CollaborationTypesTable() {
         body: JSON.stringify(typeData),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to update collaboration type: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       
-      if (result.success) {
+      if (response.ok && result.success) {
         // Refresh the collaboration types list
         await fetchCollaborationTypes(currentPage, itemsPerPage);
         setSelectedType(null);
+        addAlert('success', 'Collaboration type updated successfully!');
       } else {
-        throw new Error('Failed to update collaboration type');
+        // Handle API error
+        const errorMessage = result.message || `Failed to update collaboration type: ${response.status}`;
+        throw new Error(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating collaboration type:', error);
-      throw error;
+      addAlert('error', error.message || 'Failed to update collaboration type');
+      throw error; // Re-throw to handle in modal
     }
   };
 
@@ -393,21 +428,26 @@ export default function CollaborationTypesTable() {
           },
         });
 
-        if (!response.ok) {
-          throw new Error(`Failed to delete collaboration type: ${response.status}`);
-        }
-
-        const result = await response.json();
+        const result: ApiResponse = await response.json();
         
-        if (result.success) {
+        if (response.ok && result.success) {
           // Refresh the collaboration types list
           await fetchCollaborationTypes(currentPage, itemsPerPage);
+          addAlert('success', 'Collaboration type deleted successfully!');
         } else {
-          throw new Error('Failed to delete collaboration type');
+          // Handle specific 409 Conflict error
+          if (response.status === 409) {
+            const errorMessage = result.message || "This Collaboration Type is already used in universities. Please update universities first.";
+            addAlert('error', errorMessage);
+          } else {
+            // Handle other API errors
+            const errorMessage = result.message || `Failed to delete collaboration type: ${response.status}`;
+            addAlert('error', errorMessage);
+          }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting collaboration type:', error);
-        alert('Failed to delete collaboration type. Please try again.');
+        addAlert('error', 'Failed to delete collaboration type. Please try again.');
       }
     }
   };
@@ -460,6 +500,52 @@ export default function CollaborationTypesTable() {
     return pages;
   };
 
+  // Alert component
+  const AlertDisplay = () => (
+    <div className=" z-50 space-y-2 w-full">
+      {alerts.map((alert) => (
+        <div
+          key={alert.id}
+          className={`p-4 rounded-lg shadow-lg border flex items-start gap-3 ${
+            alert.type === 'success'
+              ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800/50'
+              : alert.type === 'error'
+              ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800/50'
+              : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50'
+          }`}
+        >
+          {alert.type === 'success' && (
+            <svg className="w-5 h-5 text-green-500 dark:text-green-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          {alert.type === 'error' && (
+            <svg className="w-5 h-5 text-red-500 dark:text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          <div className="flex-1">
+            <p className={`text-sm font-medium ${
+              alert.type === 'success'
+                ? 'text-green-800 dark:text-green-300'
+                : alert.type === 'error'
+                ? 'text-red-800 dark:text-red-300'
+                : 'text-blue-800 dark:text-blue-300'
+            }`}>
+              {alert.message}
+            </p>
+          </div>
+          <button
+            onClick={() => removeAlert(alert.id)}
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+
   if (isLoading && collaborationTypes.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -492,238 +578,259 @@ export default function CollaborationTypesTable() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Search, Add, and Pagination Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        {/* Search Input */}
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by type name or slug..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+    <>
+      <AlertDisplay />
+      <div className="space-y-4">
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Types</div>
+            <div className="text-2xl font-bold text-gray-800 dark:text-white">
+              {totalItems}
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+            <div className="text-sm text-gray-500 dark:text-gray-400">Current Page</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {currentPage}
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+            <div className="text-sm text-gray-500 dark:text-gray-400">Showing</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {collaborationTypes.length} / {itemsPerPage}
             </div>
           </div>
         </div>
 
-        {/* Items per page and Add Button */}
-        <div className="flex items-center gap-3">
-          {/* <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
-            <select
-              value={itemsPerPage}
-              onChange={handleItemsPerPageChange}
-              className="dark:bg-dark-900 h-11 rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
-            >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-            </select>
+        {/* Search, Add, and Pagination Controls */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+          {/* Search Input */}
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by type name or slug..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+            </div>
           </div>
-           */}
-          <button
-            onClick={handleAddClick}
-            className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Add Type
-          </button>
+
+          {/* Items per page and Add Button */}
+          <div className="flex items-center gap-3">
+            {/* Items Per Page Selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">Show:</label>
+              <select
+                value={itemsPerPage}
+                onChange={handleItemsPerPageChange}
+                className="dark:bg-dark-900 h-11 rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            
+            <button
+              onClick={handleAddClick}
+              className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Add Type
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[600px]">
-            <Table>
-              {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                <TableRow>
-                  {[
-                    // { key: "id", label: "ID" },
-                    { key: "name", label: "Collaboration Type" },
-                    { key: "slug", label: "Slug" },
-                    { key: "action", label: "Action" },
-                  ].map(({ key, label }) => (
-                    <TableCell
-                      key={key}
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => key !== "action" ? handleSort(key as keyof CollaborationType) : undefined}
-                    >
-                      <div className="flex items-center gap-1">
-                        {label}
-                        {key !== "action" && (
-                          <span className="text-xs">{getSortIcon(key as keyof CollaborationType)}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHeader>
-
-              {/* Table Body */}
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((type) => (
-                    <TableRow key={type.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      {/* <TableCell className="px-5 py-4 text-start">
-                        <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          #{type.id}
+        {/* Table */}
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <div className="max-w-full overflow-x-auto">
+            <div className="min-w-[600px]">
+              <Table>
+                {/* Table Header */}
+                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                  <TableRow>
+                    {[
+                      { key: "name", label: "Collaboration Type" },
+                      { key: "slug", label: "Slug" },
+                      { key: "action", label: "Action" },
+                    ].map(({ key, label }) => (
+                      <TableCell
+                        key={key}
+                        isHeader
+                        className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                        onClick={() => key !== "action" ? handleSort(key as keyof CollaborationType) : undefined}
+                      >
+                        <div className="flex items-center gap-1">
+                          {label}
+                          {key !== "action" && (
+                            <span className="text-xs">{getSortIcon(key as keyof CollaborationType)}</span>
+                          )}
                         </div>
-                      </TableCell> */}
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                            <Users size={16} className="text-gray-600 dark:text-gray-400" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+
+                {/* Table Body */}
+                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {filteredAndSortedData.length > 0 ? (
+                    filteredAndSortedData.map((type) => (
+                      <TableRow key={type.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                              <Users size={16} className="text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                              {type.name}
+                            </span>
                           </div>
-                          <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {type.name}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getTypeColor(type.slug)}
-                        >
-                          {type.slug}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEditClick(type)}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            title="Edit Collaboration Type"
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <Badge
+                            size="sm"
+                            color={getTypeColor(type.slug)}
                           >
-                            <Edit size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(type.id)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                            title="Delete Collaboration Type"
-                          >
-                            <Trash size={18} />
-                          </button>
-                        </div>
+                            {type.slug}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEditClick(type)}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                              title="Edit Collaboration Type"
+                            >
+                              <Edit size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(type.id)}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                              title="Delete Collaboration Type"
+                            >
+                              <Trash size={18} />
+                            </button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
+                      >
+                        {searchTerm ? "No collaboration types found matching your search." : "No collaboration types available."}
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
-                    >
-                      {searchTerm ? "No collaboration types found matching your search." : "No collaboration types available."}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Results Count */}
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {filteredAndSortedData.length} of {totalItems} collaboration types
-          {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
-        </div>
-
-        {/* Pagination Buttons */}
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              <ChevronLeft size={16} />
-              Previous
-            </button>
-
-            {/* Page Numbers */}
-            <div className="flex items-center gap-1">
-              {getPageNumbers().map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg ${
-                    currentPage === page
-                      ? 'bg-brand-500 text-white'
-                      : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              
-              {totalPages > getPageNumbers().length && currentPage < totalPages - 2 && (
-                <>
-                  <span className="px-2 text-gray-500">...</span>
-                  <button
-                    onClick={() => handlePageChange(totalPages)}
-                    className="w-10 h-10 flex items-center justify-center text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                  >
-                    {totalPages}
-                  </button>
-                </>
-              )}
+                  )}
+                </TableBody>
+              </Table>
             </div>
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Next
-              <ChevronRight size={16} />
-            </button>
           </div>
-        )}
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Results Count */}
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Showing {filteredAndSortedData.length} of {totalItems} collaboration types
+            {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+          </div>
+
+          {/* Pagination Buttons */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg ${
+                      currentPage === page
+                        ? 'bg-brand-500 text-white'
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                
+                {totalPages > getPageNumbers().length && currentPage < totalPages - 2 && (
+                  <>
+                    <span className="px-2 text-gray-500">...</span>
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      className="w-10 h-10 flex items-center justify-center text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Add Modal */}
+        <AddEditCollaborationTypeModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={handleAddType}
+          mode="add"
+        />
+
+        {/* Edit Modal */}
+        <AddEditCollaborationTypeModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedType(null);
+          }}
+          onSave={handleEditType}
+          mode="edit"
+          initialData={selectedType || undefined}
+        />
       </div>
-
-      {/* Add Modal */}
-      <AddEditCollaborationTypeModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSave={handleAddType}
-        mode="add"
-      />
-
-      {/* Edit Modal */}
-      <AddEditCollaborationTypeModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedType(null);
-        }}
-        onSave={handleEditType}
-        mode="edit"
-        initialData={selectedType || undefined}
-      />
-    </div>
+    </>
   );
 }
 
