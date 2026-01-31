@@ -12,7 +12,7 @@ interface InvoiceNote {
   invoice_note_number: string;
   status: string;
   company: string;
-  commission_amount: string;
+  commission_amt: string;
   created_at: string;
   updated_at: string;
 }
@@ -21,7 +21,7 @@ interface InvoiceNoteDetail {
   invoice_note_number: string;
   status: string;
   company: string;
-  commission_amount: string;
+  commission_amt: string;
   generated_by: string | null;
   paid_by: string;
   date_received_on: string;
@@ -257,9 +257,21 @@ export default function PaymentsTable() {
       const data = await response.json();
       
       if (data.success) {
-        setActiveNoteDetail(data.data);
-        // Fetch comments for this note
-        fetchComments(noteId);
+          // Transform API comments to match our Comment interface
+          const comments: Comment[] = data.data.comments.map((apiComment: ApiComment) => ({
+            id: apiComment.id,
+            comment: apiComment.comment,
+            created_by: apiComment.created_by_name || apiComment.created_by_email || `User ${apiComment.created_by}`,
+            created_at: apiComment.created_at
+          }));
+          
+          // Update the note details with transformed comments
+          const noteDetail = {
+            ...data.data,
+            comments: comments
+          };
+          
+          setActiveNoteDetail(noteDetail);
       } else {
         throw new Error(data.message || "Failed to fetch note details");
       }
@@ -270,95 +282,50 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token]);
 
-  // Fetch comments for a Invoice note
-  const fetchComments = useCallback(async (noteId: number) => {
-    try {
-      const response = await fetch(
-        `${BASE_URL}/tenant/invoice/comments/${noteId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch comments: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Transform API comments to match our Comment interface
-        const comments: Comment[] = data.data.map((apiComment: ApiComment) => ({
-          id: apiComment.id,
-          comment: apiComment.comment,
-          created_by: apiComment.created_by_name || apiComment.created_by_email || `User ${apiComment.created_by}`,
-          created_at: apiComment.created_at
-        }));
-        
-        // Update the active note detail with comments
-        setActiveNoteDetail(prev => {
-          if (prev) {
-            return {
-              ...prev,
-              comments: comments
-            };
-          }
-          return prev;
-        });
-      } else {
-        throw new Error(data.message || "Failed to fetch comments");
-      }
-    } catch (err) {
-      console.error("Error fetching comments:", err);
-    }
-  }, [BASE_URL, token]);
+
 
   // Post a new comment
-  const postComment = useCallback(async (noteId: number, comment: string) => {
-    if (!comment.trim() || !activeNoteDetail) return;
+const postComment = useCallback(async (noteId: number, comment: string) => {
+  if (!comment.trim() || !activeNoteDetail) return;
+  
+  try {
+    setPostingComment(true);
     
-    try {
-      setPostingComment(true);
-      
-      
-      const response = await fetch(
-        `${BASE_URL}/tenant/invoice/comments/${noteId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            comment: comment.trim()
-          })
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to post comment: ${response.status}`);
+    const response = await fetch(
+      `${BASE_URL}/tenant/invoice/comments/${noteId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          comment: comment.trim()
+        })
       }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Clear the comment input
-        setCommentText("");
-        
-        // Refresh comments
-        fetchComments(noteId);
-      } else {
-        throw new Error(data.message || "Failed to post comment");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred while posting comment");
-    } finally {
-      setPostingComment(false);
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to post comment: ${response.status}`);
     }
-  }, [BASE_URL, token, activeNoteDetail, fetchComments]);
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Clear the comment input
+      setCommentText("");
+      
+      // Refresh the note details to get updated comments
+      fetchInvoiceNoteDetail(noteId);
+    } else {
+      throw new Error(data.message || "Failed to post comment");
+    }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "An error occurred while posting comment");
+  } finally {
+    setPostingComment(false);
+  }
+}, [BASE_URL, token, activeNoteDetail, fetchInvoiceNoteDetail]);
 
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
@@ -858,7 +825,7 @@ export default function PaymentsTable() {
 
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             Commission Amount is{" "}
-                            <span className="font-semibold">{note.commission_amount}</span>
+                            <span className="font-semibold">{note.commission_amt}</span>
                           </p>
 
                           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
@@ -947,7 +914,7 @@ export default function PaymentsTable() {
 
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             Commission Amount is{" "}
-                            <span className="font-semibold">{activeNoteDetail.commission_amount}</span>
+                            <span className="font-semibold">{activeNoteDetail.commission_amt}</span>
                           </p>
                         </div>
 
