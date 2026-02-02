@@ -152,7 +152,9 @@ function AgentLoginContent() {
         if(user && token){
           login(user, token);
         
-          if(status === "business_pending"){
+          if(status === "details_pending"){
+            router.push('/signup/agent/details');
+          }else if(status === "business_pending"){
             router.push('/signup/agent/onboarding/business');
           }else if(status === "under_review"){
             router.push('/signup/agent/pending-verification');
