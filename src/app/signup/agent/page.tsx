@@ -1,4 +1,3 @@
-// app/signup/agent/registration/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -184,8 +183,7 @@ export default function AgentRegistrationPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"email" | "details">("email");
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<"details" | "otp">("details");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -193,20 +191,21 @@ export default function AgentRegistrationPage() {
   const [formData, setFormData] = useState({
     name: "",
     phoneNumber: "",
+    email: "",
     password: "",
     confirmPassword: "",
   });
   const [errors, setErrors] = useState<{
-    email?: string;
-    otp?: string;
     name?: string;
     phoneNumber?: string;
+    email?: string;
     password?: string;
     confirmPassword?: string;
+    otp?: string;
     submit?: string;
   }>({});
-  const [emailData, setEmailData] = useState<{email: string; expires_in?: string} | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [verificationSuccessful, setVerificationSuccessful] = useState(false);
   const [alert, setAlert] = useState<{type: 'success' | 'error' | 'info'; message: string} | null>(null);
   const [showAlert, setShowAlert] = useState(false);
@@ -237,35 +236,37 @@ export default function AgentRegistrationPage() {
     setShowAlert(true);
   };
 
-  const validateEmail = (): boolean => {
-    const newErrors: {email?: string} = {};
-    
-    if (!email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = "Email is invalid";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const validateDetails = (): boolean => {
-    const newErrors: {name?: string; phoneNumber?: string; password?: string; confirmPassword?: string} = {};
+    const newErrors: {
+      name?: string;
+      phoneNumber?: string;
+      email?: string;
+      password?: string;
+      confirmPassword?: string;
+    } = {};
 
+    // Name validation
     if (!formData.name.trim()) {
       newErrors.name = "Name is required";
     } else if (formData.name.trim().length < 2) {
       newErrors.name = "Name must be at least 2 characters";
     }
 
+    // Phone validation
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = "Phone number is required";
     } else if (!/^\+?[\d\s-()]{10,}$/.test(formData.phoneNumber)) {
       newErrors.phoneNumber = "Please enter a valid phone number";
     }
 
-    // Enhanced password validation similar to reset password page
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Email is invalid";
+    }
+
+    // Password validation
     if (!formData.password.trim()) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
@@ -276,6 +277,7 @@ export default function AgentRegistrationPage() {
       newErrors.password = "Password must contain at least one number";
     }
 
+    // Confirm password validation
     if (!formData.confirmPassword.trim()) {
       newErrors.confirmPassword = "Please confirm your password";
     } else if (formData.password !== formData.confirmPassword) {
@@ -286,43 +288,60 @@ export default function AgentRegistrationPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const validateOtp = (): boolean => {
+    const newErrors: { otp?: string } = {};
+
+    if (!otp.trim()) {
+      newErrors.otp = "OTP is required";
+    } else if (!/^\d{6}$/.test(otp)) {
+      newErrors.otp = "OTP must be 6 digits";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmitDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    if (!validateEmail()) return;
+    if (!validateDetails()) return;
 
     setLoading(true);
     
     try {
-      const response = await fetch(`${BASE_URL}/agent/sendotp`, {
+      const response = await fetch(`${BASE_URL}/agent/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          phone_number: formData.phoneNumber,
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
       const data = await response.json();
       
       if (data.success) {
+        // Save registration ID for verification step
+        setRegistrationId(data.data?.id || null);
         setOtpSent(true);
-        setEmailData(data.data);
-        setResendTimer(60); // 60 seconds cooldown
+        setResendTimer(60);
         
         // Show success alert
-        showAlertMessage('success', 'OTP sent successfully to your email!');
+        showAlertMessage('success', 'Registration submitted! OTP sent to your email.');
         
-        // Automatically move to next step after 1 second
-        setTimeout(() => {
-          setStep("details");
-        }, 1000);
+        // Move to OTP verification step
+        setStep("otp");
         
       } else {
-        throw new Error(data.message || "Failed to send OTP");
+        throw new Error(data.message || "Registration failed");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to send OTP";
+      const errorMessage = error instanceof Error ? error.message : "Failed to register. Please try again.";
       setErrors({ submit: errorMessage });
       showAlertMessage('error', errorMessage);
     } finally {
@@ -336,18 +355,20 @@ export default function AgentRegistrationPage() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${BASE_URL}/agent/sendotp`, {
+      const response = await fetch(`${BASE_URL}/agent/resend-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ 
+          email: formData.email,
+          registrationId: registrationId 
+        }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setEmailData(data.data);
         setOtp("");
         setResendTimer(60);
         showAlertMessage('success', 'New OTP sent successfully!');
@@ -363,38 +384,24 @@ export default function AgentRegistrationPage() {
     }
   };
 
-  const handleVerifyAndSubmit = async (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    // Validate OTP
-    if (!otp.trim()) {
-      setErrors({ otp: "OTP is required" });
-      return;
-    }
-
-    if (!/^\d{6}$/.test(otp)) {
-      setErrors({ otp: "OTP must be 6 digits" });
-      return;
-    }
-
-    // Validate details
-    if (!validateDetails()) return;
+    if (!validateOtp()) return;
 
     setLoading(true);
     
     try {
-      const response = await fetch(`${BASE_URL}/agent/verifyagent`, {
+      const response = await fetch(`${BASE_URL}/agent/verify`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
-          email: email,
+          email: formData.email,
           otp: otp,
-          name: formData.name.trim(),
-          phone_number: formData.phoneNumber,
-          password: formData.password,
+          registrationId: registrationId
         }),
       });
 
@@ -405,7 +412,7 @@ export default function AgentRegistrationPage() {
         if (user && token) {
           setVerificationSuccessful(true);
           login(user, token);
-          showAlertMessage('success', 'Registration successful! Redirecting...');
+          showAlertMessage('success', 'Verification successful! Redirecting...');
           
           // Show success message for 2 seconds then redirect
           setTimeout(() => {
@@ -413,10 +420,10 @@ export default function AgentRegistrationPage() {
           }, 2000);
         }
       } else {
-        throw new Error(data.message || "Registration failed");
+        throw new Error(data.message || "Verification failed");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Registration failed. Please try again.";
+      const errorMessage = error instanceof Error ? error.message : "Verification failed. Please try again.";
       setErrors({ submit: errorMessage });
       showAlertMessage('error', errorMessage);
     } finally {
@@ -427,12 +434,7 @@ export default function AgentRegistrationPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    if (name === "email") {
-      setEmail(value);
-      if (errors.email) {
-        setErrors(prev => ({ ...prev, email: undefined }));
-      }
-    } else if (name === "otp") {
+    if (name === "otp") {
       // Only allow numbers and limit to 6 digits
       const numericValue = value.replace(/\D/g, '').slice(0, 6);
       setOtp(numericValue);
@@ -460,6 +462,12 @@ export default function AgentRegistrationPage() {
     }
   };
 
+  const goToPreviousStep = () => {
+    setStep("details");
+    setOtp("");
+    setErrors({});
+  };
+
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
@@ -478,25 +486,25 @@ export default function AgentRegistrationPage() {
             <div className="mb-5 sm:mb-8">
               <div className="flex items-center gap-3 mb-4">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step === "email" ? "bg-brand-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                  step === "details" ? "bg-brand-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
                 }`}>
                   1
                 </div>
                 <div className="h-1 w-8 bg-gray-300 dark:bg-gray-700"></div>
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step === "details" ? "bg-brand-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                  step === "otp" ? "bg-brand-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
                 }`}>
                   2
                 </div>
               </div>
               
               <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
-                {step === "email" ? "Agent Registration" : "Complete Your Profile"}
+                {step === "details" ? "Agent Registration" : "Verify Your Email"}
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {step === "email" 
-                  ? "Enter your email to get started!" 
-                  : "Add your details to complete registration"}
+                {step === "details" 
+                  ? "Enter your details to create an account" 
+                  : "Enter the OTP sent to your email"}
               </p>
             </div>
 
@@ -526,82 +534,10 @@ export default function AgentRegistrationPage() {
                 <div className="w-16 h-1 bg-brand-500 mx-auto rounded-full animate-pulse"></div>
               </div>
             ) : (
-              <form onSubmit={step === "email" ? handleSendOtp : handleVerifyAndSubmit}>
+              <form onSubmit={step === "details" ? handleSubmitDetails : handleVerifyOtp}>
                 <div className="space-y-6">
-                  {step === "email" ? (
-                    <div>
-                      <Label required>Email Address</Label>
-                      <InputField 
-                        type="email"
-                        name="email"
-                        placeholder="agent@example.com"
-                        value={email}
-                        onChange={handleChange}
-                        error={errors.email}
-                        icon={Mail}
-                      />
-                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        We'll send a verification code to this email
-                      </p>
-                    </div>
-                  ) : (
+                  {step === "details" ? (
                     <>
-                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-800">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                                OTP sent successfully!
-                              </p>
-                              <p className="text-sm text-green-700 dark:text-green-400 mt-1">
-                                Verification code sent to <strong>{email}</strong>. 
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setStep("email")}
-                            className="text-xs text-brand-500 hover:text-brand-600 dark:text-brand-400 flex-shrink-0"
-                          >
-                            Change email
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label required>Verification Code (OTP)</Label>
-                        <InputField 
-                          type="text"
-                          name="otp"
-                          placeholder="Enter 6-digit OTP"
-                          value={otp}
-                          onChange={handleChange}
-                          error={errors.otp}
-                          icon={Lock}
-                        />
-                        
-                        <div className="mt-3 flex justify-between">
-                          <button
-                            type="button"
-                            onClick={handleResendOtp}
-                            disabled={resendTimer > 0 || loading}
-                            className="text-sm text-brand-500 hover:text-brand-600 disabled:text-gray-400 dark:text-brand-400 disabled:cursor-not-allowed"
-                          >
-                            {loading ? (
-                              <span className="flex items-center gap-1">
-                                <div className="w-3 h-3 border border-brand-500 border-t-transparent rounded-full animate-spin" />
-                                Sending...
-                              </span>
-                            ) : resendTimer > 0 ? (
-                              `Resend OTP in ${resendTimer}s`
-                            ) : (
-                              "Didn't receive code? Resend OTP"
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
                       <div>
                         <Label required>Full Name</Label>
                         <InputField 
@@ -626,6 +562,22 @@ export default function AgentRegistrationPage() {
                           error={errors.phoneNumber}
                           icon={Phone}
                         />
+                      </div>
+
+                      <div>
+                        <Label required>Email Address</Label>
+                        <InputField 
+                          type="email"
+                          name="email"
+                          placeholder="agent@example.com"
+                          value={formData.email}
+                          onChange={handleChange}
+                          error={errors.email}
+                          icon={Mail}
+                        />
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                          We'll send a verification code to this email
+                        </p>
                       </div>
 
                       {/* Password Field with Strength Indicator */}
@@ -715,6 +667,76 @@ export default function AgentRegistrationPage() {
                         </ul>
                       </div>
                     </>
+                  ) : (
+                    <>
+                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-800">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                                Registration submitted successfully!
+                              </p>
+                              <p className="text-sm text-green-700 dark:text-green-400 mt-1">
+                                Verification code sent to <strong>{formData.email}</strong>. 
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={goToPreviousStep}
+                            className="text-xs text-brand-500 hover:text-brand-600 dark:text-brand-400 flex-shrink-0"
+                          >
+                            Edit details
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label required>Verification Code (OTP)</Label>
+                        <InputField 
+                          type="text"
+                          name="otp"
+                          placeholder="Enter 6-digit OTP"
+                          value={otp}
+                          onChange={handleChange}
+                          error={errors.otp}
+                          icon={Lock}
+                        />
+                        
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={handleResendOtp}
+                            disabled={resendTimer > 0 || loading}
+                            className="text-sm text-brand-500 hover:text-brand-600 disabled:text-gray-400 dark:text-brand-400 disabled:cursor-not-allowed"
+                          >
+                            {loading ? (
+                              <span className="flex items-center gap-1">
+                                <div className="w-3 h-3 border border-brand-500 border-t-transparent rounded-full animate-spin" />
+                                Sending...
+                              </span>
+                            ) : resendTimer > 0 ? (
+                              `Resend OTP in ${resendTimer}s`
+                            ) : (
+                              "Didn't receive code? Resend OTP"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                          📧 Check your email:
+                        </p>
+                        <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                          <li>• Look for an email from our system</li>
+                          <li>• Check your spam folder if you don't see it</li>
+                          <li>• The OTP is valid for 10 minutes</li>
+                          <li>• Enter the 6-digit code exactly as shown</li>
+                        </ul>
+                      </div>
+                    </>
                   )}
 
                   {/* Display submit errors from API */}
@@ -733,30 +755,27 @@ export default function AgentRegistrationPage() {
                     >
                       {loading ? (
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : step === "email" ? (
-                        <Mail className="w-5 h-5" />
-                      ) : (
+                      ) : step === "details" ? (
                         <Save className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
                       )}
                       {loading 
                         ? "PROCESSING..." 
-                        : step === "email" 
-                          ? "SEND VERIFICATION CODE" 
-                          : "COMPLETE REGISTRATION"}
+                        : step === "details" 
+                          ? "REGISTER & SEND OTP" 
+                          : "VERIFY & COMPLETE REGISTRATION"}
                     </Button>
                   </div>
 
-                  {step === "email" && otpSent && (
+                  {step === "otp" && (
                     <div className="text-center">
                       <button
                         type="button"
-                        onClick={() => {
-                          setStep("details");
-                          setOtp("");
-                        }}
-                        className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                        onClick={goToPreviousStep}
+                        className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                       >
-                        I've received the OTP, continue to details →
+                        ← Back to edit details
                       </button>
                     </div>
                   )}

@@ -144,7 +144,7 @@ function StudentLoginContent() {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.status == "success") {
         const { user, token } = data.data;
        
         if (user && token) {
