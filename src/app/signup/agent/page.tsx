@@ -1,11 +1,13 @@
+// app/signup/agent/registration/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, User, Phone, Lock, ChevronLeftIcon, Save, CheckCircle, X, Info } from "lucide-react";
+import { Mail, User, Phone, Lock, ChevronLeftIcon, Save, CheckCircle, X, Info, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
+// InputField component
 const InputField = ({ 
   type, 
   placeholder, 
@@ -14,7 +16,8 @@ const InputField = ({
   name,
   error,
   icon: Icon,
-  disabled = false
+  disabled = false,
+  className = ""
 }: { 
   type: string; 
   placeholder: string; 
@@ -24,6 +27,7 @@ const InputField = ({
   error?: string;
   icon?: React.ComponentType<{className?: string}>;
   disabled?: boolean;
+  className?: string;
 }) => (
   <div>
     <div className="relative">
@@ -43,13 +47,14 @@ const InputField = ({
           error ? "border-red-500" : ""
         } ${Icon ? "pl-10" : ""} ${
           disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""
-        }`}
+        } ${className}`}
       />
     </div>
     {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
   </div>
 );
 
+// Button component
 const Button = ({ 
   children, 
   onClick, 
@@ -77,6 +82,7 @@ const Button = ({
   </button>
 );
 
+// Label component
 const Label = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
     {children}
@@ -84,6 +90,7 @@ const Label = ({ children, required }: { children: React.ReactNode; required?: b
   </label>
 );
 
+// Alert component
 interface AlertProps {
   type: 'success' | 'error' | 'info';
   message: string;
@@ -129,6 +136,50 @@ const Alert = ({ type, message, onClose }: AlertProps) => {
   );
 };
 
+// Password strength indicator
+const PasswordStrength = ({ password }: { password: string }) => {
+  const getStrength = (pass: string) => {
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+    return score;
+  };
+
+  const strength = getStrength(password);
+  const strengthText = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'][strength] || 'Very weak';
+  const strengthColor = ['bg-red-500', 'bg-red-400', 'bg-yellow-500', 'bg-green-400', 'bg-green-500'][strength] || 'bg-red-500';
+
+  if (!password) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-gray-600 dark:text-gray-400">Password strength:</span>
+        <span className={`text-xs font-medium ${
+          strength === 0 ? 'text-red-500' :
+          strength === 1 ? 'text-red-400' :
+          strength === 2 ? 'text-yellow-500' :
+          strength === 3 ? 'text-green-400' : 'text-green-500'
+        }`}>
+          {strengthText}
+        </span>
+      </div>
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map((level) => (
+          <div
+            key={level}
+            className={`h-1 flex-1 rounded-full ${
+              level <= strength ? strengthColor : 'bg-gray-200 dark:bg-gray-700'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function AgentRegistrationPage() {
   const router = useRouter();
   const { login } = useAuth();
@@ -137,6 +188,8 @@ export default function AgentRegistrationPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     phoneNumber: "",
@@ -149,6 +202,7 @@ export default function AgentRegistrationPage() {
     name?: string;
     phoneNumber?: string;
     password?: string;
+    confirmPassword?: string;
     submit?: string;
   }>({});
   const [emailData, setEmailData] = useState<{email: string; expires_in?: string} | null>(null);
@@ -197,7 +251,7 @@ export default function AgentRegistrationPage() {
   };
 
   const validateDetails = (): boolean => {
-    const newErrors: {name?: string; phoneNumber?: string; password?: string} = {};
+    const newErrors: {name?: string; phoneNumber?: string; password?: string; confirmPassword?: string} = {};
 
     if (!formData.name.trim()) {
       newErrors.name = "Name is required";
@@ -211,12 +265,21 @@ export default function AgentRegistrationPage() {
       newErrors.phoneNumber = "Please enter a valid phone number";
     }
 
+    // Enhanced password validation similar to reset password page
     if (!formData.password.trim()) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
       newErrors.password = "Password must be at least 8 characters";
+    } else if (!/(?=.*[A-Z])/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one uppercase letter";
+    } else if (!/(?=.*[0-9])/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one number";
+    }
+
+    if (!formData.confirmPassword.trim()) {
+      newErrors.confirmPassword = "Please confirm your password";
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.password = "Passwords do not match";
+      newErrors.confirmPassword = "Passwords do not match";
     }
 
     setErrors(newErrors);
@@ -382,8 +445,17 @@ export default function AgentRegistrationPage() {
         [name]: value,
       }));
       
+      // Clear specific error when user starts typing
       if (errors[name as keyof typeof errors]) {
         setErrors(prev => ({ ...prev, [name]: undefined }));
+      }
+      
+      // Clear password-related errors if both password fields are being edited
+      if (name === "password" && errors.confirmPassword && value === formData.confirmPassword) {
+        setErrors(prev => ({ ...prev, confirmPassword: undefined }));
+      }
+      if (name === "confirmPassword" && errors.confirmPassword && value === formData.password) {
+        setErrors(prev => ({ ...prev, confirmPassword: undefined }));
       }
     }
   };
@@ -484,13 +556,7 @@ export default function AgentRegistrationPage() {
                               </p>
                               <p className="text-sm text-green-700 dark:text-green-400 mt-1">
                                 Verification code sent to <strong>{email}</strong>. 
-                              
                               </p>
-                              {/* {emailData?.expires_in && (
-                                <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                                  ⏰ OTP expires in {emailData.expires_in}
-                                </p>
-                              )} */}
                             </div>
                           </div>
                           <button
@@ -562,29 +628,91 @@ export default function AgentRegistrationPage() {
                         />
                       </div>
 
+                      {/* Password Field with Strength Indicator */}
                       <div>
                         <Label required>Password</Label>
-                        <InputField 
-                          type="password"
-                          name="password"
-                          placeholder="Create a password (min. 8 characters)"
-                          value={formData.password}
-                          onChange={handleChange}
-                          error={errors.password}
-                          icon={Lock}
-                        />
+                        <div className="relative">
+                          <InputField 
+                            type={showPassword ? "text" : "password"}
+                            name="password"
+                            placeholder="Create a strong password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            error={errors.password}
+                            icon={Lock}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="w-5 h-5" />
+                            ) : (
+                              <Eye className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                        <PasswordStrength password={formData.password} />
+                        
+                        {/* Password requirements */}
+                        {formData.password && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Requirements:</p>
+                            <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                              <li className={`flex items-center ${formData.password.length >= 8 ? 'text-green-500' : ''}`}>
+                                {formData.password.length >= 8 ? '✓' : '•'} At least 8 characters
+                              </li>
+                              <li className={`flex items-center ${/(?=.*[A-Z])/.test(formData.password) ? 'text-green-500' : ''}`}>
+                                {/(?=.*[A-Z])/.test(formData.password) ? '✓' : '•'} One uppercase letter
+                              </li>
+                              <li className={`flex items-center ${/(?=.*[0-9])/.test(formData.password) ? 'text-green-500' : ''}`}>
+                                {/(?=.*[0-9])/.test(formData.password) ? '✓' : '•'} One number
+                              </li>
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
                       <div>
                         <Label required>Confirm Password</Label>
-                        <InputField 
-                          type="password"
-                          name="confirmPassword"
-                          placeholder="Confirm your password"
-                          value={formData.confirmPassword}
-                          onChange={handleChange}
-                          icon={Lock}
-                        />
+                        <div className="relative">
+                          <InputField 
+                            type={showConfirmPassword ? "text" : "password"}
+                            name="confirmPassword"
+                            placeholder="Confirm your password"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            error={errors.confirmPassword}
+                            icon={Lock}
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="w-5 h-5" />
+                            ) : (
+                              <Eye className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Password Tips */}
+                      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          💡 Password Tips:
+                        </p>
+                        <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                          <li>Use a combination of letters, numbers, and symbols</li>
+                          <li>Avoid using personal information like birthdays</li>
+                          <li>Don't reuse passwords from other accounts</li>
+                          <li>Consider using a password manager</li>
+                        </ul>
                       </div>
                     </>
                   )}
