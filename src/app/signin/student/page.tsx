@@ -150,8 +150,14 @@ function StudentLoginContent() {
         if (user && token) {
           
             login(user, token);
-        
+
+            if(user.email_verified != 1){
+            router.push('/signin/verify');
+          }else{
+
             router.push(callbackUrl);
+          }
+        
           
         } else {
           throw new Error(data.message || "Login failed");

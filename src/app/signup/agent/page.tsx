@@ -509,16 +509,7 @@ export default function AgentRegistrationPage() {
             </div>
 
             {/* Alert Messages */}
-            {showAlert && alert && (
-              <Alert
-                type={alert.type}
-                message={alert.message}
-                onClose={() => {
-                  setShowAlert(false);
-                  setAlert(null);
-                }}
-              />
-            )}
+            
 
             {verificationSuccessful ? (
               <div className="text-center py-10">
@@ -740,13 +731,24 @@ export default function AgentRegistrationPage() {
                   )}
 
                   {/* Display submit errors from API */}
-                  {errors.submit && !showAlert && (
+                  {/* {errors.submit && !showAlert && (
                     <Alert
                       type="error"
                       message={errors.submit}
                       onClose={() => setErrors(prev => ({ ...prev, submit: undefined }))}
                     />
-                  )}
+                  )} */}
+
+                  {showAlert && alert && (
+              <Alert
+                type={alert.type}
+                message={alert.message}
+                onClose={() => {
+                  setShowAlert(false);
+                  setAlert(null);
+                }}
+              />
+            )}
 
                   <div>
                     <Button 
@@ -788,7 +790,7 @@ export default function AgentRegistrationPage() {
                 <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400">
                   Already have an account?{" "}
                   <Link
-                    href="/signin"
+                    href="/signin/agent"
                     className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
                   >
                     Sign In

@@ -568,16 +568,7 @@ export default function StudentRegistrationPage() {
             </div>
 
             {/* Alert Messages */}
-            {showAlert && alert && (
-              <Alert
-                type={alert.type}
-                message={alert.message}
-                onClose={() => {
-                  setShowAlert(false);
-                  setAlert(null);
-                }}
-              />
-            )}
+            
 
             {verificationSuccessful ? (
               <div className="text-center py-10">
@@ -768,13 +759,24 @@ export default function StudentRegistrationPage() {
                   )}
 
                   {/* Display submit errors from API */}
-                  {errors.submit && !showAlert && (
+                  {/* {errors.submit && !showAlert && (
                     <Alert
                       type="error"
                       message={errors.submit}
                       onClose={() => setErrors(prev => ({ ...prev, submit: undefined }))}
                     />
-                  )}
+                  )} */}
+
+                  {showAlert && alert && (
+              <Alert
+                type={alert.type}
+                message={alert.message}
+                onClose={() => {
+                  setShowAlert(false);
+                  setAlert(null);
+                }}
+              />
+            )}
 
                   <div>
                     <Button 

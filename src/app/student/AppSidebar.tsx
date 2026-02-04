@@ -4,23 +4,29 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/context/SidebarContext";
-import {
-  
-  ChevronDownIcon,
-  HorizontaLDots,
-  
-} from "@/icons/index";
+import { ChevronDownIcon, HorizontaLDots } from "@/icons/index";
+import { LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
-import {
-  LayoutDashboard,
-  GraduationCap,
-  Book,
-  FileText,
-  Mail,
-  Wallet,
-} from "lucide-react";
+interface ApiModule {
+  id: number;
+  module_id: number;
+  name: string;
+  slug: string;
+  icon: string;
+  route: string;
+  sort_order: number;
+  status: number;
+  child_modules: ApiModule[];
+}
 
-
+interface ApiMainModule {
+  id: number;
+  name: string;
+  sort_order: number;
+  status: number;
+  sub_modules: ApiModule[];
+}
 
 interface NavItem {
   name: string;
@@ -29,48 +35,125 @@ interface NavItem {
   subItems?: NavItem[];
 }
 
+// Function to convert API modules to NavItem structure
+const convertApiToNavItems = (apiData: ApiMainModule[]): NavItem[] => {
+  if (!apiData || apiData.length === 0) return [];
+  
+  // Assuming the first main module contains the menu items
+  const mainModule = apiData[0];
+  
+  const convertModuleToNavItem = (module: ApiModule): NavItem => {
+    // Parse SVG icon string to React element
+    const parseSVGIcon = (svgString: string): React.ReactNode => {
+      try {
+        // Extract the SVG content and create a React element
+        // This is a simplified parser - you might need to adjust based on actual SVG structure
+        const svgRegex = /<svg[\s\S]*?<\/svg>/;
+        const match = svgString.match(svgRegex);
+        
+        if (match) {
+          // Create a wrapper div with dangerouslySetInnerHTML
+          // Note: This approach has security implications if the SVG comes from untrusted sources
+          return (
+            <div 
+              dangerouslySetInnerHTML={{ __html: match[0] }}
+              className="w-5 h-5 flex items-center justify-center"
+            />
+          );
+        }
+        
+        // Fallback to default icon if SVG parsing fails
+        return <LayoutDashboard size={18} />;
+      } catch (error) {
+        console.error("Error parsing SVG icon:", error);
+        return <LayoutDashboard size={18} />;
+      }
+    };
 
-export const navItems: NavItem[] = [
+    return {
+      name: module.name,
+      icon: parseSVGIcon(module.icon),
+      path: `/${module.route}`,
+      subItems: module.child_modules && module.child_modules.length > 0 
+        ? module.child_modules.map(convertModuleToNavItem)
+        : undefined
+    };
+  };
+
+  // Convert sub_modules to NavItems
+  return mainModule.sub_modules.map(convertModuleToNavItem);
+};
+
+// Fallback static data in case API fails
+const fallbackNavItems: NavItem[] = [
   {
     name: "Dashboard",
     icon: <LayoutDashboard size={18} />,
     path: "/",
   },
-  // {
-  //       name: "Apply",
-  //       path: "/apply",
-  //       icon: <GraduationCap size={18} />,
-  //     },
-      {
-        name: "Programs",
-        path: "/programs",
-        icon: <Book size={18} />,
-      },
-      {
-        name: "Applications",
-        path: "/applications",
-        icon: <FileText size={18} />,
-      },
-      {
-        name: "Wallet",
-        path: "/wallet",
-        icon: <Wallet size={18} />,
-      },
-      {
-        name: "Resources",
-        icon: <Mail size={18} />,
-        path: "/resources",
-      },
-
+  {
+    name: "Programs",
+    path: "/programs",
+    icon: <LayoutDashboard size={18} />,
+  },
+  {
+    name: "Applications",
+    path: "/applications",
+    icon: <LayoutDashboard size={18} />,
+  },
+  {
+    name: "Wallet",
+    path: "/wallet",
+    icon: <LayoutDashboard size={18} />,
+  },
+  {
+    name: "Resources",
+    icon: <LayoutDashboard size={18} />,
+    path: "/resources",
+  },
 ];
-
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
-
+  const [navItems, setNavItems] = useState<NavItem[]>(fallbackNavItems);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  const {token} = useAuth();
+  
+  // Fetch menu data from API
+  useEffect(() => {
+    const fetchMenuData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${BASE_URL}/modules`,{
+          headers:{
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data: ApiMainModule[] = await response.json();
+        const convertedItems = convertApiToNavItems(data);
+        
+        if (convertedItems.length > 0) {
+          setNavItems(convertedItems);
+        }
+      } catch (error) {
+        console.error("Failed to fetch menu data:", error);
+        // Keep fallback data if API fails
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMenuData();
+  }, []);
 
   const isActive = useCallback((path: string | undefined): boolean => {
     if (!path) return false;
@@ -160,13 +243,30 @@ const AppSidebar: React.FC = () => {
     );
   };
 
-  const renderMainMenuItems = () => (
-    <ul className="flex flex-col gap-4">
-      {navItems.map((item) => (
-        <NavItemComponent key={item.name} item={item} />
-      ))}
-    </ul>
-  );
+  const renderMainMenuItems = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3 p-3">
+              <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              {(isExpanded || isHovered || isMobileOpen) && (
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <ul className="flex flex-col gap-4">
+        {navItems.map((item) => (
+          <NavItemComponent key={item.name} item={item} />
+        ))}
+      </ul>
+    );
+  };
 
   const handleSubmenuToggle = (itemKey: string) => {
     setOpenSubmenus(prev => {
@@ -210,9 +310,7 @@ const AppSidebar: React.FC = () => {
     
     // Find and open menus for main nav items
     findAndOpenParentMenus(navItems, pathname);
-    
-    
-  }, [pathname]);
+  }, [pathname, navItems]);
 
   return (
     <aside
@@ -279,13 +377,9 @@ const AppSidebar: React.FC = () => {
                 )}
               </h2>
               {renderMainMenuItems()}
-              
             </div>
-
-          
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? null : null}
       </div>
     </aside>
   );

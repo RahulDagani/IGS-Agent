@@ -17,7 +17,9 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   useEffect(() => {
     if (loading) return; // ✅ wait for auth to finish initializing
 
-    
+    if(isAuthenticated && user?.email_verified != 1){
+      router.replace(`/signin/verify`);
+    }
     
     if (!isAuthenticated) {
 
@@ -60,6 +62,8 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
       
       // router.replace("/unauthorized");
     }
+
+    
 
     
   }, [loading, isAuthenticated, user, allowedRoles, router, pathname]);

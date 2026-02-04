@@ -19,6 +19,7 @@ interface User {
   role_name: string;
   role_key: string;
   panel_type: string;
+  email_verified?: number;
 }
 
 interface AuthContextType {
