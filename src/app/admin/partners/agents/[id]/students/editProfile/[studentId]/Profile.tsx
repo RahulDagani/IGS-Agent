@@ -1,11 +1,13 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle } from "lucide-react";
+import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Country, State, City } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
+import TestScores from "./TestScores"; // Import TestScores component
+import AcademicInterests from "./AcademicInterests"; // Import AcademicInterests component
 
 interface StudentFormData {
   // Personal Info
@@ -34,12 +36,14 @@ interface StudentFormData {
   emergency_c_phone: string;
 }
 
-type Tab = "personal" | "address" | "emergency";
+type MainTab = "profile" | "testscores" | "interests";
+type ProfileSubTab = "personal" | "address" | "emergency";
 
 export default function ProfileForm() {
   const {studentId} = useParams();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("personal");
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>("profile");
+  const [activeProfileSubTab, setActiveProfileSubTab] = useState<ProfileSubTab>("personal");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { token } = useAuth();
@@ -134,7 +138,7 @@ export default function ProfileForm() {
     fetchStudentData();
   }, []);
 
-  const validateTab = (tab: Tab): boolean => {
+  const validateProfileSubTab = (tab: ProfileSubTab): boolean => {
     const errors: Record<string, string> = {};
     
     switch (tab) {
@@ -172,7 +176,7 @@ export default function ProfileForm() {
     return Object.keys(errors).length === 0;
   };
 
-  const isTabComplete = (tab: Tab): boolean => {
+  const isProfileSubTabComplete = (tab: ProfileSubTab): boolean => {
     switch (tab) {
       case "personal":
         return !!(formData.salutation && 
@@ -262,32 +266,33 @@ export default function ProfileForm() {
     }
   };
 
-  const handleNextTab = () => {
-    if (validateTab(activeTab)) {
-      const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-      if (tabIndex < tabs.length - 1) {
-        setActiveTab(tabs[tabIndex + 1].id as Tab);
+  const handleNextProfileSubTab = () => {
+    if (validateProfileSubTab(activeProfileSubTab)) {
+      const tabIndex = profileSubTabs.findIndex(tab => tab.id === activeProfileSubTab);
+      if (tabIndex < profileSubTabs.length - 1) {
+        setActiveProfileSubTab(profileSubTabs[tabIndex + 1].id as ProfileSubTab);
       }
     }
   };
 
-  const handlePreviousTab = () => {
-    const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
+  const handlePreviousProfileSubTab = () => {
+    const tabIndex = profileSubTabs.findIndex(tab => tab.id === activeProfileSubTab);
     if (tabIndex > 0) {
-      setActiveTab(tabs[tabIndex - 1].id as Tab);
+      setActiveProfileSubTab(profileSubTabs[tabIndex - 1].id as ProfileSubTab);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate all tabs before submission
-    const isPersonalValid = validateTab("personal");
-    const isAddressValid = validateTab("address");
-    const isEmergencyValid = validateTab("emergency");
+    // Validate all profile sub-tabs before submission
+    const isPersonalValid = validateProfileSubTab("personal");
+    const isAddressValid = validateProfileSubTab("address");
+    const isEmergencyValid = validateProfileSubTab("emergency");
     
     if (!isPersonalValid || !isAddressValid || !isEmergencyValid) {
       setValidationMessage("Please fix all validation errors before submitting.");
+      setActiveProfileSubTab("personal");
       return;
     }
 
@@ -332,10 +337,6 @@ export default function ProfileForm() {
         setValidationMessage(result.message);
       } else {
         setValidationMessage("Student data saved successfully!");
-        // Redirect back to applications list or show success message
-        // setTimeout(() => {
-        //   router.push(`/partner/students/${studentId}/applications`);
-        // }, 2000);
       }
       
     } catch (error) {
@@ -355,7 +356,13 @@ export default function ProfileForm() {
   const genders = ["Male", "Female", "Other", "Prefer not to say"];
   const relationships = ["Parent", "Spouse", "Sibling", "Relative", "Friend", "Guardian"];
 
-  const tabs = [
+  const mainTabs = [
+    { id: "profile", label: "Profile Information", icon: User },
+    { id: "testscores", label: "Test Scores", icon: Award },
+    { id: "interests", label: "Academic Interests", icon: BookOpen },
+  ];
+
+  const profileSubTabs = [
     { id: "personal", label: "Personal Info", icon: User },
     { id: "address", label: "Current Address", icon: MapPin },
     { id: "emergency", label: "Emergency Contact", icon: Users },
@@ -869,27 +876,23 @@ export default function ProfileForm() {
         )}
       </div>
       
-      {/* Tab Navigation */}
+      {/* Main Tab Navigation */}
       <div className="border-t border-gray-100 dark:border-gray-800">
         <div className="flex overflow-x-auto">
-          {tabs.map((tab) => {
+          {mainTabs.map((tab) => {
             const IconComponent = tab.icon;
-            const isComplete = isTabComplete(tab.id as Tab);
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as Tab)}
+                onClick={() => setActiveMainTab(tab.id as MainTab)}
                 className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
+                  activeMainTab === tab.id
                     ? "border-brand-500 text-brand-600 dark:text-brand-400"
                     : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                 }`}
               >
                 <IconComponent size={16} />
                 {tab.label}
-                {isComplete && (
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                )}
               </button>
             );
           })}
@@ -897,74 +900,111 @@ export default function ProfileForm() {
       </div>
 
       <div className="p-5 sm:p-6">
-        <form onSubmit={handleSubmit}>
-          {/* Tab Content */}
-          <div className="mb-8">
-            {activeTab === "personal" && renderPersonalInfoTab()}
-            {activeTab === "address" && renderAddressTab()}
-            {activeTab === "emergency" && renderEmergencyContactTab()}
-          </div>
-
-          {/* Navigation and Submit Buttons */}
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex gap-3">
-              {activeTab !== "personal" && (
-                <button
-                  type="button"
-                  onClick={handlePreviousTab}
-                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  Previous
-                </button>
-              )}
-              {activeTab !== "emergency" && (
-                <button
-                  type="button"
-                  onClick={handleNextTab}
-                  className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600 disabled:bg-gray-300 disabled:border-gray-300 disabled:cursor-not-allowed"
-                  disabled={!isTabComplete(activeTab)}
-                >
-                  Next
-                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                    <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              )}
+        {/* Profile Tab Content */}
+        {activeMainTab === "profile" && (
+          <form onSubmit={handleSubmit}>
+            {/* Profile Sub Tab Navigation */}
+            <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+              <div className="flex overflow-x-auto">
+                {profileSubTabs.map((tab) => {
+                  const IconComponent = tab.icon;
+                  const isComplete = isProfileSubTabComplete(tab.id as ProfileSubTab);
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveProfileSubTab(tab.id as ProfileSubTab)}
+                      className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                        activeProfileSubTab === tab.id
+                          ? "border-brand-500 text-brand-600 dark:text-brand-400"
+                          : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                      }`}
+                    >
+                      <IconComponent size={16} />
+                      {tab.label}
+                      {isComplete && (
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
-              >
-                Cancel
-              </button>
-              {activeTab === "emergency" && (
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !isTabComplete("personal") || !isTabComplete("address") || !isTabComplete("emergency")}
-                  className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      Save
-                      <Plus size={18} />
-                    </>
-                  )}
-                </button>
-              )}
+            {/* Profile Sub Tab Content */}
+            <div className="mb-8">
+              {activeProfileSubTab === "personal" && renderPersonalInfoTab()}
+              {activeProfileSubTab === "address" && renderAddressTab()}
+              {activeProfileSubTab === "emergency" && renderEmergencyContactTab()}
             </div>
-          </div>
-        </form>
+
+            {/* Navigation and Submit Buttons for Profile Tab */}
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div className="flex gap-3">
+                {activeProfileSubTab !== "personal" && (
+                  <button
+                    type="button"
+                    onClick={handlePreviousProfileSubTab}
+                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Previous
+                  </button>
+                )}
+                {activeProfileSubTab !== "emergency" && (
+                  <button
+                    type="button"
+                    onClick={handleNextProfileSubTab}
+                    className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600 disabled:bg-gray-300 disabled:border-gray-300 disabled:cursor-not-allowed"
+                    disabled={!isProfileSubTabComplete(activeProfileSubTab)}
+                  >
+                    Next
+                    <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+                      <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
+                >
+                  Cancel
+                </button>
+                {activeProfileSubTab === "emergency" && (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !isProfileSubTabComplete("personal") || !isProfileSubTabComplete("address") || !isProfileSubTabComplete("emergency")}
+                    className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        Save Profile
+                        <Plus size={18} />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* Test Scores Tab Content */}
+        {activeMainTab === "testscores" && <TestScores />}
+
+        {/* Academic Interests Tab Content */}
+        {activeMainTab === "interests" && <AcademicInterests />}
       </div>
     </div>
   );

@@ -224,7 +224,7 @@ const AppSidebar: React.FC = () => {
         ) : (
           item.path && (
             <Link
-              href={"/student" + item.path}
+              href={item.path != "/dashboard" ? "/student" + item.path : "/student"}
               className={`menu-item group ${
                 isActive(item.path) ? "menu-item-active" : "menu-item-inactive"
               }`}

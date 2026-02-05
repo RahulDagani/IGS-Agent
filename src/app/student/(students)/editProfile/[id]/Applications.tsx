@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import Programs from '../../programs/Programs';
+import Programs from '../../courses/Programs';
 import { getStateByCodeAndCountry } from 'country-state-city/lib/state';
 import { Country, State } from 'country-state-city';
 
@@ -485,7 +485,7 @@ const updateCredentials = async () => {
         formData.append('is_internal_note', '1');
       }
 
-      const response = await fetch(`${BASE_URL}/student/application/comments/${activeProgram}`, {
+      const response = await fetch(`${BASE_URL}/student/application/comments/student/${activeProgram}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
