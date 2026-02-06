@@ -1087,7 +1087,7 @@ const TestScores: React.FC = () => {
           </div>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-          Use "Refresh Edit Data" to fetch the latest data from server, or "Reset" to revert to original data.
+          Use "Edit Data" to fetch the latest data from server, or "Reset" to revert to original data.
         </p>
       </div>
     </div>

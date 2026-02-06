@@ -101,7 +101,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.remove("user");
     Cookies.remove("token");
     Cookies.remove("adminToken");
-    if(panel == "agent"){
+   
+    if(panel ==   "agent"){
       window.location.href = '/signin/agent';
 
       }else if(panel == "student"){

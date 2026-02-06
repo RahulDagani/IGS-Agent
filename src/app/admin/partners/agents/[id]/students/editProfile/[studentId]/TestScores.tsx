@@ -82,7 +82,11 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>(
 CustomDateInput.displayName = "CustomDateInput";
 
 // Field configuration for each test type
-const TEST_FIELD_CONFIGS: { [key: string]: { fields: string[]; sections: { [key: string]: string[] } } } = {
+const TEST_FIELD_CONFIGS: { [key: string]: { 
+  fields: string[]; 
+  sections: { [key: string]: string[] };
+  conditionalFields?: { [key: string]: string[] }; // Fields that depend on other fields
+} } = {
   ACT: {
     fields: ['overall_score', 'date_of_examination', 'reading', 'math', 'science', 'english', 'writing'],
     sections: {
@@ -96,6 +100,9 @@ const TEST_FIELD_CONFIGS: { [key: string]: { fields: string[]; sections: { [key:
       waiver: ['test_waiver'],
       main: ['overall_score', 'date_of_examination'],
       subscores: ['literacy', 'conversation', 'comprehension', 'production']
+    },
+    conditionalFields: {
+      test_waiver: ['overall_score', 'date_of_examination', 'literacy', 'conversation', 'comprehension', 'production']
     }
   },
   DET: {
@@ -105,6 +112,11 @@ const TEST_FIELD_CONFIGS: { [key: string]: { fields: string[]; sections: { [key:
       main: ['overall_score', 'date_of_examination'],
       pending: ['yet_to_receive', 'yet_to_receive_date'],
       alternative: ['english_marks_12_checked', 'english_marks_12', 'moi_checked']
+    },
+    conditionalFields: {
+      test_waiver: ['overall_score', 'date_of_examination', 'yet_to_receive', 'yet_to_receive_date'],
+      yet_to_receive: ['yet_to_receive_date'],
+      english_marks_12_checked: ['english_marks_12']
     }
   },
   GMAT: {
@@ -129,6 +141,11 @@ const TEST_FIELD_CONFIGS: { [key: string]: { fields: string[]; sections: { [key:
       subscores: ['listening', 'reading', 'writing', 'speaking'],
       pending: ['yet_to_receive', 'yet_to_receive_date'],
       alternative: ['english_marks_12_checked', 'english_marks_12', 'moi_checked']
+    },
+    conditionalFields: {
+      ielts_waiver: ['overall_score', 'date_of_examination', 'listening', 'reading', 'writing', 'speaking', 'trf_no'],
+      yet_to_receive: ['yet_to_receive_date'],
+      english_marks_12_checked: ['english_marks_12']
     }
   },
   PTE: {
@@ -139,6 +156,11 @@ const TEST_FIELD_CONFIGS: { [key: string]: { fields: string[]; sections: { [key:
       subscores: ['listening', 'reading', 'writing', 'speaking'],
       pending: ['yet_to_receive', 'yet_to_receive_date'],
       alternative: ['english_marks_12_checked', 'english_marks_12', 'moi_checked']
+    },
+    conditionalFields: {
+      test_waiver: ['overall_score', 'date_of_examination', 'listening', 'reading', 'writing', 'speaking'],
+      yet_to_receive: ['yet_to_receive_date'],
+      english_marks_12_checked: ['english_marks_12']
     }
   },
   SAT: {
@@ -156,6 +178,11 @@ const TEST_FIELD_CONFIGS: { [key: string]: { fields: string[]; sections: { [key:
       subscores: ['listening', 'reading', 'writing', 'speaking'],
       pending: ['yet_to_receive', 'yet_to_receive_date'],
       alternative: ['english_marks_12_checked', 'english_marks_12', 'moi_checked']
+    },
+    conditionalFields: {
+      test_waiver: ['overall_score', 'date_of_examination', 'listening', 'reading', 'writing', 'speaking'],
+      yet_to_receive: ['yet_to_receive_date'],
+      english_marks_12_checked: ['english_marks_12']
     }
   }
 };
@@ -170,7 +197,7 @@ const FIELD_LABELS: { [key: string]: string } = {
   yet_to_receive_date: 'Expected Score Date',
   english_marks_12_checked: 'English Marks in 12th',
   english_marks_12: '12th English Marks',
-  moi_checked: 'Medium of Instruction',
+  moi_checked: 'Medium of Instruction (English)',
   is_active: 'Is Active',
   reading: 'Reading',
   math: 'Math',
@@ -206,12 +233,14 @@ const TestScores: React.FC = () => {
   const { token } = useAuth();
   const [testScores, setTestScores] = useState<TestScore[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<number | 'all' | null>(null);
+  const [saving, setSaving] = useState<number | null>(null);
   const [expandedTest, setExpandedTest] = useState<number | null>(null);
   const [formData, setFormData] = useState<{ [key: number]: TestFormData }>({});
   const [errors, setErrors] = useState<{ [key: number]: { [key: string]: string } }>({});
-
-  const {studentId} = useParams();
+  const [isRefreshingEditData, setIsRefreshingEditData] = useState(false);
+  const [originalData, setOriginalData] = useState<TestScore[]>([]);
+  
+  const { studentId } = useParams();
 
   useEffect(() => {
     fetchTestScores();
@@ -233,6 +262,7 @@ const TestScores: React.FC = () => {
       if (result.success) {
         const data = (result.data as TestScoresResponse).tests;
         setTestScores(data);
+        setOriginalData(data); // Store original data
         
         // Initialize form data
         const initialFormData: { [key: number]: TestFormData } = {};
@@ -245,6 +275,40 @@ const TestScores: React.FC = () => {
       console.error('Error fetching test scores:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEditData = async () => {
+    setIsRefreshingEditData(true);
+    try {
+      const response = await fetch(`${BASE_URL}/tenant/agent/student/test/edit/${studentId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch edit data');
+      
+      const result = await response.json();
+      if (result.success) {
+        const editData = (result.data as EditResponse).tests;
+        setTestScores(editData);
+        
+        // Update form data with edit response
+        const updatedFormData: { [key: number]: TestFormData } = {};
+        editData.forEach((test: TestScore) => {
+          updatedFormData[test.test_type_id] = { ...test.form_data };
+        });
+        setFormData(updatedFormData);
+        
+        // Reset expanded test
+        setExpandedTest(null);
+      }
+    } catch (error) {
+      console.error('Error fetching edit data:', error);
+    } finally {
+      setIsRefreshingEditData(false);
     }
   };
 
@@ -270,6 +334,63 @@ const TestScores: React.FC = () => {
   };
 
   const handleInputChange = (testId: number, field: string, value: any) => {
+    const currentData = formData[testId] || {};
+    
+    // Special handling for checkbox fields that have dependent fields
+    if (field === 'test_waiver' || field === 'ielts_waiver') {
+      if (value === false) {
+        // If waiver is unchecked, reset dependent fields to null/empty
+        const test = testScores.find(t => t.test_type_id === testId);
+        const config = TEST_FIELD_CONFIGS[test?.test_type || ''];
+        const dependentFields = config?.conditionalFields?.[field] || [];
+        
+        const updatedData = { ...currentData, [field]: value };
+        dependentFields.forEach(depField => {
+          if (depField.includes('date')) {
+            updatedData[depField] = '';
+          } else if (depField.includes('score') || depField.includes('marks')) {
+            updatedData[depField] = null;
+          } else if (depField !== field) {
+            updatedData[depField] = '';
+          }
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          [testId]: updatedData
+        }));
+        return;
+      }
+    }
+    
+    // Handle "yet_to_receive" checkbox
+    if (field === 'yet_to_receive') {
+      const updatedData = { ...currentData, [field]: value };
+      if (value === false) {
+        // If unchecked, clear the date
+        updatedData.yet_to_receive_date = '';
+      }
+      setFormData(prev => ({
+        ...prev,
+        [testId]: updatedData
+      }));
+      return;
+    }
+    
+    // Handle "english_marks_12_checked" checkbox
+    if (field === 'english_marks_12_checked') {
+      const updatedData = { ...currentData, [field]: value };
+      if (value === false) {
+        // If unchecked, clear the marks
+        updatedData.english_marks_12 = null;
+      }
+      setFormData(prev => ({
+        ...prev,
+        [testId]: updatedData
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [testId]: {
@@ -291,30 +412,14 @@ const TestScores: React.FC = () => {
   };
 
   const handleCheckboxChange = (testId: number, field: string, checked: boolean) => {
-    const updatedForm = { 
-      ...formData[testId], 
-      [field]: checked 
-    };
-    
-    // Reset dependent fields when waiver is unchecked
-    if (field === 'test_waiver' || field === 'ielts_waiver') {
-      if (!checked) {
-        updatedForm.overall_score = null;
-        updatedForm.date_of_examination = '';
-      }
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      [testId]: updatedForm
-    }));
+    handleInputChange(testId, field, checked);
   };
 
   const validateTest = (testId: number, testType: string): boolean => {
     const test = testScores.find(t => t.test_type_id === testId);
     if (!test) return false;
 
-    const currentForm = formData[testId];
+    const currentForm = formData[testId] || {};
     const newErrors: { [key: string]: string } = {};
 
     const config = TEST_FIELD_CONFIGS[testType];
@@ -323,8 +428,11 @@ const TestScores: React.FC = () => {
     // Check required fields based on waiver status
     const hasWaiver = currentForm.test_waiver || currentForm.ielts_waiver;
     
-    if (!hasWaiver) {
-      // If no waiver, require overall score and date
+    // If no waiver, check if "yet_to_receive" is checked
+    const isPendingScore = currentForm.yet_to_receive;
+    
+    if (!hasWaiver && !isPendingScore) {
+      // If no waiver and not pending score, require overall score and date
       if (!currentForm.overall_score && currentForm.overall_score !== 0) {
         newErrors.overall_score = 'Overall score is required';
       }
@@ -339,16 +447,39 @@ const TestScores: React.FC = () => {
         }
       }
     }
+    
+    // If "yet_to_receive" is checked, require the date
+    if (currentForm.yet_to_receive && !currentForm.yet_to_receive_date) {
+      newErrors.yet_to_receive_date = 'Expected score date is required';
+    }
+    
+    // If "english_marks_12_checked" is checked, require the marks
+    if (currentForm.english_marks_12_checked && 
+        !currentForm.english_marks_12 && 
+        currentForm.english_marks_12 !== 0) {
+      newErrors.english_marks_12 = '12th English marks are required';
+    }
 
-    // Validate numeric fields
+    // Validate numeric fields - EXCLUDE checkbox fields from numeric validation!
     config.fields.forEach(field => {
       const value = currentForm[field];
+      
+      // Skip validation for checkbox/boolean fields
+      if (field === 'test_waiver' || field === 'ielts_waiver' || 
+          field === 'yet_to_receive' || field === 'english_marks_12_checked' || 
+          field === 'moi_checked' || field === 'is_active') {
+        return; // Skip numeric validation for checkbox fields
+      }
+      
       if (value !== undefined && value !== null && value !== '') {
         if (field.includes('score') || field.includes('marks') || 
             ['reading', 'math', 'science', 'english', 'writing', 
              'quantitative', 'verbal', 'analytical_writing', 
-             'listening', 'speaking', 'reading_and_writing', 'essay'].includes(field)) {
-          const numValue = parseFloat(value);
+             'listening', 'speaking', 'reading_and_writing', 'essay',
+             'literacy', 'conversation', 'comprehension', 'production',
+             'integrated_reasoning'].includes(field)) {
+          // Convert to number for validation
+          const numValue = parseFloat(String(value));
           if (isNaN(numValue)) {
             newErrors[field] = 'Please enter a valid number';
           } else if (numValue < 0) {
@@ -399,7 +530,7 @@ const TestScores: React.FC = () => {
       const result = await response.json();
       if (result.success) {
         // Update the test scores with new data
-        fetchTestScores();
+        await fetchTestScores(); // Refresh all data
         setExpandedTest(null);
       }
     } catch (error) {
@@ -416,57 +547,65 @@ const TestScores: React.FC = () => {
     }
   };
 
-  const handleSaveAll = async () => {
-    // Validate all tests
-    // const allValid = testScores.every(test => {
-    //   return validateTest(test.test_type_id, test.test_type);
-    // });
-
-    // if (!allValid) {
-    //   alert('Please fix all validation errors before saving.');
-    //   return;
-    // }
-
-    setSaving('all');
-    try {
-      const payload = {
-        tests: testScores.map(test => ({
-          test_type_id: test.test_type_id,
-          form_data: formData[test.test_type_id]
-        }))
-      };
-
-      const response = await fetch(`${BASE_URL}/tenant/agent/student/test/save/${studentId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) throw new Error('Failed to save all test scores');
-
-      const result = await response.json();
-      if (result.success) {
-        fetchTestScores(); // Refresh the list
-        alert('All test scores saved successfully!');
-      }
-    } catch (error) {
-      console.error('Error saving all test scores:', error);
-      alert('Failed to save test scores. Please try again.');
-    } finally {
-      setSaving(null);
-    }
+  const handleResetToOriginal = () => {
+    // Reset to original data from initial fetch
+    setTestScores(originalData);
+    
+    const resetFormData: { [key: number]: TestFormData } = {};
+    originalData.forEach((test: TestScore) => {
+      resetFormData[test.test_type_id] = { ...test.form_data };
+    });
+    setFormData(resetFormData);
+    
+    setErrors({});
+    setExpandedTest(null);
   };
 
   const renderField = (testId: number, field: string, value: any, testType: string) => {
     const error = errors[testId]?.[field];
-    const disabled = saving === testId || saving === 'all';
-    const fieldConfig = TEST_FIELD_CONFIGS[testType]?.fields.includes(field) ? true : false;
+    const disabled = saving === testId;
+    const currentForm = formData[testId] || {};
+    const config = TEST_FIELD_CONFIGS[testType];
     
-    if (!fieldConfig) return null;
+    // Check if field should be disabled based on waiver
+    const hasWaiver = currentForm.test_waiver || currentForm.ielts_waiver;
+    const conditionalFields = config?.conditionalFields || {};
+    
+    // Check if this field depends on another field that's checked
+    // BUT REVERSED LOGIC: We want to DISABLE dependent fields when the parent is TRUE
+    let isDisabledByCondition = false;
+    
+    for (const [conditionField, dependentFields] of Object.entries(conditionalFields)) {
+      if (dependentFields.includes(field)) {
+        if (conditionField === 'test_waiver' || conditionField === 'ielts_waiver') {
+          // For waiver: disable dependent fields when waiver is TRUE
+          if (currentForm[conditionField]) {
+            isDisabledByCondition = true;
+          }
+        } else if (conditionField === 'yet_to_receive') {
+          // For yet_to_receive: yet_to_receive_date should be ENABLED when yet_to_receive is TRUE
+          // So reverse the logic
+          if (field === 'yet_to_receive_date') {
+            isDisabledByCondition = !currentForm[conditionField];
+          }
+        } else if (conditionField === 'english_marks_12_checked') {
+          // For english_marks_12_checked: english_marks_12 should be ENABLED when checked is TRUE
+          // So reverse the logic
+          if (field === 'english_marks_12') {
+            isDisabledByCondition = !currentForm[conditionField];
+          }
+        }
+        break;
+      }
+    }
+    
+    // Special case: if waiver is checked, disable main fields
+    if (hasWaiver && ['overall_score', 'date_of_examination'].includes(field)) {
+      isDisabledByCondition = true;
+    }
 
+    const isDisabled = disabled || isDisabledByCondition;
+    
     const commonProps = {
       value: value || '',
       onChange: (e: React.ChangeEvent<HTMLInputElement>) => 
@@ -475,8 +614,8 @@ const TestScores: React.FC = () => {
         error 
           ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' 
           : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500/10 dark:border-gray-600'
-      } dark:bg-gray-700 dark:text-white ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`,
-      disabled
+      } dark:bg-gray-700 dark:text-white ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`,
+      disabled: isDisabled
     };
 
     // Handle boolean fields (waivers and checkboxes)
@@ -491,7 +630,7 @@ const TestScores: React.FC = () => {
             checked={!!value}
             onChange={(e) => handleCheckboxChange(testId, field, e.target.checked)}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            disabled={disabled}
+            disabled={isDisabled}
           />
           <label 
             htmlFor={`${testId}-${field}`}
@@ -508,7 +647,7 @@ const TestScores: React.FC = () => {
       return (
         <DatePicker
           selected={value ? new Date(value) : null}
-          onChange={(date) => handleInputChange(testId, field, date)}
+          onChange={(date) => handleInputChange(testId, field, date ? date.toISOString().split('T')[0] : '')}
           dateFormat="yyyy-MM-dd"
           placeholderText="Select date"
           showYearDropdown
@@ -518,8 +657,8 @@ const TestScores: React.FC = () => {
           scrollableYearDropdown
           isClearable
           className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-blue-500/10 focus:border-blue-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-          customInput={<CustomDateInput disabled={disabled} />}
-          disabled={disabled}
+          customInput={<CustomDateInput disabled={isDisabled} />}
+          disabled={isDisabled}
         />
       );
     }
@@ -538,6 +677,14 @@ const TestScores: React.FC = () => {
           step="0.1"
           min="0"
           placeholder="Enter score"
+          onBlur={(e) => {
+            // Ensure the value is properly converted to number
+            if (e.target.value === '') {
+              handleInputChange(testId, field, null);
+            } else {
+              handleInputChange(testId, field, parseFloat(e.target.value));
+            }
+          }}
         />
       );
     }
@@ -552,88 +699,144 @@ const TestScores: React.FC = () => {
     );
   };
 
-const renderTestForm = (test: TestScore) => {
-  const config = TEST_FIELD_CONFIGS[test.test_type];
-  if (!config) return null;
+  const renderTestForm = (test: TestScore) => {
+    const config = TEST_FIELD_CONFIGS[test.test_type];
+    if (!config) return null;
 
-  const currentForm = formData[test.test_type_id] || {};
-  const hasWaiver = currentForm.test_waiver || currentForm.ielts_waiver;
+    const currentForm = formData[test.test_type_id] || {};
+    const hasWaiver = currentForm.test_waiver || currentForm.ielts_waiver;
 
-  return (
-    <div className="space-y-6">
-      {Object.entries(config.sections).map(([section, fields]) => {
-        // Skip main fields if waiver is applied (don't show main section when waiver is checked)
-        if (section === 'main' && hasWaiver) {
-          return null;
-        }
+    return (
+      <div className="space-y-6">
+        {Object.entries(config.sections).map(([section, fields]) => {
+          // Filter fields based on conditions
+          const visibleFields = fields.filter(field => {
+            // Check if field should be shown based on conditions
+            
+            // If waiver is checked, hide main test fields (except waiver itself)
+            if (hasWaiver && section === 'main' && 
+                (field === 'overall_score' || field === 'date_of_examination')) {
+              return false; // Hide main test fields when waiver is applied
+            }
+            
+            // For IELTS, trf_no should be shown even with waiver
+            if (hasWaiver && test.test_type === 'IELTS' && field === 'trf_no' && section === 'main') {
+              return false; // Hide TRF number with waiver
+            }
+            
+            // For "yet_to_receive_date", only show if "yet_to_receive" is checked
+            if (field === 'yet_to_receive_date' && !currentForm.yet_to_receive) {
+              return false;
+            }
+            
+            // For "english_marks_12", only show if "english_marks_12_checked" is checked
+            if (field === 'english_marks_12' && !currentForm.english_marks_12_checked) {
+              return false;
+            }
+            
+            return true;
+          });
 
-        return (
-          <div key={section} className="space-y-4">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
-              {SECTION_TITLES[section] || section}
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fields.map(field => {
-                if (!config.fields.includes(field)) return null;
-                
-                // Determine if field is required
-                const isRequired = !hasWaiver && ['overall_score', 'date_of_examination'].includes(field);
-                
-                return (
-                  <div key={field} className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {FIELD_LABELS[field] || field}
-                      {isRequired && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    {renderField(test.test_type_id, field, currentForm[field], test.test_type)}
-                    {errors[test.test_type_id]?.[field] && (
-                      <p className="text-xs text-red-600 dark:text-red-400">
-                        {errors[test.test_type_id][field]}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+          if (visibleFields.length === 0) return null;
+
+          return (
+            <div key={section} className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+                {SECTION_TITLES[section] || section}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {visibleFields.map(field => {
+                  if (!config.fields.includes(field)) return null;
+                  
+                  // Determine if field is required
+                  const isPendingScore = currentForm.yet_to_receive;
+                  let isRequired = false;
+                  
+                  if (!hasWaiver && !isPendingScore) {
+                    isRequired = ['overall_score', 'date_of_examination'].includes(field);
+                  }
+                  
+                  if (field === 'yet_to_receive_date' && currentForm.yet_to_receive) {
+                    isRequired = true;
+                  }
+                  
+                  if (field === 'english_marks_12' && currentForm.english_marks_12_checked) {
+                    isRequired = true;
+                  }
+                  
+                  return (
+                    <div key={field} className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {FIELD_LABELS[field] || field}
+                        {isRequired && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      {renderField(test.test_type_id, field, currentForm[field], test.test_type)}
+                      {/* Show error message - but only for the actual field, not for checkboxes with dependent fields */}
+                      {errors[test.test_type_id]?.[field] && field !== 'english_marks_12_checked' && field !== 'yet_to_receive' && (
+                        <p className="text-xs text-red-600 dark:text-red-400">
+                          {errors[test.test_type_id][field]}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          );
+        })}
+        
+        {/* Show errors for dependent fields that might be hidden */}
+        {(errors[test.test_type_id]?.english_marks_12 || errors[test.test_type_id]?.yet_to_receive_date) && (
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            {errors[test.test_type_id]?.english_marks_12 && (
+              <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-1">
+                ⚠️ {errors[test.test_type_id].english_marks_12}
+              </p>
+            )}
+            {errors[test.test_type_id]?.yet_to_receive_date && (
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                ⚠️ {errors[test.test_type_id].yet_to_receive_date}
+              </p>
+            )}
           </div>
-        );
-      })}
-      
-      {errors[test.test_type_id]?.submit && (
-        <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {errors[test.test_type_id].submit}
-          </p>
+        )}
+        
+        {errors[test.test_type_id]?.submit && (
+          <div className="p-3 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {errors[test.test_type_id].submit}
+            </p>
+          </div>
+        )}
+        
+        <div className="flex gap-3 pt-4">
+          <button
+            type="button"
+            onClick={() => toggleAccordion(test.test_type_id)}
+            disabled={saving === test.test_type_id}
+            className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleSaveTest(test.test_type_id)}
+            disabled={saving === test.test_type_id}
+            className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {saving === test.test_type_id ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
         </div>
-      )}
-      
-      <div className="flex gap-3 pt-4">
-        <button
-          type="button"
-          onClick={() => toggleAccordion(test.test_type_id)}
-          disabled={saving === test.test_type_id || saving === 'all'}
-          className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={() => handleSaveTest(test.test_type_id)}
-          disabled={saving === test.test_type_id || saving === 'all'}
-          className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {saving === test.test_type_id ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            'Save Changes'
-          )}
-        </button>
       </div>
-    </div>
-  );
-};
+    );
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
@@ -732,23 +935,33 @@ const renderTestForm = (test: TestScore) => {
             </p>
           </div>
         </div>
-        {/* <button
-          onClick={handleSaveAll}
-          disabled={saving === 'all' || loading}
-          className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {saving === 'all' ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving All...
-            </>
-          ) : (
-            <>
-              <Save size={16} />
-              Save All Tests
-            </>
-          )}
-        </button> */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleResetToOriginal}
+            disabled={isRefreshingEditData || loading}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <X size={16} />
+            Reset
+          </button>
+          <button
+            onClick={fetchEditData}
+            disabled={isRefreshingEditData || loading}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isRefreshingEditData ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <Edit2 size={16} />
+                 Edit Data
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -845,6 +1058,13 @@ const renderTestForm = (test: TestScore) => {
                     {renderTestForm(test)}
                   </div>
                 )}
+                
+                {/* Show summary when not expanded and has score */}
+                {!isExpanded && hasScore && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                    {renderTestSummary(test)}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -852,9 +1072,24 @@ const renderTestForm = (test: TestScore) => {
       )}
 
       <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Click on any test to expand and edit scores directly. 
-          {/* Use "Save All Tests" to save all changes at once. */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Click on any test to expand and edit scores directly.
+          </p>
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <span className="flex items-center gap-1">
+              <Check size={12} className="text-green-500" />
+              Completed
+            </span>
+            <span className="mx-2">•</span>
+            <span className="flex items-center gap-1">
+              <Award size={12} className="text-gray-500" />
+              Not Taken
+            </span>
+          </div>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+          Use "Edit Data" to fetch the latest data from server, or "Reset" to revert to original data.
         </p>
       </div>
     </div>
