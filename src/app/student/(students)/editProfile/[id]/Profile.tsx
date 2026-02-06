@@ -909,14 +909,15 @@ export default function ProfileForm() {
               <button
                 key={tab.id}
                 onClick={() => setActiveMainTab(tab.id as MainTab)}
-                className={`flex items-center flex-col flex-1 gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center flex-col flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeMainTab === tab.id
                     ? "border-brand-500 text-brand-600 dark:text-brand-400"
                     : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                 }`}
               >
-                <IconComponent size={20} />
-                {tab.label}
+                <IconComponent size={20} className="mb-2"/>
+                {tab.label} {tab.id == "workexperience" || tab.id == "interests" ? <span className="text-[12px]">{`(Optional)`}</span> : <></>}
+                
               </button>
             );
           })}
