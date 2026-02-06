@@ -333,9 +333,9 @@ export default function ProfileForm() {
       } else {
         setValidationMessage("Student data saved successfully!");
         // Redirect back to applications list or show success message
-        setTimeout(() => {
-          router.push(`/students/applications`);
-        }, 2000);
+        // setTimeout(() => {
+        //   router.push(`/students/applications`);
+        // }, 2000);
       }
       
     } catch (error) {

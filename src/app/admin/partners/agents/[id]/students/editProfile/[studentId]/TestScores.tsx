@@ -6,6 +6,7 @@ import { Award, ChevronDown, ChevronUp, Check, Loader2, Edit2, Save, X } from "l
 import { useAuth } from "@/context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useParams } from "next/navigation";
 
 interface TestFormData {
   [key: string]: any;
@@ -210,6 +211,8 @@ const TestScores: React.FC = () => {
   const [formData, setFormData] = useState<{ [key: number]: TestFormData }>({});
   const [errors, setErrors] = useState<{ [key: number]: { [key: string]: string } }>({});
 
+  const {studentId} = useParams();
+
   useEffect(() => {
     fetchTestScores();
   }, []);
@@ -217,7 +220,7 @@ const TestScores: React.FC = () => {
   const fetchTestScores = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/student/test/initial`, {
+      const response = await fetch(`${BASE_URL}/tenant/agent/student/test/initial/${studentId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -382,7 +385,7 @@ const TestScores: React.FC = () => {
         ]
       };
 
-      const response = await fetch(`${BASE_URL}/student/test/save`, {
+      const response = await fetch(`${BASE_URL}/tenant/agent/student/test/save/${studentId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -433,7 +436,7 @@ const TestScores: React.FC = () => {
         }))
       };
 
-      const response = await fetch(`${BASE_URL}/student/test/save`, {
+      const response = await fetch(`${BASE_URL}/tenant/agent/student/test/save/${studentId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
