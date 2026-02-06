@@ -7,12 +7,14 @@ import { useRouter } from 'next/navigation';
 export default function LogoutPage() {
   const { logout, user } = useAuth();
   const router = useRouter();
+  const role  = user?.panel_type;
 
   useEffect(() => {
     const performLogout = async () => {
-        const role  = user?.panel_type;
       try {
+        console.log(role)
         logout();
+
 
         // Optional: Add a small delay to ensure logout completes
         setTimeout(() => {
@@ -20,11 +22,11 @@ export default function LogoutPage() {
                 router.push('/signin/agent');
             }else if(role == "student"){
                 router.push('/signin/student');
-            }else{
+            }else if(role == "admin" || role == "superadmin" || role == "tenant"){
                 router.push('/signin');
             }
           
-        }, 500);
+        }, 1000);
       } catch (error) {
         console.error('Logout failed:', error);
         // Still redirect to login even if logout fails

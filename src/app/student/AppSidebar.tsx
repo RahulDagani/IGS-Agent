@@ -329,33 +329,32 @@ const AppSidebar: React.FC = () => {
     >
       <div
         className={`py-8 flex  ${
-          !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
+          !isExpanded && !isHovered ? "lg:justify-center" : "justify-center"
         }`}
       >
         <Link href="/student">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-            <div className="flex justify-center items-center">
-              <Image
-                className=""
-                src="/images/logo/logo.png"
-                alt="Logo"
-                width={45}
-                height={45}
-              />
-              <span className="dark:text-white ms-1 text-black font-semibold text-2xl">
-                ApplyTech
-              </span>
+            <div className=" flex justify-center">
+            <Image
+                        src="/images/site/igslogo.png"
+                        alt="Logo"
+                        width={90}
+                        height={65}
+                      /> 
             </div>
             </>
           ) : (
-           <Image
-                className=""
-                src="/images/logo/logo.png"
-                alt="Logo"
-                width={32}
-                height={32}
-              />
+           
+
+                      <div className=" flex justify-center">
+                      <Image
+                        src="/images/site/igslogo.png"
+                        alt="Logo"
+                        width={85}
+                        height={65}
+                      />
+                    </div> 
           )}
         </Link>
       </div>

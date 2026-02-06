@@ -46,7 +46,7 @@ const AcademicInterests: React.FC = () => {
   const [countries, setCountries] = useState<Array<{isoCode: string, name: string}>>([]);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-  const {studentId} = useParams();
+  const {id: studentId} = useParams();
 
   useEffect(() => {
     fetchAcademicInterests();
