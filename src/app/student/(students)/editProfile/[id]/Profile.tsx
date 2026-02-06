@@ -1,6 +1,8 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams ,useSearchParams} from "next/navigation";
+
+
 import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -51,10 +53,23 @@ interface FormSection {
 export default function ProfileForm() {
   const {studentId} = useParams();
   const router = useRouter();
-  const [activeMainTab, setActiveMainTab] = useState<MainTab>("profile");
+  const [activeMainTab, setActiveMainTab] = useState<string>("profile");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { token } = useAuth();
+
+    const searchParams = useSearchParams();
+    const activeTabFromUrl = searchParams.get("profileTab");
+
+
+      useEffect(() => {
+          if (activeTabFromUrl) {
+            setActiveMainTab(activeTabFromUrl);
+          }
+        }, [activeTabFromUrl]);
+    
+
+
   const [formData, setFormData] = useState<StudentFormData>({
     // Personal Info
     salutation: "",
