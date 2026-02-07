@@ -90,7 +90,6 @@ interface DocumentsPageProps {
 
 export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) {
   const params = useParams();
-  const studentId = params.id as string;
   
   const [activeTab, setActiveTab] = useState<'your' | 'Igs'>('your');
   const [mandatoryOpen, setMandatoryOpen] = useState(true);
@@ -151,10 +150,10 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       }
     };
 
-    if (studentId) {
-      fetchDocuments();
-    }
-  }, [studentId, token, refreshTrigger, activeTab]);
+    
+    fetchDocuments();
+    
+  }, [ token, refreshTrigger, activeTab]);
 
   // Group documents by mandatory status and type
   const mandatoryDocuments = documents.filter(doc => doc.is_mandatory === 1);

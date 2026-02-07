@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import Programs from '../../courses/Programs';
+import Programs from '../courses/Programs';
 import { getStateByCodeAndCountry } from 'country-state-city/lib/state';
 import { Country, State } from 'country-state-city';
 
@@ -161,7 +161,6 @@ const getStateName = (state_code: string | undefined | null, country_code: strin
 };
 
 export default function Applications() {
-  const { id: studentId } = useParams();
   const [activeTab, setActiveTab] = useState<'applied' | 'apply'>('applied');
   const [activeProgram, setActiveProgram] = useState<number | null>(null);
   const [commentTab, setCommentTab] = useState<'Igs' | 'student' | 'specific-doc'>('Igs');
@@ -209,10 +208,10 @@ export default function Applications() {
   const {token} = useAuth();
 
   useEffect(() => {
-    if (studentId) {
+    
       fetchApplications();
-    }
-  }, [studentId]);
+    
+  }, []);
 
   useEffect(() => {
     if (applications.length > 0 && !activeProgram) {
@@ -301,7 +300,7 @@ const updateCredentials = async () => {
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${BASE_URL}/student/applications/student/${studentId}`, {
+      const response = await fetch(`${BASE_URL}/student/applications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -1136,7 +1135,16 @@ const updateCredentials = async () => {
             </div>
           ) : (
             <div className="col-span-8 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md p-6 flex items-center justify-center">
-              <div className="text-gray-600 dark:text-gray-400">Select an application to view details</div>
+             
+              <div className="text-center py-12">
+        <div className="text-gray-400 dark:text-gray-400 text-lg mb-2">No Application Created</div>
+        <button 
+          onClick={() => setActiveTab('apply')}
+          className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+        >
+          Create Application
+        </button>
+      </div>
             </div>
           )}
         </div>

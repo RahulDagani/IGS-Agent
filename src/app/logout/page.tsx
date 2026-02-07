@@ -22,7 +22,7 @@ export default function LogoutPage() {
                 router.push('/signin/agent');
             }else if(role == "student"){
                 router.push('/signin/student');
-            }else if(role == "admin" || role == "superadmin" || role == "tenant"){
+            }else{
                 router.push('/signin');
             }
           

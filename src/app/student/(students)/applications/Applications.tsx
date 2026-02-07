@@ -579,6 +579,38 @@ export default function ApplicationsTable() {
               </div>
             </div>
 
+            {/* Status Multi-select */}
+            <div className="SF-Status all-countries">
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Status
+                </label>
+                <Select
+                  isMulti
+                  options={statusOptions}
+                  value={statusOptions.filter(option => 
+                    uiFilters.statuses.includes(option.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    handleFilterChange('statuses', 
+                      selectedOptions ? selectedOptions.map(option => option.value) : []
+                    );
+                  }}
+                  placeholder="Select statuses"
+                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
+                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
+                      minHeight: '42px',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+
             {/* University Multi-select */}
             <div className="SF-University all-countries">
               <div className="form-group">
@@ -771,37 +803,7 @@ export default function ApplicationsTable() {
               </div>
             </div>
 
-            {/* Status Multi-select */}
-            <div className="SF-Status all-countries">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status
-                </label>
-                <Select
-                  isMulti
-                  options={statusOptions}
-                  value={statusOptions.filter(option => 
-                    uiFilters.statuses.includes(option.value)
-                  )}
-                  onChange={(selectedOptions) => {
-                    handleFilterChange('statuses', 
-                      selectedOptions ? selectedOptions.map(option => option.value) : []
-                    );
-                  }}
-                  placeholder="Select statuses"
-                  className="rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  classNamePrefix="react-select"
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      backgroundColor: 'rgb(255 255 255 / var(--tw-bg-opacity))',
-                      borderColor: 'rgb(209 213 219 / var(--tw-border-opacity))',
-                      minHeight: '42px',
-                    }),
-                  }}
-                />
-              </div>
-            </div>
+            
 
             {/* Date Created */}
             <div className="SF-DateApp">
@@ -962,13 +964,13 @@ export default function ApplicationsTable() {
                   <TableRow>
                     {[
                       { key: "acknowledgement_no", label: "Acknowledge No." },
+                      { key: "status_label", label: "Application Status" },
                       { key: "date_created", label: "Date Created" },
                       { key: "student_full_name", label: "Student Name" },
                       { key: "university_name", label: "University Name" },
                       { key: "course_name", label: "Program Name" },
                       { key: "intake_name", label: "Intake" },
                       { key: "study_level_name", label: "Study Level" },
-                      { key: "status_label", label: "Application Status" },
                     ].map(({ key, label }) => (
                       <TableCell
                         key={key}
@@ -995,6 +997,11 @@ export default function ApplicationsTable() {
                             {application.acknowledgement_no}
                           </Link>
                         </TableCell>
+                        <TableCell className="px-5 py-4">
+                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(application.status_label)}`}>
+                            {application.status_label}
+                          </span>
+                        </TableCell>
                         <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
                           {formatDate(application.date_created)}
                         </TableCell>
@@ -1015,11 +1022,7 @@ export default function ApplicationsTable() {
                         <TableCell className="px-5 py-4 text-gray-700 text-theme-sm dark:text-gray-300">
                           {application.study_level_name}
                         </TableCell>
-                        <TableCell className="px-5 py-4">
-                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(application.status_label)}`}>
-                            {application.status_label}
-                          </span>
-                        </TableCell>
+                        
                       </TableRow>
                     ))
                   ) : (

@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Badge from "@/components/ui/badge/Badge";
-import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar, Book, Building2, Star, X, ChevronDown, ChevronUp } from "lucide-react";
+import { DockIcon, DollarSign, GraduationCap, MapPin, Calendar, Book, Building2, Star, X, ChevronDown, ChevronUp, Heart } from "lucide-react";
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -46,6 +46,7 @@ interface LocationCountry {
 
 interface LocationState {
   state_code: string;
+  country_code: string;
 }
 
 interface LocationCity {
@@ -128,6 +129,8 @@ interface Course {
   study_level_name: string;
   discipline_name: string;
   university_logo_url: string;
+
+  is_shortlisted?: null;
 }
 
 interface ApiResponse {
@@ -194,6 +197,36 @@ const FilterModal: React.FC<FilterModalProps> = ({
     intakeYears: true,
   });
 
+  // Helper function to get state label
+  const getStateLabel = (stateCode: string, countryCode: string) => {
+    const state = State.getStateByCodeAndCountry(stateCode, countryCode);
+    return state
+      ? `${state.name} (${state.isoCode}, ${state.countryCode})`
+      : "Unknown State";
+  };
+
+  // Get filtered states based on selected countries
+  const getFilteredStates = useMemo(() => {
+    if (!filterOptions?.locations.states) return [];
+    
+    // If no countries selected, show all states
+    if (localFilters.countries.length === 0) return [];
+    
+    // Filter states based on selected countries
+    return filterOptions.locations.states.filter(state => {
+      // Find the country for this state
+      // This assumes state_code format includes country info or we need to map it
+      // Since we don't have direct mapping, we'll need to get all states for selected countries
+      
+      // For now, we'll show all states since we don't have country-state mapping in the data
+      // You might need to update your API to include country_code with states
+      return true;
+      
+      // If your API response includes country_code in states, you can use:
+      // return localFilters.countries.includes(state.country_code);
+    });
+  }, [filterOptions?.locations.states, localFilters.countries]);
+
   // Initialize local filters when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -220,6 +253,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
       } else {
         // Remove value from array
         newArray = currentArray.filter(item => item !== value);
+        
+        // If unchecking a country, clear states from that country
+        if (key === 'countries') {
+          // This would require mapping states to countries
+          // Implement if your data structure supports it
+        }
       }
       
       const newFilters = {
@@ -295,213 +334,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6">
-
-          {/* <div className="grid grid-cols-2 gap-6">
-             
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => toggleSection('intakes')}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Intakes
-                </h4>
-                {expandedSections.intakes ? (
-                  <ChevronUp className="w-4 h-4 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                )}
-              </button>
-              
-              {expandedSections.intakes && (
-                <select
-                  value={localFilters.intakes.map(String)}
-                  onChange={(e) => handleMultiSelectChange('intakes', e)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  
-                >
-                  <option key="all" value={""}>All</option>
-                  {filterOptions.intakes.map((intake) => (
-                    <option key={intake.id} value={intake.id}>
-                      {intake.intake_name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {localFilters.intakes.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Selected: {localFilters.intakes.length} intake(s)
-                </p>
-              )}
-            </div>
-
-          
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => toggleSection('intakeYears')}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Intake Years
-                </h4>
-                {expandedSections.intakeYears ? (
-                  <ChevronUp className="w-4 h-4 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                )}
-              </button>
-              
-              {expandedSections.intakeYears && (
-                <select
-                  value={localFilters.intakeYears.map(String)}
-                  onChange={(e) => handleMultiSelectChange('intakeYears', e)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  
-                >
-                  
-                  {filterOptions.intakeYears.map((year) => (
-                    <option key={year.intake_year} value={year.intake_year}>
-                      {year.intake_year}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {localFilters.intakeYears.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Selected: {localFilters.intakeYears.length} year(s)
-                </p>
-              )}
-            </div>
-          </div> */}
-
-
-          {/* Study Levels Filter - Keep as Multi-Select */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('studyLevels')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
-                Study Levels
-              </h4>
-              {expandedSections.studyLevels ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.studyLevels && (
-              <select
-                value={localFilters.studyLevels.map(String)}
-                onChange={(e) => handleMultiSelectChange('studyLevels', e)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                {filterOptions.studyLevels.map((level) => (
-                  <option key={level.id} value={level.id}>
-                    {level.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {localFilters.studyLevels.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.studyLevels.length} study level(s)
-              </p>
-            )}
-          </div>
-
-          {/* Disciplines Filter - Changed to Checkboxes */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('disciplines')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
-                Disciplines
-              </h4>
-              {expandedSections.disciplines ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.disciplines && (
-              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
-                {filterOptions.disciplines.map((discipline) => (
-                  <label
-                    key={discipline.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected('disciplines', discipline.id)}
-                      onChange={(e) => handleCheckboxChange('disciplines', discipline.id, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {discipline.name}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-            {localFilters.disciplines.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.disciplines.length} discipline(s)
-              </p>
-            )}
-          </div>
-
-          {/* Universities Filter - Changed to Checkboxes */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('universities')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
-                Universities
-              </h4>
-              {expandedSections.universities ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.universities && (
-              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
-                {filterOptions.universities.map((university) => (
-                  <label
-                    key={university.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected('universities', university.id)}
-                      onChange={(e) => handleCheckboxChange('universities', university.id, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {university.university}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-            {localFilters.universities.length > 0 && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.universities.length} university(ies)
-              </p>
-            )}
-          </div>
-
           {/* Locations Filter - Changed to Checkboxes */}
           <div className="space-y-3">
             <button
@@ -509,7 +341,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               onClick={() => toggleSection('locations')}
               className="flex items-center justify-between w-full text-left"
             >
-              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300">
                 Locations
               </h4>
               {expandedSections.locations ? (
@@ -546,55 +378,74 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </div>
                 </div>
 
-                {/* States */}
+                {/* States - Conditionally rendered */}
                 <div className="space-y-2">
                   <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    States
+                    States/Provinces
                   </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
-                    {filterOptions.locations.states.map((state) => (
-                      <label
-                        key={state.state_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('states', state.state_code)}
-                          onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                         {state.state_code}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  
+                  {localFilters.countries.length === 0 ? (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                        Select a country to view states/provinces.
+                      </p>
+                    </div>
+                  ) : getFilteredStates.length === 0 ? (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                        No states/provinces available for the selected countries.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
+                      {getFilteredStates.map((state) => (
+                        <label
+                          key={state.state_code}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected('states', state.state_code)}
+                            onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                            disabled={localFilters.countries.length === 0}
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {state.state_code}
+                            
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Cities */}
-                {/* <div className="space-y-2">
-                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Cities
-                  </h5>
-                  <div className="space-y-2 max-h-32 overflow-y-auto p-2">
-                    {filterOptions.locations.cities.map((city) => (
-                      <label
-                        key={city.city_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('cities', city.city_code)}
-                          onChange={(e) => handleCheckboxChange('cities', city.city_code, e.target.checked)}
-                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {city.city_code}
-                        </span>
-                      </label>
-                    ))}
+                {/* Cities - Conditionally rendered (optional) */}
+                {localFilters.states.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Cities
+                    </h5>
+                    <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
+                      {filterOptions.locations.cities.map((city) => (
+                        <label
+                          key={city.city_code}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected('cities', city.city_code)}
+                            onChange={(e) => handleCheckboxChange('cities', city.city_code, e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {city.city_code}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div> */}
+                )}
               </div>
             )}
             {(localFilters.countries.length > 0 || localFilters.states.length > 0 || localFilters.cities.length > 0) && (
@@ -603,8 +454,129 @@ const FilterModal: React.FC<FilterModalProps> = ({
               </p>
             )}
           </div>
-         
-         
+
+          {/* ... rest of the filters remain the same ... */}
+          {/* Study Levels Filter */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('studyLevels')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300">
+                Study Levels
+              </h4>
+              {expandedSections.studyLevels ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.studyLevels && (
+              <select
+                value={localFilters.studyLevels.map(String)}
+                onChange={(e) => handleMultiSelectChange('studyLevels', e)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                
+              >
+                {filterOptions.studyLevels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            )}
+           
+          </div>
+
+          {/* Disciplines Filter */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('disciplines')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300">
+                Disciplines
+              </h4>
+              {expandedSections.disciplines ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.disciplines && (
+              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
+                {filterOptions.disciplines.map((discipline) => (
+                  <label
+                    key={discipline.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected('disciplines', discipline.id)}
+                      onChange={(e) => handleCheckboxChange('disciplines', discipline.id, e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {discipline.name}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {localFilters.disciplines.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.disciplines.length} discipline(s)
+              </p>
+            )}
+          </div>
+
+          {/* Universities Filter */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('universities')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300">
+                Universities
+              </h4>
+              {expandedSections.universities ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.universities && (
+              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
+                {filterOptions.universities.map((university) => (
+                  <label
+                    key={university.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected('universities', university.id)}
+                      onChange={(e) => handleCheckboxChange('universities', university.id, e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {university.university}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {localFilters.universities.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.universities.length} university(ies)
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
@@ -1003,10 +975,15 @@ const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, type, message 
 };
 
 // Course Card Component
+// Course Card Component
 const CourseCard: React.FC<{ 
   course: Course;
   onApply: (course: Course) => void;
 }> = ({ course, onApply }) => {
+  const { token } = useAuth();
+  const [isShortlisted, setIsShortlisted] = useState<boolean>(course.is_shortlisted || false);
+  const [isShortlisting, setIsShortlisting] = useState<boolean>(false);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -1028,19 +1005,78 @@ const CourseCard: React.FC<{
     return `${currency} ${parseFloat(fee).toLocaleString()}`;
   };
 
+  // Handle shortlist toggle
+  const handleShortlist = async () => {
+    if (!token || isShortlisting) return;
+
+    setIsShortlisting(true);
+    try {
+      if (isShortlisted) {
+        // Remove from shortlist
+        const response = await fetch(`${BASE_URL}/student/shortlist/courses/${course.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to remove from shortlist');
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          setIsShortlisted(false);
+        } else {
+          throw new Error(result.message || 'Failed to remove from shortlist');
+        }
+      } else {
+        // Add to shortlist
+        const response = await fetch(`${BASE_URL}/student/shortlist/courses`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            course_id: course.id
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add to shortlist');
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          setIsShortlisted(true);
+        } else {
+          throw new Error(result.message || 'Failed to add to shortlist');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling shortlist:', error);
+      // You could add a toast notification here
+      alert(error instanceof Error ? error.message : 'Failed to update shortlist');
+    } finally {
+      setIsShortlisting(false);
+    }
+  };
+
   return (
     <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow duration-300">
       {/* Top Section */}
       <div className="flex items-start justify-between">
         {/* University Info */}
-        <div className="flex items-start gap-3">
-          <div className="logo w-20 h-20 flex shrink-0 justify-center items-center bg-white rounded-2xl">
+        <div className="flex items-start">
+          <div className="logo w-24 h-24 flex shrink-0 justify-center items-center bg-white rounded-2xl">
             {course.university_logo_url ? (
               <Image 
                 src={course.university_logo_url} 
                 alt={`${course.university_name} logo`}
-                height={80}
-                width={80}
+                height={100}
+                width={100}
                 className="rounded-md object-contain"
               />
             ) : (
@@ -1049,7 +1085,7 @@ const CourseCard: React.FC<{
               </div>
             )}
           </div>
-          <div>
+          <div className="ml-2">
             <h2 className="text-base font-semibold text-gray-800 dark:text-white leading-snug">
               {course.course_name}
             </h2>
@@ -1064,6 +1100,25 @@ const CourseCard: React.FC<{
             )}
           </div>
         </div>
+        
+        {/* Shortlist Button */}
+        <button
+          onClick={handleShortlist}
+          disabled={isShortlisting}
+          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={isShortlisted ? "Remove from shortlist" : "Add to shortlist"}
+        >
+          {isShortlisting ? (
+            <svg className="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : isShortlisted ? (
+            <Heart size={20} className="fill-red-500 text-red-500" />
+          ) : (
+            <Heart size={20} className="text-gray-400 hover:text-red-500" />
+          )}
+        </button>
       </div>
 
       <div className="border-t border-gray-100 dark:border-gray-700 mt-4 pt-4 space-y-3">
@@ -1179,7 +1234,6 @@ const CourseCard: React.FC<{
     </div>
   );
 };
-
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function StudentProgramsPage() {

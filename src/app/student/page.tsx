@@ -1,18 +1,143 @@
 "use client"
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Check, Clock, File, Heart, Table, PenSquare, FileText, User, GraduationCap, Briefcase, Star, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import Image from "next/image";
 
+interface DashboardData {
+  applications: {
+    total: number;
+  };
+  shortlisted_courses: {
+    total: number;
+  };
+  profile: {
+    completion_percentage: number;
+    is_complete: boolean;
+  };
+  test_scores: {
+    total_added: number;
+    is_complete: boolean;
+  };
+  academic_qualifications: {
+    is_complete: boolean;
+  };
+  work_experience: {
+    is_complete: boolean;
+  };
+  documents: {
+    mandatory: number;
+    uploaded: number;
+    is_complete: boolean;
+  };
+  links: DashboardLinks[];
+}
+
+interface DashboardLinks {
+  text: string;
+  img: string;
+  link: string;
+}
 
 export default function StudentDashboard() {
+  const { user, token } = useAuth();
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const {user} = useAuth();
+  const BASE_URL = "https://api.applystore.org/api";
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/student/dashboard`, {
+          headers: {
+            'Authorization': `Bearer ${token}`, // Assuming token is stored in user object
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.status) {
+          setDashboardData(result.data);
+        } else {
+          throw new Error('Failed to fetch dashboard data');
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchDashboardData();
+    }
+  }, [token]);
+
+  // Calculate document upload percentage
+  const calculateDocumentPercentage = () => {
+    if (!dashboardData) return 0;
+    if (dashboardData.documents.mandatory === 0) return 100;
+    return Math.round((dashboardData.documents.uploaded / dashboardData.documents.mandatory) * 100);
+  };
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-12 gap-4 md:gap-6">
+        <div className="col-span-12 space-y-6 xl:col-span-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-gray-600 dark:text-gray-400">Loading dashboard data...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="grid grid-cols-12 gap-4 md:gap-6">
+        <div className="col-span-12 space-y-6 xl:col-span-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-red-600 dark:text-red-400">Error: {error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-6">
       <div className="col-span-12 space-y-6 xl:col-span-12">
-        {/* Metrics Grid - Updated as per image.png */}
+        {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl  font-bold text-gray-800 dark:text-white">
+            <span className="border-b-4 border-indigo-600">Hi</span> {user?.name}
+          </h1>
+          
+        </div>
+        
+        {/* Programs Summary */}
+        {dashboardData && <div className="flex gap-4 text-sm">
+         
+          <div className="text-center ">
+            <a href={dashboardData.links[0].link} className="flywire-button flex px-4 py-2 border-2 border-blue-600 rounded-sm" target="_blank" rel="noopener noreferrer">
+              <span className="text-black dark:text-white mr-2">{dashboardData.links[0].text}</span>
+              <Image height={36} width={74} src={dashboardData.links[0].img} alt="Flywire" className="flywire-logo" />
+            </a>
+          </div>
+        </div>}
+      </div>
+        {/* Metrics Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
           {/* My Applications Metric */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
@@ -23,11 +148,8 @@ export default function StudentDashboard() {
                 </span>
                 <div className="flex align-middle">
                   <h4 className="font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    1
+                    {dashboardData?.applications.total || 0}
                   </h4>
-                  {/* <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                    (1 in progress)
-                  </span> */}
                 </div>
               </div>
               <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
@@ -36,7 +158,7 @@ export default function StudentDashboard() {
             </div>
             <div className="mt-4">
               <Link 
-                href="/student/applications"
+                href="/student/editProfile?tab=applications"
                 className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
               >
                 Track Applications ›
@@ -53,7 +175,7 @@ export default function StudentDashboard() {
                 </span>
                 <div className="flex align-middle">
                   <h4 className="font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    0
+                    {dashboardData?.shortlisted_courses.total || 0}
                   </h4>
                 </div>
               </div>
@@ -63,10 +185,10 @@ export default function StudentDashboard() {
             </div>
             <div className="mt-4">
               <Link 
-                href="/student/courses"
+                href="/student/courses/shortlisted"
                 className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
               >
-                View All Courses ›
+                View Shortlisted ›
               </Link>
             </div>
           </div>
@@ -79,7 +201,7 @@ export default function StudentDashboard() {
                   Book a Counselor Session
                 </span>
                 <div className="flex align-middle">
-                  <h4 className=" text-gray-800 text-title-sm dark:text-white/90">
+                  <h4 className="text-gray-800 text-title-sm dark:text-white/90">
                     Available 
                   </h4>
                 </div>
@@ -90,7 +212,6 @@ export default function StudentDashboard() {
             </div>
             <div className="mt-4">
               <button 
-                // href="/student/counselor"
                 className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
               >
                 Book Now ›
@@ -159,6 +280,7 @@ export default function StudentDashboard() {
               </div>
             </div>
           </div>
+
           {/* Todo List Section - Left Column */}
           <div className="mb-8">
             <div className="rounded-xl">
@@ -184,86 +306,22 @@ export default function StudentDashboard() {
                         </strong>
                         <div className="flex items-center gap-2 mt-1">
                           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-green-600" style={{ width: '75%' }}></div>
+                            <div 
+                              className="h-full bg-green-600" 
+                              style={{ width: `${dashboardData?.profile.completion_percentage || 0}%` }}
+                            ></div>
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">75%</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {dashboardData?.profile.completion_percentage || 0}%
+                          </span>
                         </div>
                       </div>
                     </div>
                     <Link
-                      href={`/student/editProfile/${user?.id}?profileTab=profile`}
+                      href={`/student/editProfile?profileTab=profile`}
                       className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                     >
-                      Update ›
-                    </Link>
-                  </div>
-
-                  {/* Academic Qualification */}
-                  <div className="flex items-center justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-10 h-10 bg-indigo-50 rounded-lg dark:bg-indigo-900/20">
-                        <GraduationCap className="text-indigo-600 dark:text-indigo-400" size={20} />
-                      </div>
-                      <div>
-                        <strong className="text-gray-800 dark:text-white text-sm">
-                          Academic Qualification
-                        </strong>
-                        <div className="flex items-center gap-2 mt-1 text-green-600">
-                          Completed
-                        </div>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/student/editProfile/${user?.id}?profileTab=academics`}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                    >
-                      Update ›
-                    </Link>
-                  </div>
-
-                  {/* Test Scores */}
-                  <div className="flex items-center justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-10 h-10 bg-indigo-50 rounded-lg dark:bg-indigo-900/20">
-                        <Star className="text-indigo-600 dark:text-indigo-400" size={20} />
-                      </div>
-                      <div>
-                        <strong className="text-gray-800 dark:text-white text-sm">
-                          Test Scores
-                        </strong>
-                        <div className="flex items-center gap-2 mt-1 text-yellow-500">
-                          Added (1 Test)
-                        </div>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/student/editProfile/${user?.id}?profileTab=testscores`}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                    >
-                      Update ›
-                    </Link>
-                  </div>
-
-                  {/* Work Experience (optional) */}
-                  <div className="flex items-center justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-10 h-10 bg-indigo-50 rounded-lg dark:bg-indigo-900/20">
-                        <Briefcase className="text-indigo-600 dark:text-indigo-400" size={20} />
-                      </div>
-                      <div>
-                        <strong className="text-gray-800 dark:text-white text-sm">
-                          Work Experience (optional)
-                        </strong>
-                        <div className="flex items-center gap-2 mt-1 text-blue-600">
-                         Optional / Not Added
-                        </div>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/student/editProfile/${user?.id}?profileTab=workexperience`}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                    >
-                      Update ›
+                      {dashboardData?.profile.is_complete ? 'Update' : 'Complete'} ›
                     </Link>
                   </div>
 
@@ -279,25 +337,102 @@ export default function StudentDashboard() {
                         </strong>
                         <div className="flex items-center gap-2 mt-1">
                           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-600" style={{ width: '40%' }}></div>
+                            <div 
+                              className={`h-full ${dashboardData?.documents.is_complete ? 'bg-green-600' : 'bg-indigo-600'}`}
+                              style={{ width: `${calculateDocumentPercentage()}%` }}
+                            ></div>
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">40%</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {calculateDocumentPercentage()}%
+                            <span className="ml-1 text-gray-400">
+                              ({dashboardData?.documents.uploaded || 0}/{dashboardData?.documents.mandatory || 0})
+                            </span>
+                          </span>
                         </div>
                       </div>
                     </div>
                     <Link
-                      href={`/student/editProfile/${user?.id}?tab=documents`}
+                      href={`/student/editProfile?tab=documents`}
                       className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                     >
-                      Upload ›
+                      {dashboardData?.documents.is_complete ? 'View' : 'Upload'} ›
                     </Link>
                   </div>
+
+                  {/* Academic Qualification */}
+                  <div className="flex items-center justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 bg-indigo-50 rounded-lg dark:bg-indigo-900/20">
+                        <GraduationCap className="text-indigo-600 dark:text-indigo-400" size={20} />
+                      </div>
+                      <div>
+                        <strong className="text-gray-800 dark:text-white text-sm">
+                          Academic Qualification
+                        </strong>
+                        <div className="flex items-center text-sm gap-2 mt-1 text-green-600">
+                          {dashboardData?.academic_qualifications.is_complete ? 'Completed' : 'Incomplete'}
+                        </div>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/student/editProfile?profileTab=academics`}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                    >
+                      {dashboardData?.academic_qualifications.is_complete ? 'Update' : 'Complete'} ›
+                    </Link>
+                  </div>
+
+                  {/* Test Scores */}
+                  <div className="flex items-center justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 bg-indigo-50 rounded-lg dark:bg-indigo-900/20">
+                        <Star className="text-indigo-600 dark:text-indigo-400" size={20} />
+                      </div>
+                      <div>
+                        <strong className="text-gray-800 dark:text-white text-sm">
+                          Test Scores
+                        </strong>
+                        <div className={`flex items-center gap-2 text-sm mt-1 ${dashboardData?.test_scores.is_complete ? 'text-green-600' : 'text-yellow-500'}`}>
+                          {dashboardData?.test_scores.is_complete ? 'Completed' : `Added (${dashboardData?.test_scores.total_added || 0} Test${dashboardData?.test_scores.total_added !== 1 ? 's' : ''})`}
+                        </div>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/student/editProfile?profileTab=testscores`}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                    >
+                      {dashboardData?.test_scores.is_complete ? 'Update' : 'Complete'} ›
+                    </Link>
+                  </div>
+
+                  {/* Work Experience (optional) */}
+                  <div className="flex items-center justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 bg-indigo-50 rounded-lg dark:bg-indigo-900/20">
+                        <Briefcase className="text-indigo-600 dark:text-indigo-400" size={20} />
+                      </div>
+                      <div>
+                        <strong className="text-gray-800 dark:text-white text-sm">
+                          Work Experience (optional)
+                        </strong>
+                        <div className={`flex items-center gap-2 mt-1 text-sm ${dashboardData?.work_experience.is_complete ? 'text-green-600' : 'text-blue-600'}`}>
+                          {dashboardData?.work_experience.is_complete ? 'Completed' : 'Optional / Not Added'}
+                        </div>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/student/editProfile?profileTab=workexperience`}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                    >
+                      {dashboardData?.work_experience.is_complete ? 'Update' : 'Add'} ›
+                    </Link>
+                  </div>
+
+                  
                 </div>
               </div>
             </div>
           </div>
-
-
         </div>
       </div>
     </div>

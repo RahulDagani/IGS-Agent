@@ -30,7 +30,6 @@ export default function StudentDetailsPage() {
 
   const [refreshDocuments, setRefreshDocuments] = useState(0);
   
-  const {id: studentId} = useParams();
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 

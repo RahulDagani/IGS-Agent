@@ -51,7 +51,6 @@ interface FormSection {
 }
 
 export default function ProfileForm() {
-  const {studentId} = useParams();
   const router = useRouter();
   const [activeMainTab, setActiveMainTab] = useState<string>("profile");
   const [isSubmitting, setIsSubmitting] = useState(false);

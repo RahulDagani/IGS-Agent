@@ -46,7 +46,6 @@ const AcademicInterests: React.FC = () => {
   const [countries, setCountries] = useState<Array<{isoCode: string, name: string}>>([]);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-  const {id: studentId} = useParams();
 
   useEffect(() => {
     fetchAcademicInterests();
@@ -66,7 +65,7 @@ const AcademicInterests: React.FC = () => {
     try {
       setIsLoading(true);
       // Fetch student interests from API
-      const response = await fetch(`${BASE_URL}/student/interests/${studentId}`, {
+      const response = await fetch(`${BASE_URL}/student/interests`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -170,7 +169,7 @@ const AcademicInterests: React.FC = () => {
         discipline: formData.discipline
       };
 
-      const response = await fetch(`${BASE_URL}/student/interests/${studentId}`, {
+      const response = await fetch(`${BASE_URL}/student/interests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
