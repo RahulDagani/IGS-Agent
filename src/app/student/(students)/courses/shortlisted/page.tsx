@@ -132,7 +132,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </div>
 
             {/* Intake Selection */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            {/* <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Select Intake</h4>
               <div className="space-y-3">
                 {mockIntakes.map((intake) => (
@@ -159,7 +159,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Application Credentials */}
             <div className="grid grid-cols-2 gap-4">

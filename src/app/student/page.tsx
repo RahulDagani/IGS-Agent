@@ -482,7 +482,7 @@ export default function StudentDashboard() {
 
             {/* Modal Body - Calendly Embed */}
             <div className="p-4 " style={{height: "500px"}}>
-              <CalendlyEmbed url="https://calendly.com/sumitrathore8294/30min" />
+              <CalendlyEmbed url="https://calendly.com/applystore-info" />
             </div>
 
             
