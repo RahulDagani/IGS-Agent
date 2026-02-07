@@ -342,7 +342,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
               className="flex items-center justify-between w-full text-left"
             >
               <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300">
-                Locations
+                Preferred Study Destination
               </h4>
               {expandedSections.locations ? (
                 <ChevronUp className="w-4 h-4 text-gray-500" />
