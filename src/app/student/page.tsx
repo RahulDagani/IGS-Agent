@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Check, Clock, File, Heart, Table, PenSquare, FileText, User, GraduationCap, Briefcase, Star, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import Image from "next/image";
 
 interface DashboardData {
   applications: {
@@ -31,6 +32,13 @@ interface DashboardData {
     uploaded: number;
     is_complete: boolean;
   };
+  links: DashboardLinks[];
+}
+
+interface DashboardLinks {
+  text: string;
+  img: string;
+  link: string;
 }
 
 export default function StudentDashboard() {
@@ -109,6 +117,26 @@ export default function StudentDashboard() {
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-6">
       <div className="col-span-12 space-y-6 xl:col-span-12">
+        {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl  font-bold text-gray-800 dark:text-white">
+            <span className="border-b-4 border-indigo-600">Hi</span> {user?.name}
+          </h1>
+          
+        </div>
+        
+        {/* Programs Summary */}
+        {dashboardData && <div className="flex gap-4 text-sm">
+         
+          <div className="text-center ">
+            <a href={dashboardData.links[0].link} className="flywire-button flex px-4 py-2 border-2 border-blue-600 rounded-sm" target="_blank" rel="noopener noreferrer">
+              <span className="text-black dark:text-white mr-2">{dashboardData.links[0].text}</span>
+              <Image height={36} width={74} src={dashboardData.links[0].img} alt="Flywire" className="flywire-logo" />
+            </a>
+          </div>
+        </div>}
+      </div>
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
           {/* My Applications Metric */}
