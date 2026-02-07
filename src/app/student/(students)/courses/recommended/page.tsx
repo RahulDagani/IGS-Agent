@@ -1413,7 +1413,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
       
       const filtersToApply = filtersToUse || filters;
       const queryString = buildCoursesQueryString(page, filtersToApply);
-      const url = `${BASE_URL}/student/courses${queryString ? `?${queryString}` : ''}`;
+      const url = `${BASE_URL}/student/recommended/courses`;
       
       const response = await fetch(url, {
         headers: {
@@ -1716,10 +1716,10 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            Browse Programs
+            Recommended Courses
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Discover and apply to programs that match your interests
+            Apply to courses that match your interests
           </p>
         </div>
         
@@ -1754,7 +1754,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
               Clear All
             </button>
           )}
-          <button
+          {/* <button
             onClick={handleModalOpen}
             disabled={loadingFilters}
             className="h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1768,7 +1768,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
                 {getFilterCount()}
               </span>
             )}
-          </button>
+          </button> */}
         </div>
       </div>
 
