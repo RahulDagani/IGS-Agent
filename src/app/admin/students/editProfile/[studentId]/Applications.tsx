@@ -1181,7 +1181,7 @@ const updateCredentials = async () => {
       );
     }
 
-    if (messages.length === 0) {
+    if (messages?.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">

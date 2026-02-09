@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams ,useSearchParams} from "next/navigation";
 
 
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap } from "lucide-react";
+import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap, Sparkles } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Country, State, City } from "country-state-city";
@@ -12,6 +12,7 @@ import TestScores from "./TestScores";
 import AcademicInterests from "./AcademicInterests";
 import WorkExperience from "./WorkExperience";
 import AcademicQualifications from "./AcademicQualifications";
+import AIAutofillModal from "./AutoFillModal";
 
 interface StudentFormData {
   // Personal Info
@@ -56,6 +57,8 @@ export default function ProfileForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { token } = useAuth();
+
+  const [showAIAutofillModal, setShowAIAutofillModal] = useState(false)
 
     const searchParams = useSearchParams();
     const activeTabFromUrl = searchParams.get("profileTab");
@@ -901,6 +904,8 @@ export default function ProfileForm() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
 
+      
+
         {validationMessage && (
           <div className="px-5 py-4 sm:px-6 sm:py-5">
           <p className={`mt-1 text-sm ${
@@ -939,8 +944,31 @@ export default function ProfileForm() {
       </div>
 
       <div className="p-5 sm:p-6">
+
+        
         {/* Profile Tab Content */}
         {activeMainTab === "profile" && (
+          <>
+          {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Personal Information</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                 Complete your application form by filling out all the required information.
+                </p>
+              </div>
+              <button
+  onClick={() => setShowAIAutofillModal(true)}
+  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-500 px-4 py-2.5 text-sm font-medium text-white hover:from-purple-700 hover:to-blue-600 active:scale-[0.98] transition-all duration-200 shadow-md hover:shadow-lg"
+>
+  <div className="flex items-center gap-2">
+    <Sparkles size={16} className="animate-pulse" />
+    <span>AI Autofill</span>
+  </div>
+  <span className="text-xs opacity-80">upload documents</span>
+</button>
+            </div>
+         
           <form onSubmit={handleSubmit}>
             {/* Form Sections */}
             <div className="space-y-6">
@@ -1046,6 +1074,7 @@ export default function ProfileForm() {
               </div>
             </div>
           </form>
+           </>
         )}
 
         {/* Test Scores Tab Content */}
@@ -1059,6 +1088,14 @@ export default function ProfileForm() {
 
         {activeMainTab === "academics" && <AcademicQualifications />}
       </div>
+      <AIAutofillModal
+  isOpen={showAIAutofillModal}
+  onClose={() => setShowAIAutofillModal(false)}
+  onUploadComplete={() => {
+    // You can add logic here to refresh form data or show notifications
+    console.log("Document uploaded and processed")
+  }}
+/>
     </div>
   );
 }

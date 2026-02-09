@@ -1,13 +1,17 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen } from "lucide-react";
+import { useRouter, useParams ,useSearchParams} from "next/navigation";
+
+
+import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Country, State, City } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
-import TestScores from "./TestScores"; // Import TestScores component
-import AcademicInterests from "./AcademicInterests"; // Import AcademicInterests component
+import TestScores from "./TestScores";
+import AcademicInterests from "./AcademicInterests";
+import WorkExperience from "./WorkExperience";
+import AcademicQualifications from "./AcademicQualifications";
 
 interface StudentFormData {
   // Personal Info
@@ -36,17 +40,36 @@ interface StudentFormData {
   emergency_c_phone: string;
 }
 
-type MainTab = "profile" | "testscores" | "interests";
-type ProfileSubTab = "personal" | "address" | "emergency";
+type MainTab = "profile" | "testscores" | "interests" | "workexperience" | "academics";
+
+interface FormSection {
+  id: string;
+  title: string;
+  icon: React.ComponentType<any>;
+  description?: string;
+  completed: boolean;
+}
 
 export default function ProfileForm() {
-  const {studentId} = useParams();
   const router = useRouter();
-  const [activeMainTab, setActiveMainTab] = useState<MainTab>("profile");
-  const [activeProfileSubTab, setActiveProfileSubTab] = useState<ProfileSubTab>("personal");
+  const {studentId} = useParams();
+  const [activeMainTab, setActiveMainTab] = useState<string>("profile");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { token } = useAuth();
+
+    const searchParams = useSearchParams();
+    const activeTabFromUrl = searchParams.get("profileTab");
+
+
+      useEffect(() => {
+          if (activeTabFromUrl) {
+            setActiveMainTab(activeTabFromUrl);
+          }
+        }, [activeTabFromUrl]);
+    
+
+
   const [formData, setFormData] = useState<StudentFormData>({
     // Personal Info
     salutation: "",
@@ -79,6 +102,11 @@ export default function ProfileForm() {
   const [error, setError] = useState<string>("");
   const [validationMessage, setValidationMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    personal: true,
+    address: false,
+    emergency: false,
+  });
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -138,10 +166,48 @@ export default function ProfileForm() {
     fetchStudentData();
   }, []);
 
-  const validateProfileSubTab = (tab: ProfileSubTab): boolean => {
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const isSectionComplete = (sectionId: string): boolean => {
+    switch (sectionId) {
+      case "personal":
+        return !!(formData.salutation && 
+                 formData.first_name.trim() && 
+                 formData.last_name.trim() && 
+                 formData.email.trim() && 
+                 /^\S+@\S+\.\S+$/.test(formData.email) &&
+                 formData.phone.trim() && 
+                 formData.dob && 
+                 formData.gender);
+                 
+      case "address":
+        return !!(formData.address.trim() && 
+                 formData.country_code && 
+                 formData.state_code && 
+                 formData.city_code && 
+                 formData.postal_code.trim() && 
+                 formData.citizenship);
+                 
+      case "emergency":
+        return !!(formData.emergency_c_name.trim() && 
+                 formData.emergency_c_relation && 
+                 formData.emergency_c_phone.trim() &&
+                 (!formData.emergency_c_email || /^\S+@\S+\.\S+$/.test(formData.emergency_c_email)));
+                 
+      default:
+        return false;
+    }
+  };
+
+  const validateSection = (sectionId: string): boolean => {
     const errors: Record<string, string> = {};
     
-    switch (tab) {
+    switch (sectionId) {
       case "personal":
         if (!formData.salutation) errors.salutation = "Salutation is required";
         if (!formData.first_name.trim()) errors.first_name = "First name is required";
@@ -172,39 +238,8 @@ export default function ProfileForm() {
         break;
     }
     
-    setFieldErrors(errors);
+    setFieldErrors(prev => ({ ...prev, ...errors }));
     return Object.keys(errors).length === 0;
-  };
-
-  const isProfileSubTabComplete = (tab: ProfileSubTab): boolean => {
-    switch (tab) {
-      case "personal":
-        return !!(formData.salutation && 
-                 formData.first_name.trim() && 
-                 formData.last_name.trim() && 
-                 formData.email.trim() && 
-                 /^\S+@\S+\.\S+$/.test(formData.email) &&
-                 formData.phone.trim() && 
-                 formData.dob && 
-                 formData.gender);
-                 
-      case "address":
-        return !!(formData.address.trim() && 
-                 formData.country_code && 
-                 formData.state_code && 
-                 formData.city_code && 
-                 formData.postal_code.trim() && 
-                 formData.citizenship);
-                 
-      case "emergency":
-        return !!(formData.emergency_c_name.trim() && 
-                 formData.emergency_c_relation && 
-                 formData.emergency_c_phone.trim() &&
-                 (!formData.emergency_c_email || /^\S+@\S+\.\S+$/.test(formData.emergency_c_email)));
-                 
-      default:
-        return false;
-    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -266,33 +301,22 @@ export default function ProfileForm() {
     }
   };
 
-  const handleNextProfileSubTab = () => {
-    if (validateProfileSubTab(activeProfileSubTab)) {
-      const tabIndex = profileSubTabs.findIndex(tab => tab.id === activeProfileSubTab);
-      if (tabIndex < profileSubTabs.length - 1) {
-        setActiveProfileSubTab(profileSubTabs[tabIndex + 1].id as ProfileSubTab);
-      }
-    }
-  };
-
-  const handlePreviousProfileSubTab = () => {
-    const tabIndex = profileSubTabs.findIndex(tab => tab.id === activeProfileSubTab);
-    if (tabIndex > 0) {
-      setActiveProfileSubTab(profileSubTabs[tabIndex - 1].id as ProfileSubTab);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate all profile sub-tabs before submission
-    const isPersonalValid = validateProfileSubTab("personal");
-    const isAddressValid = validateProfileSubTab("address");
-    const isEmergencyValid = validateProfileSubTab("emergency");
+    // Validate all sections before submission
+    const isPersonalValid = validateSection("personal");
+    const isAddressValid = validateSection("address");
+    const isEmergencyValid = validateSection("emergency");
     
     if (!isPersonalValid || !isAddressValid || !isEmergencyValid) {
       setValidationMessage("Please fix all validation errors before submitting.");
-      setActiveProfileSubTab("personal");
+      // Expand sections with errors
+      setExpandedSections({
+        personal: isPersonalValid ? expandedSections.personal : true,
+        address: isAddressValid ? expandedSections.address : true,
+        emergency: isEmergencyValid ? expandedSections.emergency : true,
+      });
       return;
     }
 
@@ -358,14 +382,34 @@ export default function ProfileForm() {
 
   const mainTabs = [
     { id: "profile", label: "Profile Information", icon: User },
+    { id: "academics", label: "Academic Qualifications", icon: GraduationCap },
     { id: "testscores", label: "Test Scores", icon: Award },
     { id: "interests", label: "Academic Interests", icon: BookOpen },
+    { id: "workexperience", label: "Work Experience", icon: Briefcase },
   ];
 
-  const profileSubTabs = [
-    { id: "personal", label: "Personal Info", icon: User },
-    { id: "address", label: "Current Address", icon: MapPin },
-    { id: "emergency", label: "Emergency Contact", icon: Users },
+  const formSections: FormSection[] = [
+    { 
+      id: "personal", 
+      title: "Personal Information", 
+      icon: User, 
+      description: "Provide your basic personal details",
+      completed: isSectionComplete("personal")
+    },
+    { 
+      id: "address", 
+      title: "Current Address", 
+      icon: MapPin, 
+      description: "Enter your current residential address",
+      completed: isSectionComplete("address")
+    },
+    { 
+      id: "emergency", 
+      title: "Emergency Contact", 
+      icon: Users, 
+      description: "Add your emergency contact information",
+      completed: isSectionComplete("emergency")
+    },
   ];
 
   if (isLoading) {
@@ -392,7 +436,7 @@ export default function ProfileForm() {
     );
   }
 
-  const renderPersonalInfoTab = () => (
+  const renderPersonalInfoSection = () => (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Salutation */}
@@ -597,7 +641,7 @@ export default function ProfileForm() {
     </div>
   );
 
-  const renderAddressTab = () => (
+  const renderAddressSection = () => (
     <div className="space-y-5">
       {/* Address */}
       <div>
@@ -752,7 +796,7 @@ export default function ProfileForm() {
     </div>
   );
 
-  const renderEmergencyContactTab = () => (
+  const renderEmergencyContactSection = () => (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Emergency Contact Name */}
@@ -857,15 +901,9 @@ export default function ProfileForm() {
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="px-5 py-4 sm:px-6 sm:py-5">
-        <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-          Student Common Application Form
-        </h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Complete your application form by filling out all the required information.
-        </p>
 
         {validationMessage && (
+          <div className="px-5 py-4 sm:px-6 sm:py-5">
           <p className={`mt-1 text-sm ${
             validationMessage.includes("successfully") 
               ? "text-green-500 dark:text-green-400" 
@@ -873,11 +911,12 @@ export default function ProfileForm() {
           }`}>
             {validationMessage}
           </p>
+          </div>
         )}
-      </div>
+      
       
       {/* Main Tab Navigation */}
-      <div className="border-t border-gray-100 dark:border-gray-800">
+      <div className="border-b border-gray-100 dark:border-gray-800">
         <div className="flex overflow-x-auto">
           {mainTabs.map((tab) => {
             const IconComponent = tab.icon;
@@ -885,14 +924,15 @@ export default function ProfileForm() {
               <button
                 key={tab.id}
                 onClick={() => setActiveMainTab(tab.id as MainTab)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center flex-col flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeMainTab === tab.id
                     ? "border-brand-500 text-brand-600 dark:text-brand-400"
                     : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                 }`}
               >
-                <IconComponent size={16} />
-                {tab.label}
+                <IconComponent size={20} className="mb-2"/>
+                {tab.label} {tab.id == "workexperience" || tab.id == "interests" ? <span className="text-[12px]">{`(Optional)`}</span> : <></>}
+                
               </button>
             );
           })}
@@ -903,68 +943,76 @@ export default function ProfileForm() {
         {/* Profile Tab Content */}
         {activeMainTab === "profile" && (
           <form onSubmit={handleSubmit}>
-            {/* Profile Sub Tab Navigation */}
-            <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-              <div className="flex overflow-x-auto">
-                {profileSubTabs.map((tab) => {
-                  const IconComponent = tab.icon;
-                  const isComplete = isProfileSubTabComplete(tab.id as ProfileSubTab);
-                  return (
+            {/* Form Sections */}
+            <div className="space-y-6">
+              {formSections.map((section) => {
+                const IconComponent = section.icon;
+                const isExpanded = expandedSections[section.id];
+                
+                return (
+                  <div 
+                    key={section.id} 
+                    className={`rounded-xl border ${
+                      isExpanded 
+                        ? 'border-brand-200 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-900/10' 
+                        : 'border-gray-200 dark:border-gray-800'
+                    }`}
+                  >
+                    {/* Section Header */}
                     <button
-                      key={tab.id}
                       type="button"
-                      onClick={() => setActiveProfileSubTab(tab.id as ProfileSubTab)}
-                      className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                        activeProfileSubTab === tab.id
-                          ? "border-brand-500 text-brand-600 dark:text-brand-400"
-                          : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                      }`}
+                      onClick={() => toggleSection(section.id)}
+                      className="flex w-full items-center justify-between p-5 text-left"
                     >
-                      <IconComponent size={16} />
-                      {tab.label}
-                      {isComplete && (
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      )}
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                          section.completed 
+                            ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          <IconComponent size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
+                            {section.title}
+                          </h3>
+                          {section.description && (
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                              {section.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {section.completed && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 12 12">
+                              <path d="M10 3L4.5 8.5L2 6"/>
+                            </svg>
+                            Completed
+                          </span>
+                        )}
+                        <span className="text-gray-400 dark:text-gray-500">
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </span>
+                      </div>
                     </button>
-                  );
-                })}
-              </div>
+
+                    {/* Section Content */}
+                    {isExpanded && (
+                      <div className="border-t border-gray-200 p-5 dark:border-gray-800">
+                        {section.id === "personal" && renderPersonalInfoSection()}
+                        {section.id === "address" && renderAddressSection()}
+                        {section.id === "emergency" && renderEmergencyContactSection()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Profile Sub Tab Content */}
-            <div className="mb-8">
-              {activeProfileSubTab === "personal" && renderPersonalInfoTab()}
-              {activeProfileSubTab === "address" && renderAddressTab()}
-              {activeProfileSubTab === "emergency" && renderEmergencyContactTab()}
-            </div>
-
-            {/* Navigation and Submit Buttons for Profile Tab */}
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div className="flex gap-3">
-                {activeProfileSubTab !== "personal" && (
-                  <button
-                    type="button"
-                    onClick={handlePreviousProfileSubTab}
-                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                  >
-                    Previous
-                  </button>
-                )}
-                {activeProfileSubTab !== "emergency" && (
-                  <button
-                    type="button"
-                    onClick={handleNextProfileSubTab}
-                    className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600 disabled:bg-gray-300 disabled:border-gray-300 disabled:cursor-not-allowed"
-                    disabled={!isProfileSubTabComplete(activeProfileSubTab)}
-                  >
-                    Next
-                    <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                      <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-
+            {/* Submit Buttons */}
+            <div className="mt-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -973,28 +1021,29 @@ export default function ProfileForm() {
                 >
                   Cancel
                 </button>
-                {activeProfileSubTab === "emergency" && (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !isProfileSubTabComplete("personal") || !isProfileSubTabComplete("address") || !isProfileSubTabComplete("emergency")}
-                    className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Save Profile
-                        <Plus size={18} />
-                      </>
-                    )}
-                  </button>
-                )}
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !formSections.every(section => section.completed)}
+                  className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Save All Sections
+                      <Plus size={18} />
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </form>
@@ -1005,6 +1054,11 @@ export default function ProfileForm() {
 
         {/* Academic Interests Tab Content */}
         {activeMainTab === "interests" && <AcademicInterests />}
+
+        {/* Work Experience Tab Content */}
+        {activeMainTab === "workexperience" && <WorkExperience />}
+
+        {activeMainTab === "academics" && <AcademicQualifications />}
       </div>
     </div>
   );
