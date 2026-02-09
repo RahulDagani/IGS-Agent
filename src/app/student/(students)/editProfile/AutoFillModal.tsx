@@ -1,8 +1,8 @@
 // components/AIAutofillModal.tsx
 "use client"
 
-import React, { useState } from "react"
-import { X, Upload, FileText, Briefcase, School, FileCheck, Sparkles, CheckCircle, AlertCircle } from "lucide-react"
+import React, { useState, useRef } from "react"
+import { X, Upload, FileText, Briefcase, School, FileCheck, Sparkles, CheckCircle, AlertCircle, File, ExternalLink } from "lucide-react"
 
 export type DocumentType = "10th_marksheet" | "12th_marksheet" | "undergraduate_marksheet" | "resume" | "passport" | "transcripts"
 
@@ -12,9 +12,9 @@ interface DocumentOption {
   description: string
   icon: React.ComponentType<any>
   fields: {
-    personal: number
-    academics: number
-    work: number
+    personal?: number
+    academics?: number
+    work?: number
   }
 }
 
@@ -57,50 +57,44 @@ export default function AIAutofillModal({ isOpen, onClose, onUploadComplete }: A
   ])
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const documentOptions: DocumentOption[] = [
     {
+      id: "passport",
+      label: "Passport",
+      description: "Personal identification",
+      icon: FileCheck,
+      fields: { personal: 23 }
+    },
+    {
       id: "10th_marksheet",
       label: "10th Marksheet",
-      description: "High school completion certificate and marks",
+      description: "High school completion certificate",
       icon: School,
-      fields: { personal: 5, academics: 10, work: 0 }
+      fields: { academics: 10}
     },
     {
       id: "12th_marksheet",
       label: "12th Marksheet",
-      description: "Higher secondary school marks and details",
+      description: "Higher secondary school marks",
       icon: School,
-      fields: { personal: 8, academics: 15, work: 0 }
+      fields: { academics: 15}
     },
     {
       id: "undergraduate_marksheet",
-      label: "Undergraduate Marksheet",
-      description: "Bachelor's degree transcripts and certificates",
+      label: "Undergrad Marksheet",
+      description: "Bachelor's degree transcripts",
       icon: FileText,
-      fields: { personal: 10, academics: 25, work: 2 }
+      fields: { academics: 25 }
     },
     {
       id: "resume",
       label: "Resume/CV",
-      description: "Professional experience and qualifications",
+      description: "Professional experience",
       icon: Briefcase,
-      fields: { personal: 15, academics: 8, work: 32 }
+      fields: { work: 32 }
     },
-    {
-      id: "passport",
-      label: "Passport",
-      description: "Personal identification and nationality details",
-      icon: FileCheck,
-      fields: { personal: 23, academics: 0, work: 0 }
-    },
-    {
-      id: "transcripts",
-      label: "Academic Transcripts",
-      description: "Complete academic records from institutions",
-      icon: FileText,
-      fields: { personal: 12, academics: 36, work: 0 }
-    }
   ]
 
   const handleFileUpload = async (file: File) => {
@@ -128,7 +122,7 @@ export default function AIAutofillModal({ isOpen, onClose, onUploadComplete }: A
         id: selectedDocType,
         name: file.name,
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         status: "completed",
         extractedFields: {
           personal: Math.floor(Math.random() * 15) + 10,
@@ -161,36 +155,39 @@ export default function AIAutofillModal({ isOpen, onClose, onUploadComplete }: A
     }
   }
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!selectedDocType) return
+    
+    const files = e.dataTransfer.files
+    if (files.length > 0) {
+      handleFileUpload(files[0])
+    }
+  }
+
   const getStatusColor = (status: UploadedDocument['status']) => {
     switch (status) {
-      case 'completed': return 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400'
-      case 'processing': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400'
-      case 'uploaded': return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400'
-      case 'failed': return 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400'
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      case 'processing': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+      case 'uploaded': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'failed': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
     }
   }
 
   const getStatusIcon = (status: UploadedDocument['status']) => {
     switch (status) {
-      case 'completed': return <CheckCircle className="w-4 h-4" />
-      case 'processing': return <div className="animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4" />
-      case 'uploaded': return <Upload className="w-4 h-4" />
-      case 'failed': return <AlertCircle className="w-4 h-4" />
+      case 'completed': return <CheckCircle className="w-3 h-3" />
+      case 'processing': return <div className="animate-spin rounded-full border border-current border-t-transparent w-3 h-3" />
+      case 'uploaded': return <Upload className="w-3 h-3" />
+      case 'failed': return <AlertCircle className="w-3 h-3" />
     }
-  }
-
-  const getDocFieldsText = (doc: UploadedDocument) => {
-    const fields = []
-    if (doc.extractedFields.personal > 0) {
-      fields.push(`Fills ${doc.extractedFields.personal}/32 fields of Personal Information`)
-    }
-    if (doc.extractedFields.academics > 0) {
-      fields.push(`Fills ${doc.extractedFields.academics}/36 fields of Academic Qualifications`)
-    }
-    if (doc.extractedFields.work > 0) {
-      fields.push(`Fills ${doc.extractedFields.work}/28 fields of Work Experience`)
-    }
-    return fields
   }
 
   const selectedDocOption = selectedDocType 
@@ -209,16 +206,16 @@ export default function AIAutofillModal({ isOpen, onClose, onUploadComplete }: A
         />
 
         {/* Modal */}
-        <div className="relative w-full max-w-4xl rounded-2xl bg-white dark:bg-gray-900 shadow-xl">
+        <div className="relative w-full max-w-6xl rounded-2xl bg-white dark:bg-gray-900 shadow-xl">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 p-6">
+          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-blue-500">
-                <Sparkles className="w-6 h-6 text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-blue-500">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  AI Autofill Assistant
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  AI Document Autofill
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Upload documents to automatically fill your profile
@@ -227,7 +224,7 @@ export default function AIAutofillModal({ isOpen, onClose, onUploadComplete }: A
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -235,312 +232,230 @@ export default function AIAutofillModal({ isOpen, onClose, onUploadComplete }: A
 
           {/* Content */}
           <div className="p-6">
-            {/* Document Selection */}
-            <div className="mb-8">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Select Document Type
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documentOptions.map((doc) => {
-                  const Icon = doc.icon
-                  const isSelected = selectedDocType === doc.id
-                  const isUploaded = uploadedDocs.some(d => d.id === doc.id)
-                  
-                  return (
-                    <button
-                      key={doc.id}
-                      onClick={() => setSelectedDocType(doc.id)}
-                      className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                        isSelected
-                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-600'
-                          : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
-                      } ${isUploaded ? 'opacity-75' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Document Selection */}
+              <div className="lg:col-span-1">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 uppercase tracking-wider">
+                  Select Document Type
+                </h3>
+                <div className="space-y-2">
+                  {documentOptions.map((doc) => {
+                    const Icon = doc.icon
+                    const isSelected = selectedDocType === doc.id
+                    const isUploaded = uploadedDocs.some(d => d.id === doc.id)
+                    
+                    return (
+                      <button
+                        key={doc.id}
+                        onClick={() => setSelectedDocType(doc.id)}
+                        className={`w-full p-3 rounded-lg border transition-all duration-200 text-left flex items-start gap-3 ${
+                          isSelected
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-600'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        } ${isUploaded ? 'opacity-80' : ''}`}
+                      >
+                        <div className={`p-2 rounded-md ${
                           isSelected
                             ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                         }`}>
-                          <Icon className="w-5 h-5" />
+                          <Icon className="w-4 h-4" />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-gray-900 dark:text-white">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
                               {doc.label}
                             </h4>
                             {isUploaded && (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0 ml-2" />
                             )}
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                             {doc.description}
                           </p>
-                          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded">
-                              Personal: {doc.fields.personal}
-                            </span>
-                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded">
-                              Academic: {doc.fields.academics}
-                            </span>
-                            {doc.fields.work > 0 && (
-                              <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 rounded">
-                                Work: {doc.fields.work}
+                          <div className="flex items-center gap-1.5 mt-2">
+                            {doc.fields?.personal && <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                              Personal Information: Fill {doc.fields.personal} fields
+                            </span> }
+                            {doc.fields?.academics && <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                              Academic Qualifications: Fill {doc.fields.academics} fields
+                            </span> }
+                            {doc.fields?.work && (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
+                                Work Experience: Fill {doc.fields.work} fields
                               </span>
                             )}
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  )
-                })}
+                      </button>
+                    )
+                  })}
+                </div>
+
+               
               </div>
-            </div>
 
-            {/* Upload Section */}
-            {selectedDocType && selectedDocOption && (
-              <div className="mb-8 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-4">
+              {/* Right Column - Upload Area */}
+              <div className="lg:col-span-2">
+                {selectedDocType && selectedDocOption ? (
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                      Upload {selectedDocOption.label}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Upload your document to extract information
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">Expected to fill:</span>
-                    <span className="font-medium text-purple-600 dark:text-purple-400">
-                      {selectedDocOption.fields.personal + selectedDocOption.fields.academics + selectedDocOption.fields.work} fields
-                    </span>
-                  </div>
-                </div>
-
-                {/* Instructions */}
-                <div className="mb-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">
-                    Upload Instructions:
-                  </h4>
-                  <ul className="space-y-2 text-sm text-blue-700 dark:text-blue-400">
-                    <li className="flex items-start gap-2">
-                      <div className="w-1 h-1 rounded-full bg-blue-500 mt-2" />
-                      Ensure the document is clear and readable
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1 h-1 rounded-full bg-blue-500 mt-2" />
-                      Upload PDF, JPG, or PNG files (Max 10MB)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1 h-1 rounded-full bg-blue-500 mt-2" />
-                      Make sure all text is visible and not cropped
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="w-1 h-1 rounded-full bg-blue-500 mt-2" />
-                      For transcripts, include all pages in one file
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Upload Area */}
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-8 text-center">
-                  {uploading ? (
-                    <div className="space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-full border-4 border-gray-200 dark:border-gray-800 border-t-purple-500 animate-spin" />
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">Processing document...</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          Extracting information with AI
-                        </p>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                        Upload {selectedDocOption.label}
+                      </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {uploadProgress}% complete
+                        Expected to fill:{" "}
+                        <span className="font-medium text-purple-600 dark:text-purple-400">
+                            {selectedDocOption.fields.personal && (selectedDocOption.fields.personal + " fields of Personal Information")}
+                            {selectedDocOption.fields.academics && (selectedDocOption.fields.academics + " fields of Academic Qualification")}
+                            {selectedDocOption.fields.work && (selectedDocOption.fields.work + " fields of Work Experience")}
+                        </span>
                       </p>
                     </div>
-                  ) : (
-                    <>
-                      <div className="mx-auto w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                        <Upload className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <div className="mb-4">
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          Drag & drop your file here
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          or click to browse files
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-center gap-4">
-                        <label className="cursor-pointer">
+
+                    
+
+                    {/* Upload Area */}
+                    <div 
+                      className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                        uploading 
+                          ? 'border-purple-300 dark:border-purple-800'
+                          : 'border-gray-300 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600'
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      onClick={() => !uploading && fileInputRef.current?.click()}
+                    >
+                      {uploading ? (
+                        <div className="space-y-4">
+                          <div className="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 dark:border-gray-800 border-t-purple-500 animate-spin" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">Processing...</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              AI is extracting information
+                            </p>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5">
+                            <div 
+                              className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {uploadProgress}% complete
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
+                            <Upload className="w-5 h-5 text-gray-400" />
+                          </div>
+                          <div className="mb-3">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                              Drop file here or click to browse
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Upload your {selectedDocOption.label.toLowerCase()}
+                            </p>
+                          </div>
                           <input
+                            ref={fileInputRef}
                             type="file"
                             className="hidden"
                             accept=".pdf,.jpg,.jpeg,.png"
                             onChange={handleFileSelect}
                             disabled={uploading}
                           />
-                          <span className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 text-sm font-medium text-white hover:from-purple-700 hover:to-blue-600 transition-all duration-200">
-                            <Upload className="w-4 h-4" />
-                            Browse Files
-                          </span>
-                        </label>
-                        <button
-                          onClick={() => setSelectedDocType(null)}
-                          className="px-6 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                        Supported formats: PDF, JPG, PNG (Max 10MB)
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Uploaded Documents */}
-            {uploadedDocs.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Uploaded Documents
-                </h3>
-                <div className="space-y-4">
-                  {uploadedDocs.map((doc) => {
-                    const docOption = documentOptions.find(d => d.id === doc.id)
-                    const fieldTexts = getDocFieldsText(doc)
-                    
-                    return (
-                      <div
-                        key={`${doc.id}-${doc.date}`}
-                        className="rounded-xl border border-gray-200 dark:border-gray-800 p-4"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
-                              {docOption?.icon && (
-                                <docOption.icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-gray-900 dark:text-white">
-                                  {doc.name}
-                                </h4>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                                  <span className="flex items-center gap-1">
-                                    {getStatusIcon(doc.status)}
-                                    {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                                  </span>
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                {docOption?.label} • {doc.size} • Uploaded on {doc.date}
-                              </p>
-                              <div className="mt-3 space-y-2">
-                                {fieldTexts.map((text, index) => (
-                                  <div key={index} className="flex items-center gap-2 text-sm">
-                                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                                    <span className="text-gray-700 dark:text-gray-300">{text}</span>
-                                  </div>
-                                ))}
-                                {doc.extractedFields.total > 0 && (
-                                  <div className="flex items-center gap-2 text-sm font-medium text-purple-600 dark:text-purple-400">
-                                    <Sparkles className="w-4 h-4" />
-                                    Total {doc.extractedFields.total} fields extracted
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                            <X className="w-5 h-5" />
+                          <button
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-500 px-4 py-2 text-xs font-medium text-white hover:from-purple-700 hover:to-blue-600 transition-all duration-200"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            Select File
                           </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                            PDF, JPG, PNG (Max 10MB)
+                          </p>
+                        </>
+                      )}
+                    </div>
 
-            {/* Progress Summary */}
-            {uploadedDocs.length > 0 && (
-              <div className="mt-8 rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                  Auto-fill Progress
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                      {uploadedDocs.reduce((sum, doc) => sum + doc.extractedFields.personal, 0)}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Personal Information Fields</p>
-                    <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 mt-2">
-                      <div 
-                        className="bg-purple-500 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, (uploadedDocs.reduce((sum, doc) => sum + doc.extractedFields.personal, 0) / 32) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {uploadedDocs.reduce((sum, doc) => sum + doc.extractedFields.academics, 0)}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Academic Fields</p>
-                    <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 mt-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, (uploadedDocs.reduce((sum, doc) => sum + doc.extractedFields.academics, 0) / 36) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {uploadedDocs.reduce((sum, doc) => sum + doc.extractedFields.work, 0)}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Work Experience Fields</p>
-                    <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 mt-2">
-                      <div 
-                        className="bg-orange-500 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, (uploadedDocs.reduce((sum, doc) => sum + doc.extractedFields.work, 0) / 28) * 100)}%` }}
-                      />
+                    {/* Cancel Button */}
+                    {!uploading && (
+                      <button
+                        onClick={() => setSelectedDocType(null)}
+                        className="w-full mt-3 px-4 py-2 mb-3 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
+                      >
+                        Choose Different Document
+                      </button>
+                    )}
+
+                    {/* Instructions */}
+                    <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+                      <h4 className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Upload Guidelines
+                      </h4>
+                      <ul className="space-y-1.5 text-xs text-blue-700 dark:text-blue-400">
+                        <li className="flex items-start gap-2">
+                          <span className="mt-0.5">•</span>
+                          Ensure document is clear and readable
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="mt-0.5">•</span>
+                          Max file size: 10MB
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="mt-0.5">•</span>
+                          Supported: PDF, JPG, PNG
+                        </li>
+                      </ul>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Initial State - No document selected */
+                  <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                      <File className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                      Select a Document Type
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                      Choose a document type from the left panel to begin uploading and extracting information.
+                    </p>
+                  </div>
+                )}
+
+                {/* Progress Summary */}
+             
               </div>
-            )}
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 p-6">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              <p>AI-powered document parsing extracts information automatically</p>
-              <p className="mt-1">Supported documents: Marksheets, Transcripts, Resume, Passport</p>
+          <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 px-6 py-4">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              <p>AI-powered extraction • Secure upload • No data stored</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 Close
               </button>
-              <button
-                onClick={() => {
-                  // Handle applying all extracted data
-                  onClose()
-                }}
-                className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 rounded-lg transition-all duration-200"
-              >
-                Apply All Extracted Data
-              </button>
+              {uploadedDocs.length > 0 && (
+                <button
+                  onClick={() => {
+                    // Handle applying all extracted data
+                    onClose()
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 rounded-lg transition-all duration-200"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Apply All Data
+                </button>
+              )}
             </div>
           </div>
         </div>
