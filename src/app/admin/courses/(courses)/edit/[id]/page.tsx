@@ -97,6 +97,7 @@ interface CourseIntake {
 }
 
 export default function EditCourse({ params }: EditCoursePageProps) {
+  const [courseData, setCourseData] = useState<any>(null);
   const searchParams = useSearchParams();
   const activeTabFromUrl = searchParams.get("tab");
 
@@ -170,122 +171,118 @@ export default function EditCourse({ params }: EditCoursePageProps) {
 
 
   // Update your useEffect
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!token) return;
+useEffect(() => {
+  const fetchData = async () => {
+    if (!token) return;
 
-      try {
-        setIsLoading(true);
-        setIsLoadingOptions(true);
-        setIsDataLoaded(false);
-        
-
-        // Fetch all options first
-        const optionsPromises = [
-          fetch(`${BASE_URL}/tenant/university/names`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-          fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-          fetch(`${BASE_URL}/tenant/option/apply_tenant_disciplines`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }),
-        ];
-
-        
-
-        // Wait for all options to load first
-        const optionsResults = await Promise.all(optionsPromises);
-        
-        // Process options data
-        const [
-          universitiesRes,
-          studyLevelsRes,
-          disciplinesRes,
-        ] = optionsResults;
-
-        // Process universities response
-        if (universitiesRes.ok) {
-          
-          const universitiesData = await universitiesRes.json();
-          setUniversities(universitiesData.data || []);
-        }
-
-        // Process study levels
-        if (studyLevelsRes.ok) {
-          const studyLevelsData = await studyLevelsRes.json();
-          setStudyLevels(studyLevelsData.data || []);
-        }
-
-        // Process disciplines
-        if (disciplinesRes.ok) {
-          const disciplinesData = await disciplinesRes.json();
-          setDisciplines(disciplinesData.data || []);
-        }
-
-        // Now fetch course data after options are loaded
-        const courseRes = await fetch(`${BASE_URL}/tenant/course/${courseId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (courseRes.ok) {
-          const {data: courseData} = await courseRes.json();
+    try {
+      setIsLoading(true);
+      setIsLoadingOptions(true);
+      setIsDataLoaded(false);
       
-         
-          const course = courseData?.course;
-          const intakes = courseData?.intakes;
-     
-          if (course) {
-            setFormData({
-              university_id: course.university_id?.toString() || "",
-              study_level_id: course.study_level_id?.toString() || "",
-              discipline_id: course.discipline_id?.toString() || "",
-              course_name: course.course_name || "",
-              is_popular: course.is_popular?.toString() || "0",
-              duration_min: course.duration_min?.toString() || "",
-              duration_max: course.duration_max?.toString() || "",
-              duration_unit: course.duration_unit || "months",
-              tuition_fee: course.tuition_fee?.toString() || "",
-              currency_code: course.currency_code || "USD",
-              application_fee: course.application_fee?.toString() || "",
-              
-              // Scores
-              gre_score: course.gre_score?.toString() || "",
-              gmat_score: course.gmat_score?.toString() || "",
-              ielts_score: course.ielts_score?.toString() || "",
-              toefl_score: course.toefl_score?.toString() || "",
-              pte_score: course.pte_score?.toString() || "",
-              sat_score: course.sat_score?.toString() || "",
-              act_score: course.act_score?.toString() || "",
-              duolingo_score: course.duolingo_score?.toString() || "",
-              gpa_score: course.gpa_score?.toString() || "",
-              
-              // Course Details
-              about_course: course.about_course || "",
-              admission_requirements: course.admission_requirements || "",
-              
-            });
-            
-          }
 
-          
-          
-          setIsDataLoaded(true);
-        } else {
-          throw new Error('Failed to fetch course data');
-        }
+      // Fetch all options first
+      const optionsPromises = [
+        fetch(`${BASE_URL}/tenant/university/names`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch(`${BASE_URL}/tenant/option/apply_tenant_study_levels`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch(`${BASE_URL}/tenant/option/apply_tenant_disciplines`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+      ];
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        showMessage('error', 'Failed to load course data. Please try again.');
-      } finally {
-        setIsLoading(false);
-        setIsLoadingOptions(false);
+      // Wait for all options to load first
+      const optionsResults = await Promise.all(optionsPromises);
+      
+      // Process options data
+      const [
+        universitiesRes,
+        studyLevelsRes,
+        disciplinesRes,
+      ] = optionsResults;
+
+      // Process universities response
+      if (universitiesRes.ok) {
+        const universitiesData = await universitiesRes.json();
+        setUniversities(universitiesData.data || []);
       }
-    };
 
-    fetchData();
-  }, [token, courseId]);
+      // Process study levels
+      if (studyLevelsRes.ok) {
+        const studyLevelsData = await studyLevelsRes.json();
+        setStudyLevels(studyLevelsData.data || []);
+      }
+
+      // Process disciplines
+      if (disciplinesRes.ok) {
+        const disciplinesData = await disciplinesRes.json();
+        setDisciplines(disciplinesData.data || []);
+      }
+
+      // Now fetch course data after options are loaded
+      const courseRes = await fetch(`${BASE_URL}/tenant/course/${courseId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (courseRes.ok) {
+        const {data} = await courseRes.json();
+        
+        // Store the entire courseData in state
+        setCourseData(data);
+        
+        const course = data?.course;
+        const intakes = data?.intakes;
+   
+        if (course) {
+          setFormData({
+            university_id: course.university_id?.toString() || "",
+            study_level_id: course.study_level_id?.toString() || "",
+            discipline_id: course.discipline_id?.toString() || "",
+            course_name: course.course_name || "",
+            is_popular: course.is_popular?.toString() || "0",
+            duration_min: course.duration_min?.toString() || "",
+            duration_max: course.duration_max?.toString() || "",
+            duration_unit: course.duration_unit || "months",
+            tuition_fee: course.tuition_fee?.toString() || "",
+            currency_code: course.currency_code || "USD",
+            application_fee: course.application_fee?.toString() || "",
+            
+            // Scores
+            gre_score: course.gre_score?.toString() || "",
+            gmat_score: course.gmat_score?.toString() || "",
+            ielts_score: course.ielts_score?.toString() || "",
+            toefl_score: course.toefl_score?.toString() || "",
+            pte_score: course.pte_score?.toString() || "",
+            sat_score: course.sat_score?.toString() || "",
+            act_score: course.act_score?.toString() || "",
+            duolingo_score: course.duolingo_score?.toString() || "",
+            gpa_score: course.gpa_score?.toString() || "",
+            
+            // Course Details
+            about_course: course.about_course || "",
+            admission_requirements: course.admission_requirements || "",
+          });
+        }
+        
+        setIsDataLoaded(true);
+      } else {
+        throw new Error('Failed to fetch course data');
+      }
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      showMessage('error', 'Failed to load course data. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsLoadingOptions(false);
+    }
+  };
+
+  fetchData();
+}, [token, courseId]);
 
   // Fetch disciplines when study_level_id changes
   const fetchDisciplines = async (studyLevelId: string) => {
@@ -940,26 +937,26 @@ export default function EditCourse({ params }: EditCoursePageProps) {
     </div>
   );
 
-  const renderIntakesTab = () => (
-     <div className="space-y-5">
-      {/* Message Alert */}
-      {message && (
-        <div className={`p-4 rounded-lg ${
-          message.type === 'success' 
-            ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300' 
-            : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
-        }`}>
-          {message.text}
-        </div>
-      )}
+const renderIntakesTab = () => (
+  <div className="space-y-5">
+    {/* Message Alert */}
+    {message && (
+      <div className={`p-4 rounded-lg ${
+        message.type === 'success' 
+          ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300' 
+          : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+      }`}>
+        {message.text}
+      </div>
+    )}
 
-      <IntakesManager 
-        courseId={courseId}
-        token={token}
-      />
-    </div>
-  );
-
+    <IntakesManager 
+      courseId={courseId}
+      token={token}
+      initialIntakes={courseData?.intakes || []} // Now courseData is accessible
+    />
+  </div>
+);
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
       <div className="px-5 py-4 sm:px-6 sm:py-5">

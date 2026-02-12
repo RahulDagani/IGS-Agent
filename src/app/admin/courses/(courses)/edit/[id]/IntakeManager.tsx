@@ -1,24 +1,20 @@
 "use client"
 
 import React, { useState, useEffect } from "react";
-import { Calendar, Trash2, Save, Plus, X } from "lucide-react";
+import { Trash2, Save, Plus } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-
-interface Deadline {
-  id?: number;
-  deadline_type_id: string;
-  deadline_date: string;
-  notes: string;
-}
 
 interface Intake {
   id?: number;
   course_id?: number;
   intake_id: string;
   intake_year: string;
+  course_start_date: string;
+  application_start_date: string;
+  application_deadline: string;
+  status: 'upcoming' | 'open' | 'closed' | 'ongoing' | 'completed';
   is_active: boolean;
-  deadlines: Deadline[];
 }
 
 interface IntakeOption {
@@ -29,135 +25,70 @@ interface IntakeOption {
   updated_at: string;
 }
 
-interface DeadlineTypeOption {
-  id: number;
-  name: string;
-  slug: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CourseIntakeAPI {
-  id: number;
-  course_id: number;
-  intake_id: number;
-  intake_year: number;
-  deadlines: {
-    id: number;
-    deadline_type_id: number;
-    deadline_date: string;
-    extended_date: string | null;
-    notes: string;
-  }[];
-}
-
 interface IntakesManagerProps {
   courseId: string;
   token: string | null;
+  initialIntakes?: any[]; // The intakes data from courseData?.intakes
 }
 
-const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
+const IntakesManager: React.FC<IntakesManagerProps> = ({ 
+  courseId, 
+  token, 
+  initialIntakes = [] 
+}) => {
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [intakeOptions, setIntakeOptions] = useState<IntakeOption[]>([]);
-  const [deadlineTypeOptions, setDeadlineTypeOptions] = useState<DeadlineTypeOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [savingIntakeId, setSavingIntakeId] = useState<number | null>(null);
   const [deletingIntakeId, setDeletingIntakeId] = useState<number | null>(null);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-  // Fetch intakes data
-  const fetchIntakes = async (deadlineTypes: DeadlineTypeOption[] = deadlineTypeOptions) => {
-    if (!token || !courseId) return;
-
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${BASE_URL}/tenant/course/${courseId}/intakes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        const apiIntakes: CourseIntakeAPI[] = result.data;
-        const formattedIntakes: Intake[] = apiIntakes.map(intake => {
-          // Create a map of existing deadlines for this intake
-          const existingDeadlinesMap = new Map(
-            intake.deadlines.map(d => [d.deadline_type_id.toString(), d])
-          );
-          
-          // For each deadline type option, create a deadline object
-          // Use existing data if available, otherwise create empty one
-          const deadlines = deadlineTypes.map(deadlineType => {
-            const existingDeadline = existingDeadlinesMap.get(deadlineType.id.toString());
-            return {
-              id: existingDeadline?.id,
-              deadline_type_id: deadlineType.id.toString(),
-              deadline_date: existingDeadline?.deadline_date?.split('T')[0] || "",
-              notes: existingDeadline?.notes || ""
-            };
-          });
-
-          return {
-            id: intake.id,
-            course_id: intake.course_id,
-            intake_id: intake.intake_id.toString(),
-            intake_year: intake.intake_year.toString(),
-            is_active: true, // Assuming active if it exists
-            deadlines
-          };
-        });
-        setIntakes(formattedIntakes);
-      } else {
-        // If no intakes exist yet, create empty array
-        setIntakes([]);
-      }
-    } catch (error) {
-      console.error('Error fetching intakes:', error);
-      showMessage('error', 'Failed to load intakes');
-      setIntakes([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch options
-  const fetchOptions = async () => {
-    try {
-      const [intakesRes, deadlineTypesRes] = await Promise.all([
-        fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${BASE_URL}/tenant/option/apply_tenant_course_intake_deadline_types`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ]);
-
-      const [intakesData, deadlineTypesData] = await Promise.all([
-        intakesRes.json(),
-        deadlineTypesRes.json()
-      ]);
-
-      if (intakesData.success) setIntakeOptions(intakesData.data);
-      if (deadlineTypesData.success) {
-        setDeadlineTypeOptions(deadlineTypesData.data);
-        
-        // After loading deadline types, fetch intakes and pass the deadline types
-        if (courseId) {
-          fetchIntakes(deadlineTypesData.data);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching options:', error);
-    }
-  };
-
+  // Format initial intakes from parent component
   useEffect(() => {
-    if (token && courseId) {
-      fetchOptions();
+    if (initialIntakes && initialIntakes.length > 0) {
+      const formattedIntakes: Intake[] = initialIntakes.map((intake: any) => ({
+        id: intake.id,
+        course_id: intake.course_id,
+        intake_id: intake.intake_id?.toString() || "",
+        intake_year: intake.intake_year?.toString() || "",
+        course_start_date: intake.course_start_date?.split('T')[0] || "",
+        application_start_date: intake.application_start_date?.split('T')[0] || "",
+        application_deadline: intake.application_deadline?.split('T')[0] || "",
+        status: intake.status || 'upcoming',
+        is_active: intake.is_active !== undefined ? intake.is_active : true
+      }));
+      setIntakes(formattedIntakes);
     }
-  }, [token, courseId]);
+  }, [initialIntakes]);
+
+  // Fetch intake options
+  useEffect(() => {
+    const fetchOptions = async () => {
+      if (!token) return;
+
+      try {
+        setIsLoadingOptions(true);
+        const intakesRes = await fetch(`${BASE_URL}/tenant/option/apply_tenant_intakes`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const intakesData = await intakesRes.json();
+        if (intakesData.success) {
+          setIntakeOptions(intakesData.data);
+        }
+      } catch (error) {
+        console.error('Error fetching intake options:', error);
+        showMessage('error', 'Failed to load intake options');
+      } finally {
+        setIsLoadingOptions(false);
+      }
+    };
+
+    fetchOptions();
+  }, [token]);
 
   const showMessage = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -165,23 +96,21 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
   };
 
   const addNewIntake = () => {
-    // Create a new intake with all deadline types pre-populated
-    const newDeadlines = deadlineTypeOptions.map(deadlineType => ({
-      deadline_type_id: deadlineType.id.toString(),
-      deadline_date: "",
-      notes: ""
-    }));
-
     setIntakes(prev => [...prev, {
       intake_id: "",
       intake_year: "",
-      is_active: true,
-      deadlines: newDeadlines
+      course_start_date: "",
+      application_start_date: "",
+      application_deadline: "",
+      status: "upcoming",
+      is_active: true
     }]);
   };
 
   const removeIntake = (index: number) => {
-    setIntakes(prev => prev.filter((_, i) => i !== index));
+    if (window.confirm('Are you sure you want to remove this unsaved intake?')) {
+      setIntakes(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const updateIntake = (index: number, field: keyof Intake, value: string | boolean) => {
@@ -193,60 +122,51 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
     setIntakes(updatedIntakes);
   };
 
-  const updateDeadline = (intakeIndex: number, deadlineIndex: number, field: keyof Deadline, value: string) => {
-    const updatedIntakes = [...intakes];
-    const updatedDeadlines = [...updatedIntakes[intakeIndex].deadlines];
-    updatedDeadlines[deadlineIndex] = {
-      ...updatedDeadlines[deadlineIndex],
-      [field]: value
-    };
-    updatedIntakes[intakeIndex].deadlines = updatedDeadlines;
-    setIntakes(updatedIntakes);
-  };
-
   const saveIntake = async (intake: Intake, index: number) => {
     if (!token || !courseId) {
       showMessage('error', 'Please log in to save intake');
       return;
     }
 
-    // Validate intake
-    if (!intake.intake_year || !intake.intake_id) {
-      showMessage('error', 'Please fill all intake information');
+    // Validate required fields
+    if (!intake.intake_year) {
+      showMessage('error', 'Please select intake year');
       return;
     }
-
-    // Filter out deadlines that have no date (user chose not to set a deadline)
-    const deadlinesToSave = intake.deadlines.filter(deadline => 
-      deadline.deadline_date.trim() !== ""
-    );
-
-    // Validate that at least one deadline has a date
-    if (deadlinesToSave.length === 0) {
-      showMessage('error', 'Please set at least one deadline date');
+    if (!intake.intake_id) {
+      showMessage('error', 'Please select intake');
+      return;
+    }
+    if (!intake.course_start_date) {
+      showMessage('error', 'Please select course start date');
+      return;
+    }
+    if (!intake.application_start_date) {
+      showMessage('error', 'Please select application start date');
+      return;
+    }
+    if (!intake.application_deadline) {
+      showMessage('error', 'Please select application deadline');
       return;
     }
 
     try {
       setSavingIntakeId(intake.id || index);
       
-      const payload = {
-        id: intake.id || undefined,
+      const payload: any = {
         course_id: parseInt(courseId),
         intake_id: parseInt(intake.intake_id),
         intake_year: parseInt(intake.intake_year),
-        is_active: intake.is_active,
-        deadlines: deadlinesToSave.map(deadline => ({
-          id: deadline.id || undefined,
-          deadline_type_id: parseInt(deadline.deadline_type_id),
-          deadline_date: deadline.deadline_date,
-          notes: deadline.notes || ""
-        }))
+        course_start_date: intake.course_start_date,
+        application_start_date: intake.application_start_date,
+        application_deadline: intake.application_deadline,
+        status: intake.status,
+        is_active: intake.is_active
       };
 
-      // Remove undefined id for new intakes
-      if (!intake.id) {
-        delete payload.id;
+      // Add id for existing intakes
+      if (intake.id) {
+        payload.id = intake.id;
       }
 
       const response = await fetch(`${BASE_URL}/tenant/course/intake/save`, {
@@ -262,7 +182,34 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
       
       if (result.success) {
         showMessage('success', 'Intake saved successfully');
-        fetchIntakes(deadlineTypeOptions);
+
+         const courseRes = await fetch(`${BASE_URL}/tenant/course/${courseId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (courseRes.ok) {
+        const { data } = await courseRes.json();
+        const intakes = data?.intakes || [];
+        
+        // Format and set the updated intakes
+        const formattedIntakes: Intake[] = intakes.map((intake: any) => ({
+          id: intake.id,
+          course_id: intake.course_id,
+          intake_id: intake.intake_id?.toString() || "",
+          intake_year: intake.intake_year?.toString() || "",
+          course_start_date: intake.course_start_date?.split('T')[0] || "",
+          application_start_date: intake.application_start_date?.split('T')[0] || "",
+          application_deadline: intake.application_deadline?.split('T')[0] || "",
+          status: intake.status || 'upcoming',
+          is_active: intake.is_active !== undefined ? intake.is_active : true
+        }));
+        
+        setIntakes(formattedIntakes);
+      }else {
+      throw new Error(result.message || 'Failed to save intake');
+    }
+       
+        
       } else {
         throw new Error(result.message || 'Failed to save intake');
       }
@@ -298,7 +245,8 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
       
       if (result.success) {
         showMessage('success', 'Intake deleted successfully');
-        fetchIntakes(deadlineTypeOptions);
+        // Remove the deleted intake from local state
+        setIntakes(prev => prev.filter(intake => intake.id !== intakeId));
       } else {
         throw new Error(result.message || 'Failed to delete intake');
       }
@@ -310,11 +258,19 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
     }
   };
 
-  if (isLoading) {
+  const statusOptions = [
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'open', label: 'Open' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'ongoing', label: 'Ongoing' },
+    { value: 'completed', label: 'Completed' }
+  ];
+
+  if (isLoadingOptions && intakeOptions.length === 0) {
     return (
       <div className="p-4 text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto"></div>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading intakes...</p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading intake options...</p>
       </div>
     );
   }
@@ -332,219 +288,253 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({ courseId, token }) => {
         </div>
       )}
 
-      {intakes.map((intake, intakeIndex) => (
-        <div
-          key={intakeIndex}
-          className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Intake {intakeIndex + 1} {intake.id && `(ID: ${intake.id})`}
-            </h4>
-
-            
-            
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            {/* Intake Year */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Intake Year *
-              </label>
-              <select
-                value={intake.intake_year || ""}
-                onChange={(e) => updateIntake(intakeIndex, "intake_year", e.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select year</option>
-                {Array.from({ length: 5 }, (_, i) => {
-      const year = new Date().getFullYear() + i;
-      return (
-        <option key={year} value={year}>
-          {year}
-        </option>
-      );
-    })}
-              </select>
-            </div>
-
-            {/* Intake Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                Intake *
-              </label>
-              <select
-                value={intake.intake_id || ""}
-                onChange={(e) => updateIntake(intakeIndex, "intake_id", e.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select intake</option>
-                {intakeOptions?.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            
-          </div>
-
-          {/* Deadlines Section - Updated UI without deadline type select */}
-          <div className="mt-4">
-            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Deadlines
-            </h5>
-            {intake.deadlines.map((deadline, deadlineIndex) => {
-              const deadlineType = deadlineTypeOptions.find(
-                option => option.id.toString() === deadline.deadline_type_id
-              );
-              
-              return (
-                <div key={deadlineIndex} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
-                  {/* <div className="flex justify-between items-center md:col-span-4">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {deadlineType?.name || `Deadline Type ${deadlineIndex + 1}`}
-                      {deadline.id && ` (ID: ${deadline.id})`}
-                    </span>
-                  </div> */}
-
-                  <div className="">
-                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-                      Deadline Type
-                    </label>
-                    <input
-                      type="text"
-                      value={deadlineType?.name || ""}
-                      disabled
-                      placeholder="Optional notes"
-                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-                    />
-                  </div>
-                  
-                  {/* Deadline Date */}
-                  <div className="">
-                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-                      Deadline Date *
-                    </label>
-                    <DatePicker
-                      selected={deadline.deadline_date ? new Date(deadline.deadline_date) : null}
-                      onChange={(date) =>
-                        updateDeadline(
-                          intakeIndex,
-                          deadlineIndex,
-                          "deadline_date",
-                          date?.toISOString().split("T")[0] || ""
-                        )
-                      }
-                      dateFormat="yyyy-MM-dd"
-                      placeholderText="Select date"
-                      showYearDropdown
-                      showMonthDropdown
-                      dropdownMode="select"
-                      yearDropdownItemNumber={50}
-                      scrollableYearDropdown
-                      isClearable
-                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-                    />
-                  </div>
-
-                  {/* Notes */}
-                  <div className="">
-                    <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-                      Notes
-                    </label>
-                    <input
-                      type="text"
-                      value={deadline.notes || ""}
-                      onChange={(e) => updateDeadline(intakeIndex, deadlineIndex, "notes", e.target.value)}
-                      placeholder="Optional notes"
-                      className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Note about deadlines */}
-            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex gap-2 justify-end">
-                    {/* Is Active */}
-            <div className="flex items-center">
-              {/* <input
-                type="checkbox"
-                checked={intake.is_active}
-                onChange={(e) => updateIntake(intakeIndex, "is_active", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 bg-transparent text-brand-600 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-800 dark:checked:bg-brand-500"
-              />
-              <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Active
-              </label> */}
-            </div>
-              <button
-                type="button"
-                onClick={() => saveIntake(intake, intakeIndex)}
-                disabled={savingIntakeId === (intake.id || intakeIndex)}
-                className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingIntakeId === (intake.id || intakeIndex) ? (
-                  <>
-                    <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={12} />
-                    Save
-                  </>
+      {intakes.length === 0 ? (
+        <div className="text-center py-8 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <p className="text-gray-500 dark:text-gray-400">No intakes added yet.</p>
+          <button
+            type="button"
+            onClick={addNewIntake}
+            className="mt-4 flex items-center gap-2 mx-auto text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm font-medium"
+          >
+            <Plus size={16} />
+            Add New Intake
+          </button>
+        </div>
+      ) : (
+        <>
+          {intakes.map((intake, intakeIndex) => (
+            <div
+              key={intake.id || `new-${intakeIndex}`}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Intake {intakeIndex + 1} {intake.id && `(ID: ${intake.id})`}
+                </h4>
+                {!intake.id && (
+                  <button
+                    type="button"
+                    onClick={() => removeIntake(intakeIndex)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700"
+                  >
+                    <Trash2 size={12} />
+                    Remove
+                  </button>
                 )}
-              </button>
-              
-              {intake.id && (
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                {/* Intake Year */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Intake Year *
+                  </label>
+                  <select
+                    value={intake.intake_year || ""}
+                    onChange={(e) => updateIntake(intakeIndex, "intake_year", e.target.value)}
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    <option value="">Select year</option>
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const year = new Date().getFullYear() + i;
+                      return (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Intake Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Intake *
+                  </label>
+                  <select
+                    value={intake.intake_id || ""}
+                    onChange={(e) => updateIntake(intakeIndex, "intake_id", e.target.value)}
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    disabled={isLoadingOptions}
+                  >
+                    <option value="">{isLoadingOptions ? "Loading..." : "Select intake"}</option>
+                    {intakeOptions?.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Status *
+                  </label>
+                  <select
+                    value={intake.status || "upcoming"}
+                    onChange={(e) => updateIntake(intakeIndex, "status", e.target.value as any)}
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Course Start Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Course Start Date *
+                  </label>
+                  <DatePicker
+                    selected={intake.course_start_date ? new Date(intake.course_start_date) : null}
+                    onChange={(date) =>
+                      updateIntake(
+                        intakeIndex,
+                        "course_start_date",
+                        date ? date.toISOString().split("T")[0] : ""
+                      )
+                    }
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="Select start date"
+                    showYearDropdown
+                    showMonthDropdown
+                    dropdownMode="select"
+                    yearDropdownItemNumber={50}
+                    scrollableYearDropdown
+                    isClearable
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  />
+                </div>
+
+                {/* Application Start Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Application Start Date *
+                  </label>
+                  <DatePicker
+                    selected={intake.application_start_date ? new Date(intake.application_start_date) : null}
+                    onChange={(date) =>
+                      updateIntake(
+                        intakeIndex,
+                        "application_start_date",
+                        date ? date.toISOString().split("T")[0] : ""
+                      )
+                    }
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="Select start date"
+                    showYearDropdown
+                    showMonthDropdown
+                    dropdownMode="select"
+                    yearDropdownItemNumber={50}
+                    scrollableYearDropdown
+                    isClearable
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  />
+                </div>
+
+                {/* Application Deadline */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+                    Application Deadline *
+                  </label>
+                  <DatePicker
+                    selected={intake.application_deadline ? new Date(intake.application_deadline) : null}
+                    onChange={(date) =>
+                      updateIntake(
+                        intakeIndex,
+                        "application_deadline",
+                        date ? date.toISOString().split("T")[0] : ""
+                      )
+                    }
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="Select deadline"
+                    showYearDropdown
+                    showMonthDropdown
+                    dropdownMode="select"
+                    yearDropdownItemNumber={50}
+                    scrollableYearDropdown
+                    isClearable
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  />
+                </div>
+              </div>
+
+              {/* Is Active Checkbox */}
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  id={`is_active_${intake.id || intakeIndex}`}
+                  checked={intake.is_active}
+                  onChange={(e) => updateIntake(intakeIndex, "is_active", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 bg-transparent text-brand-600 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-800 dark:checked:bg-brand-500"
+                />
+                <label 
+                  htmlFor={`is_active_${intake.id || intakeIndex}`}
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  Active
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 justify-end border-t border-gray-200 dark:border-gray-700 pt-4">
                 <button
                   type="button"
-                  onClick={() => deleteIntake(intake.id!)}
-                  disabled={deletingIntakeId === intake.id}
-                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => saveIntake(intake, intakeIndex)}
+                  disabled={savingIntakeId === (intake.id || intakeIndex)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {deletingIntakeId === intake.id ? (
+                  {savingIntakeId === (intake.id || intakeIndex) ? (
                     <>
-                      <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
-                      Deleting...
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      Saving...
                     </>
                   ) : (
                     <>
-                      <Trash2 size={12} />
-                      Delete
+                      <Save size={16} />
+                      Save Intake
                     </>
                   )}
                 </button>
-              )}
-              
-              {/* <button
-                type="button"
-                onClick={() => removeIntake(intakeIndex)}
-                className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700"
-              >
-                <X size={12} />
-                Remove
-              </button> */}
+                
+                {intake.id && (
+                  <button
+                    type="button"
+                    onClick={() => deleteIntake(intake.id!)}
+                    disabled={deletingIntakeId === intake.id}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deletingIntakeId === intake.id ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={16} />
+                        Delete Intake
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
-              {/* <p>Note: All deadline types are displayed. Set dates for applicable deadlines, leave empty if not applicable.</p> */}
-            </div>
-          </div>
-        </div>
-      ))}
+          ))}
 
-      <button
-        type="button"
-        onClick={addNewIntake}
-        className="flex items-center gap-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm font-medium"
-      >
-        <Plus size={16} />
-        Add New Intake
-      </button>
+          <button
+            type="button"
+            onClick={addNewIntake}
+            className="flex items-center gap-2 px-4 py-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm font-medium border border-brand-300 dark:border-brand-700 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20"
+          >
+            <Plus size={16} />
+            Add New Intake
+          </button>
+        </>
+      )}
     </div>
   );
 };
