@@ -420,7 +420,7 @@ const handleSaveExtractedData = async () => {
           if (value !== null && value !== undefined && value !== '') {
             acc[key] = value;
           }
-          return acc;
+          return acc; 
         }, {} as Record<string, any>);
 
         response = await fetch(`${BASE_URL}/documents/save/details`, {
