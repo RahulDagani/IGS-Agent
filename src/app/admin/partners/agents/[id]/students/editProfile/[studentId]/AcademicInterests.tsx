@@ -26,7 +26,6 @@ interface AcademicInterestsData {
 
 const AcademicInterests: React.FC = () => {
   const { token } = useAuth();
-  const {studentId} = useParams();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,6 +40,8 @@ const AcademicInterests: React.FC = () => {
   const [loadingDisciplines, setLoadingDisciplines] = useState(false);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  const {studentId} = useParams();
 
   useEffect(() => {
     fetchAcademicInterests();

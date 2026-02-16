@@ -1193,7 +1193,7 @@ const updateCredentials = async () => {
       );
     }
 
-    return messages.map((message) => {
+    return messages?.map((message) => {
       const isStudent = message.who_has_created === 'student';
       const isTenant = message.who_has_created === 'tenant';
       
