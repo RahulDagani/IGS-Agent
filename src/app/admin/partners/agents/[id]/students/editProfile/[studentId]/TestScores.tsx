@@ -1,4 +1,4 @@
-// components/TestScores/TestScores.tsx
+
 "use client"
 
 import React, { useState, useEffect } from "react";
@@ -231,6 +231,7 @@ const SECTION_TITLES: { [key: string]: string } = {
 
 const TestScores: React.FC = () => {
   const { token } = useAuth();
+  const { studentId } = useParams();
   const [testScores, setTestScores] = useState<TestScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<number | null>(null);
@@ -239,8 +240,6 @@ const TestScores: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: number]: { [key: string]: string } }>({});
   const [isRefreshingEditData, setIsRefreshingEditData] = useState(false);
   const [originalData, setOriginalData] = useState<TestScore[]>([]);
-  
-  const { studentId } = useParams();
 
   useEffect(() => {
     fetchTestScores();
@@ -576,33 +575,27 @@ const TestScores: React.FC = () => {
     let isDisabledByCondition = false;
     
     for (const [conditionField, dependentFields] of Object.entries(conditionalFields)) {
-      if (dependentFields.includes(field)) {
-        if (conditionField === 'test_waiver' || conditionField === 'ielts_waiver') {
-          // For waiver: disable dependent fields when waiver is TRUE
-          if (currentForm[conditionField]) {
-            isDisabledByCondition = true;
-          }
-        } else if (conditionField === 'yet_to_receive') {
-          // For yet_to_receive: yet_to_receive_date should be ENABLED when yet_to_receive is TRUE
-          // So reverse the logic
-          if (field === 'yet_to_receive_date') {
-            isDisabledByCondition = !currentForm[conditionField];
-          }
-        } else if (conditionField === 'english_marks_12_checked') {
-          // For english_marks_12_checked: english_marks_12 should be ENABLED when checked is TRUE
-          // So reverse the logic
-          if (field === 'english_marks_12') {
-            isDisabledByCondition = !currentForm[conditionField];
-          }
-        }
-        break;
+  if (dependentFields.includes(field)) {
+    if (conditionField === 'test_waiver' || conditionField === 'ielts_waiver') {
+      // REMOVE the disabling logic - waiver should not disable fields
+      // Keep this empty or remove this condition entirely
+      // isDisabledByCondition = false; // Explicitly set to false
+    } else if (conditionField === 'yet_to_receive') {
+      // For yet_to_receive: yet_to_receive_date should be ENABLED when yet_to_receive is TRUE
+      if (field === 'yet_to_receive_date') {
+        isDisabledByCondition = !currentForm[conditionField];
+      }
+    } else if (conditionField === 'english_marks_12_checked') {
+      // For english_marks_12_checked: english_marks_12 should be ENABLED when checked is TRUE
+      if (field === 'english_marks_12') {
+        isDisabledByCondition = !currentForm[conditionField];
       }
     }
+    break;
+  }
+}
     
-    // Special case: if waiver is checked, disable main fields
-    if (hasWaiver && ['overall_score', 'date_of_examination'].includes(field)) {
-      isDisabledByCondition = true;
-    }
+
 
     const isDisabled = disabled || isDisabledByCondition;
     
@@ -713,16 +706,9 @@ const TestScores: React.FC = () => {
           const visibleFields = fields.filter(field => {
             // Check if field should be shown based on conditions
             
-            // If waiver is checked, hide main test fields (except waiver itself)
-            if (hasWaiver && section === 'main' && 
-                (field === 'overall_score' || field === 'date_of_examination')) {
-              return false; // Hide main test fields when waiver is applied
-            }
             
-            // For IELTS, trf_no should be shown even with waiver
-            if (hasWaiver && test.test_type === 'IELTS' && field === 'trf_no' && section === 'main') {
-              return false; // Hide TRF number with waiver
-            }
+            
+            
             
             // For "yet_to_receive_date", only show if "yet_to_receive" is checked
             if (field === 'yet_to_receive_date' && !currentForm.yet_to_receive) {
@@ -741,9 +727,9 @@ const TestScores: React.FC = () => {
 
           return (
             <div key={section} className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+              {/* <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
                 {SECTION_TITLES[section] || section}
-              </h4>
+              </h4> */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {visibleFields.map(field => {
                   if (!config.fields.includes(field)) return null;
@@ -865,23 +851,23 @@ const TestScores: React.FC = () => {
       );
     }
 
-    if (hasWaiver) {
-      return (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-700 dark:text-blue-300 font-medium">
-                Waiver Applied
-              </p>
-              <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-                No test score required for this test type
-              </p>
-            </div>
-            <Check className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          </div>
-        </div>
-      );
-    }
+    // if (hasWaiver) {
+    //   return (
+    //     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+    //       <div className="flex items-center justify-between">
+    //         <div>
+    //           <p className="text-blue-700 dark:text-blue-300 font-medium">
+    //             Waiver Applied
+    //           </p>
+    //           <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+    //             No test score required for this test type
+    //           </p>
+    //         </div>
+    //         <Check className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+    //       </div>
+    //     </div>
+    //   );
+    // }
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1020,16 +1006,17 @@ const TestScores: React.FC = () => {
                             )}
                           </>
                         ) : (
-                          <span className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full">
-                            Not Taken
-                          </span>
+                          <></>
+                          // <span className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full">
+                          //   Not Taken
+                          // </span>
                         )}
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-3">
-                    {!hasWaiver && overallScore && (
+                    {/* {!hasWaiver && overallScore && (
                       <div className="text-right">
                         <div className="text-2xl font-bold text-gray-900 dark:text-white">
                           {overallScore}
@@ -1040,7 +1027,19 @@ const TestScores: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    )}
+                    )} */}
+
+                     <button
+            
+            className="px-2 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            
+              <>
+                <Edit2 size={16} />
+                 
+              </>
+            
+          </button>
                     
                     <div className="flex items-center space-x-2">
                       {isExpanded ? (
@@ -1081,11 +1080,11 @@ const TestScores: React.FC = () => {
               <Check size={12} className="text-green-500" />
               Completed
             </span>
-            <span className="mx-2">•</span>
+            {/* <span className="mx-2">•</span>
             <span className="flex items-center gap-1">
               <Award size={12} className="text-gray-500" />
               Not Taken
-            </span>
+            </span> */}
           </div>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
