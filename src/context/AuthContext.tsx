@@ -28,7 +28,7 @@ interface AuthContextType {
   login: (user: User, token: string) => void;
   adminAgentLogin: (user: User, token: string, adminToken: string) => void;
   adminReLoginFromAgent: (user: User, token: string) => void;
-  logout: () => void;
+  logout: (userType: string) => void;
   isAuthenticated: boolean;
   loading: boolean; // ✅ added
   adminToken?: string | null;
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
   }
 
-  const logout = () => {
+  const logout = (userType: string) => {
     const panel = user?.panel_type;
     setUser(null);
     setToken(null);
@@ -102,14 +102,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.remove("token");
     Cookies.remove("adminToken");
    
-    // if(panel ==   "agent"){
-    //   window.location.href = '/signin/agent';
+    if(userType ==   "agent"){
+      window.location.href = '/signin/agent';
 
-    //   }else if(panel == "student"){
-    //     window.location.href = '/signin/student';
-    //   }else{
-    //     window.location.href = '/signin';
-    //   }
+      }else if(userType == "student"){
+        window.location.href = '/signin/student';
+      }else{
+        window.location.href = '/signin';
+      }
   };
 
   const value: AuthContextType = {

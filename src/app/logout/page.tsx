@@ -2,37 +2,40 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function LogoutPage() {
   const { logout, user } = useAuth();
   const router = useRouter();
   const role  = user?.panel_type;
 
+  const searchParams = useSearchParams();
+  const userType = searchParams.get("userType") || "";
+
+
   useEffect(() => {
     const performLogout = async () => {
       try {
-        console.log(role)
-        logout();
-
+        
+        logout(userType);
 
         // Optional: Add a small delay to ensure logout completes
-        setTimeout(() => {
-            if(role == "agent"){
-                router.push('/signin/agent');
-            }else if(role == "student"){
-                router.push('/signin/student');
-            }else{
-                router.push('/signin');
-            }
+        // setTimeout(() => {
+        //     if(role == "agent"){
+        //         router.push('/signin/agent');
+        //     }else if(role == "student"){
+        //         router.push('/signin/student');
+        //     }else{
+        //         router.push('/signin');
+        //     }
           
-        }, 1000);
+        // }, 1000);
       } catch (error) {
         console.error('Logout failed:', error);
         // Still redirect to login even if logout fails
-        if(role == "agent"){
+        if(userType == "agent"){
                 router.push('/signin/agent');
-            }else if(role == "student"){
+            }else if(userType == "student"){
                 router.push('/signin/student');
             }else{
                 router.push('/signin');
