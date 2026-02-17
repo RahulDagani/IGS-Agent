@@ -631,7 +631,7 @@ const updateCredentials = async () => {
               }`}>
                 {senderName}
               </p>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-gray-500 dark:text-gray-400 my-auto ml-2">
                 {formatMessageTime(message.created_at)}
               </span>
             </div>

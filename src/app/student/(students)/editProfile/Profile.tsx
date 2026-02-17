@@ -112,6 +112,18 @@ export default function ProfileForm() {
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
+    useEffect(()=> {
+      window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+  
+        setTimeout(()=> {
+          setValidationMessage("")
+          setError("")
+        },3000)
+    }, [validationMessage, error])
+
   // Fetch student data on component mount
   useEffect(() => {
     const fetchStudentData = async () => {
