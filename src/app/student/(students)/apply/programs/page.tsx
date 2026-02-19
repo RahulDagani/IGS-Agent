@@ -644,7 +644,7 @@ export default function ProgramCards() {
 
         if (!response.ok) {
           if (response.status === 403) {
-          logout(); // Handle 403 by logging out
+          logout("student"); // Handle 403 by logging out
           return; // Exit early to prevent further processing
         }
           throw new Error('Failed to fetch courses');
