@@ -1223,7 +1223,7 @@ export default function StudentProgramsPage({ studentId }: ProgramsProps) {
 
       if (!response.ok) {
         if (response.status === 403) {
-          logout();
+          logout("admin");
           return;
         }
         throw new Error('Failed to fetch filter options');
