@@ -15,10 +15,15 @@ import {
   Users, 
   Plus, 
   X, 
-  Calendar  // Added Calendar icon
+  Calendar,
+  Download,
+  Upload,
+  AlertCircle,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
-import DatePicker from "react-datepicker"; // Import DatePicker
-import "react-datepicker/dist/react-datepicker.css"; // Import DatePicker styles
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface UniversityFormData {
   // Basic Info
@@ -45,8 +50,8 @@ interface UniversityFormData {
   // Additional Info
   video_link: string;
   tuition_url: string;
-  agreement_start_date: string; // Added field
-  agreement_end_date: string;   // Added field
+  agreement_start_date: string;
+  agreement_end_date: string;
 }
 
 interface Option {
@@ -56,12 +61,381 @@ interface Option {
 
 type Tab = "basic" | "contact" | "media" | "additional";
 
+// Import Modal Types and Interface
+interface ImportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  token: string | null;
+  onSuccess: () => void;
+}
+interface ImportResponse {
+  status: string;
+  message: string;
+  data: {
+    file_info: {
+      filename: string;
+      size: number;
+      type: string;
+    };
+    total_rows: number;
+    inserted: number;
+    updated: number;
+    errors: number;
+    details: {
+      new_partner_types_created: number;
+      new_university_types_created: number;
+      inserted_universities: Array<{
+        id: number;
+        university: string;
+        slug: string;
+      }>;
+      updated_universities: any[];
+      errors: any[];
+    };
+  };
+}
+
+
+const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuccess }) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ];
+      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
+        setError('Please select a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+      setImportResult(null);
+    }
+  };
+
+  const handleDownloadSample = async () => {
+    try {
+      // Create a link to download the sample file
+      const link = document.createElement('a');
+      link.href = '/samples/university_feilds.xlsx';
+      link.download = 'university_import_sample.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading sample file:', error);
+      setError('Failed to download sample file');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile) {
+      setError('Please select a file to upload');
+      return;
+    }
+
+    if (!token) {
+      setError('Authentication required');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('excelFile', selectedFile);
+
+      // Simulate progress (since fetch doesn't support upload progress natively)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const response = await fetch('https://api.applystore.org/api/tenant/import/universities', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to import universities');
+      }
+
+      setImportResult(result as ImportResponse);
+      
+      // Call onSuccess callback to refresh the university list
+      if (result.status === 'success') {
+        onSuccess();
+        
+        // Auto close after 3 seconds on success
+        setTimeout(() => {
+          onClose();
+          // Reset state
+          setSelectedFile(null);
+          setImportResult(null);
+          setUploadProgress(0);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }, 3000);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during import');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const resetModal = () => {
+    setSelectedFile(null);
+    setImportResult(null);
+    setError(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClose = () => {
+    resetModal();
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+        <div className="fixed inset-0 bg-black-800/50  transition-opacity" onClick={handleClose} />
+        
+        <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-900 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Import Universities</h3>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="px-6 py-4">
+            {/* Sample Download Section */}
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Download className="text-blue-600 dark:text-blue-400 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Download Sample File</h4>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 mb-2">
+                    Download our sample Excel file to see the required format and fields.
+                  </p>
+                  <button
+                    onClick={handleDownloadSample}
+                    className="inline-flex items-center gap-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+                  >
+                    <Download size={14} />
+                    Download Sample
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Excel File
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
+                <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md bg-white dark:bg-gray-900 font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        ref={fileInputRef}
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        accept=".xlsx,.xls"
+                        onChange={handleFileSelect}
+                        disabled={isUploading}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Excel files only (.xlsx, .xls) up to 10MB
+                  </p>
+                </div>
+              </div>
+              {selectedFile && (
+                <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px]">
+                    {selectedFile.name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {(selectedFile.size / 1024).toFixed(2)} KB
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {isUploading && (
+              <div className="mb-6">
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                  <div
+                    className="bg-brand-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <XCircle className="text-red-600 dark:text-red-400" size={18} />
+                  <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Import Result */}
+            {importResult && importResult.status === 'success' && (
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
+                  <h4 className="text-sm font-medium text-green-800 dark:text-green-300">
+                    Import Successful!
+                  </h4>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Total Rows</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{importResult.data.total_rows}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Inserted</p>
+                    <p className="font-medium text-green-600">{importResult.data.inserted}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Updated</p>
+                    <p className="font-medium text-blue-600">{importResult.data.updated}</p>
+                  </div>
+                </div>
+                {importResult.data.details && importResult.data.details.inserted_universities && 
+                 importResult.data.details.inserted_universities.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Inserted Universities:</p>
+                    <div className="max-h-24 overflow-y-auto">
+                      {importResult.data.details.inserted_universities.map((uni, idx) => (
+                        <p key={idx} className="text-xs text-gray-700 dark:text-gray-300">
+                          • {uni.university}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {importResult.data.errors > 0 && importResult.data.details && 
+                 importResult.data.details.errors && importResult.data.details.errors.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-red-600 dark:text-red-400 mb-2">Errors:</p>
+                    <div className="max-h-24 overflow-y-auto">
+                      {importResult.data.details.errors.map((error: any, idx: number) => (
+                        <p key={idx} className="text-xs text-red-600 dark:text-red-400">
+                          • {error.message || 'Unknown error'}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!selectedFile || isUploading}
+              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              {isUploading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload size={18} />
+                  Import Universities
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function AddUniversity() {
   const router = useRouter();
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   
   // Options state
   const [kindOfPartners, setKindOfPartners] = useState<Option[]>([]);
@@ -98,8 +472,8 @@ export default function AddUniversity() {
     // Additional Info
     video_link: "",
     tuition_url: "",
-    agreement_start_date: "", // Added field
-    agreement_end_date: "",   // Added field
+    agreement_start_date: "",
+    agreement_end_date: "",
   });
 
   const [preview, setPreview] = useState({
@@ -326,13 +700,20 @@ export default function AddUniversity() {
       
       // Redirect back to universities list
       router.push('/admin/universities');
-      router.refresh();
+      // router.refresh();
     } catch (error) {
       console.error('Error adding university:', error);
       alert('Error adding university. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle successful import
+  const handleImportSuccess = () => {
+    // Refresh the universities list if we're on the list page
+    // For now, just show a success message
+    console.log('Import completed successfully');
   };
 
   // Get countries, states, and cities
@@ -872,120 +1253,138 @@ export default function AddUniversity() {
   );
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="px-5 py-4 sm:px-6 sm:py-5">
-        <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-          Add New University
-        </h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Create a new university profile with comprehensive information.
-        </p>
-      </div>
-      
-      {/* Tab Navigation */}
-      <div className="border-t border-gray-100 dark:border-gray-800">
-        <div className="flex overflow-x-auto">
-          {tabs.map((tab) => {
-            const IconComponent = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as Tab)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? "border-brand-500 text-brand-600 dark:text-brand-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                }`}
-              >
-                <IconComponent size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
+    <>
+      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="px-5 py-4 sm:px-6 sm:py-5 flex justify-between items-center">
+          <div>
+            <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
+              Add New University
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Create a new university profile with comprehensive information.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+          >
+            <Upload size={18} />
+            Import Excel
+          </button>
+        </div>
+        
+        {/* Tab Navigation */}
+        <div className="border-t border-gray-100 dark:border-gray-800">
+          <div className="flex overflow-x-auto">
+            {tabs.map((tab) => {
+              const IconComponent = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as Tab)}
+                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? "border-brand-500 text-brand-600 dark:text-brand-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  }`}
+                >
+                  <IconComponent size={16} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-6">
+          <form onSubmit={handleSubmit}>
+            {/* Tab Content */}
+            <div className="mb-8">
+              {activeTab === "basic" && renderBasicInfoTab()}
+              {activeTab === "contact" && renderContactTab()}
+              {activeTab === "media" && renderMediaTab()}
+              {activeTab === "additional" && renderAdditionalTab()}
+            </div>
+
+            {/* Navigation and Submit Buttons */}
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="flex gap-3">
+                {activeTab !== "basic" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
+                      if (tabIndex > 0) {
+                        setActiveTab(tabs[tabIndex - 1].id as Tab);
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    Previous
+                  </button>
+                )}
+                {activeTab !== "additional" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
+                      if (tabIndex < tabs.length - 1) {
+                        setActiveTab(tabs[tabIndex + 1].id as Tab);
+                      }
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600"
+                  >
+                    Next
+                    <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+                      <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                )}
+                {activeTab === "additional" && (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !token || isLoadingOptions || !formData.logo || !formData.image}
+                    className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Adding University...
+                      </>
+                    ) : (
+                      <>
+                        Add University
+                        <Plus size={18} />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </form>
         </div>
       </div>
 
-      <div className="p-5 sm:p-6">
-        <form onSubmit={handleSubmit}>
-          {/* Tab Content */}
-          <div className="mb-8">
-            {activeTab === "basic" && renderBasicInfoTab()}
-            {activeTab === "contact" && renderContactTab()}
-            {activeTab === "media" && renderMediaTab()}
-            {activeTab === "additional" && renderAdditionalTab()}
-          </div>
-
-          {/* Navigation and Submit Buttons */}
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="flex gap-3">
-              
-              {activeTab !== "basic" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-                    if (tabIndex > 0) {
-                      setActiveTab(tabs[tabIndex - 1].id as Tab);
-                    }
-                  }}
-                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  Previous
-                </button>
-              )}
-              {activeTab !== "additional" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-                    if (tabIndex < tabs.length - 1) {
-                      setActiveTab(tabs[tabIndex + 1].id as Tab);
-                    }
-                  }}
-                  className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600"
-                >
-                  Next
-                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                    <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              )}
-              {activeTab === "additional" && (
-              <button
-                type="submit"
-                disabled={isSubmitting || !token || isLoadingOptions || !formData.logo || !formData.image}
-                className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                    Adding University...
-                  </>
-                ) : (
-                  <>
-                    Add University
-                    <Plus size={18} />
-                  </>
-                )}
-              </button>
-            )}
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        token={token}
+        onSuccess={handleImportSuccess}
+      />
+    </>
   );
 }
