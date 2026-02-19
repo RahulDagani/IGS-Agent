@@ -376,8 +376,11 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuc
                     </div>
                   </div>
                 )}
-                {importResult.data.errors > 0 && importResult.data.details && 
-                 importResult.data.details.errors && importResult.data.details.errors.length > 0 && (
+
+              </div>
+            )}
+
+            {importResult && importResult.status === 'fail' && (
                   <div className="mt-3">
                     <p className="text-xs text-red-600 dark:text-red-400 mb-2">Errors:</p>
                     <div className="max-h-24 overflow-y-auto">
@@ -388,9 +391,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuc
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                )}            
           </div>
 
           <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
