@@ -129,8 +129,12 @@ interface Course {
   study_level_name: string;
   discipline_name: string;
   university_logo_url: string;
-
-  is_shortlisted?: null;
+  is_shortlisted?: number | null;
+  intakes?: {
+    intake_id: number;
+    intake_year: number;
+    intake_name: string;
+  }[];
 }
 
 interface ApiResponse {
@@ -602,14 +606,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: ( intakeId: number, appLogin: string, appPassword: string) => void;
+  onConfirm: (intakeId: number, appLogin: string, appPassword: string) => void;
   course: Course | null;
   loading: boolean;
-  students: Student[];
-  isFetchingStudents: boolean;
-  studentError: string | null;
-  courseId: string | string[];
-  token: string | null;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -618,88 +617,32 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   course,
   loading,
-  students,
-  isFetchingStudents,
-  studentError,
-  courseId,
-  token
 }) => {
   const [selectedIntakeId, setSelectedIntakeId] = useState<number>(0);
-  const [intakes, setIntakes] = useState<Intake[]>([]);
-  const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
-  const [intakesError, setIntakesError] = useState<string | null>(null);
   const [openIntakeDetails, setOpenIntakeDetails] = useState<number | null>(null);
-
-  const [appLogin,setAppLogin] = useState<string>("");
-  const [appPassword,setAppPassword] = useState<string>("");
-
-
-  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  const [appLogin, setAppLogin] = useState<string>("");
+  const [appPassword, setAppPassword] = useState<string>("");
 
   const formatFee = (fee: string, currency: string) => {
     if (!fee || fee === "0.00") return "Free";
     return `${currency} ${parseFloat(fee).toLocaleString()}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Fetch intakes when modal opens
+  // Reset selection when course changes
   useEffect(() => {
-    if (isOpen && courseId && token) {
-      fetchIntakes();
+    if (course && course.intakes && course.intakes.length > 0) {
+      // Select the first intake by default
+      setSelectedIntakeId(course.intakes[0].intake_id);
+    } else {
+      setSelectedIntakeId(0);
     }
-  }, [isOpen, courseId, token]);
+    setOpenIntakeDetails(null);
+    setAppLogin("");
+    setAppPassword("");
+  }, [course]);
 
-  const fetchIntakes = async () => {
-    try {
-      setIsFetchingIntakes(true);
-      setIntakesError(null);
-      
-      const response = await fetch(`${BASE_URL}/student/course/intake/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch intakes: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setIntakes(data.data || []);
-        
-        // Select first open intake by default
-        const firstOpenIntake = data.data.find((intake: Intake) => 
-          intake.deadlines.some(deadline => deadline.is_closed === 0)
-        );
-        
-        if (firstOpenIntake) {
-          setSelectedIntakeId(firstOpenIntake.intake_id);
-        }
-      } else {
-        throw new Error(data.message || 'Failed to load intakes');
-      }
-    } catch (err) {
-      setIntakesError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error fetching intakes:', err);
-    } finally {
-      setIsFetchingIntakes(false);
-    }
-  };
-  
-  
   const handleSubmit = () => {
-
     if (selectedIntakeId === 0) {
-      // Show error alert for missing intake selection
       alert("Please select an intake");
       return;
     }
@@ -711,6 +654,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   };
 
   if (!isOpen || !course) return null;
+
+  const hasIntakes = course.intakes && course.intakes.length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4 overflow-y-auto">
@@ -752,35 +697,24 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             {/* Intake Selection */}
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Select Intake</h4>
-              {isFetchingIntakes ? (
-                <div className="flex items-center justify-center p-4">
-                  <svg className="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Loading intakes...</span>
-                </div>
-              ) : intakesError ? (
-                <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded">
-                  Error loading intakes: {intakesError}
-                </div>
-              ) : intakes.length === 0 ? (
+              
+              {!hasIntakes ? (
                 <div className="text-sm text-yellow-600 dark:text-yellow-400 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded">
                   No intakes available for this course.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {intakes.map((intake) => {
+                  {course.intakes?.map((intake) => {
                     const isSelected = selectedIntakeId === intake.intake_id;
                     
                     return (
-                      <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <div key={intake.intake_id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <div className={`p-3 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <input
                                 type="radio"
-                                id={`intake-${intake.id}`}
+                                id={`intake-${intake.intake_id}`}
                                 name="intake"
                                 value={intake.intake_id}
                                 checked={isSelected}
@@ -789,21 +723,20 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                               />
                               <div>
                                 <label 
-                                  htmlFor={`intake-${intake.id}`}
+                                  htmlFor={`intake-${intake.intake_id}`}
                                   className={`font-medium text-gray-800 dark:text-white`}
                                 >
                                   {intake.intake_name} {intake.intake_year}
                                 </label>
-                                
                               </div>
                             </div>
                             <button
                               type="button"
-                              onClick={() => toggleIntakeDetails(intake.id)}
+                              onClick={() => toggleIntakeDetails(intake.intake_id)}
                               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                             >
                               <svg
-                                className={`w-5 h-5 transition-transform ${openIntakeDetails === intake.id ? 'rotate-180' : ''}`}
+                                className={`w-5 h-5 transition-transform ${openIntakeDetails === intake.intake_id ? 'rotate-180' : ''}`}
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -814,34 +747,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                           </div>
                         </div>
                         
-                        {openIntakeDetails === intake.id && (
+                        {openIntakeDetails === intake.intake_id && (
                           <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-900">
-                            <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Deadlines:</h5>
-                            <div className="space-y-2">
-                              {intake.deadlines.map((deadline) => (
-                                <div key={deadline.id} className="text-sm">
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">{deadline.deadline_type}:</span>
-                                    <span className="font-medium text-gray-800 dark:text-white">
-                                      {formatDate(deadline.deadline_date)}
-                                    </span>
-                                  </div>
-                                  {deadline.extended_date && (
-                                    <div className="flex justify-between mt-1">
-                                      <span className="text-gray-600 dark:text-gray-400">Extended Date:</span>
-                                      <span className="text-yellow-600 dark:text-yellow-400">
-                                        {formatDate(deadline.extended_date)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {deadline.notes && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
-                                      Note: {deadline.notes}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Intake: {intake.intake_name} {intake.intake_year}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              Please contact the university for specific deadline information.
+                            </p>
                           </div>
                         )}
                       </div>
@@ -851,35 +764,32 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               )}
             </div>
 
-
-            <div className="grid grid-cols-2  gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Application Login
-          </label>
-          <input
-            type="text"
-            value={appLogin}
-            onChange={(e)=>setAppLogin(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            placeholder="Enter application login"
-           
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Application Password
-          </label>
-          <input
-            type="text"
-            value={appPassword}
-            onChange={(e)=>setAppPassword(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            placeholder="Enter application password"
-            
-          />
-        </div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Application Login
+                </label>
+                <input
+                  type="text"
+                  value={appLogin}
+                  onChange={(e) => setAppLogin(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  placeholder="Enter application login"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Application Password
+                </label>
+                <input
+                  type="text"
+                  value={appPassword}
+                  onChange={(e) => setAppPassword(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  placeholder="Enter application password"
+                />
+              </div>
             </div>
           </div>
 
@@ -894,13 +804,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={
-                loading || 
-                isFetchingIntakes || 
-                selectedIntakeId === 0 ||
-                intakes.length === 0 ||
-                intakesError !== null
-              }
+              disabled={loading || !hasIntakes || selectedIntakeId === 0}
               className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
@@ -981,7 +885,7 @@ const CourseCard: React.FC<{
   onApply: (course: Course) => void;
 }> = ({ course, onApply }) => {
   const { token } = useAuth();
-  const [isShortlisted, setIsShortlisted] = useState<boolean>(course.is_shortlisted || false);
+  const [isShortlisted, setIsShortlisted] = useState<boolean>(!!course.is_shortlisted);
   const [isShortlisting, setIsShortlisting] = useState<boolean>(false);
 
   const getInitials = (name: string) => {
@@ -1546,6 +1450,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
     try {
       const payload = {
         course_id: selectedCourse.id,
+        university_id: selectedCourse.university_id,
         study_level_id: selectedCourse.study_level_id,
         remarks: "Student wants to apply for this course",
         course_intake_id: intakeId,
@@ -1576,7 +1481,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         setAlertMessage(`Your application for ${selectedCourse.course_name} at ${selectedCourse.university_name} has been submitted successfully!`);
 
         setTimeout(()=>{
-          router.push(`/student/editProfile/${studentId}?tab=applications&app=${app_id}`);
+          router.push(`/student/editProfile?tab=applications&app=${app_id}`);
         },2000)
       } else {
         throw new Error(result.message || 'Application failed');
@@ -1861,7 +1766,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
       />
 
       {/* Confirmation Modal */}
-      <ConfirmModal
+      {/* <ConfirmModal
         isOpen={isConfirmModalOpen}
         onClose={() => setIsConfirmModalOpen(false)}
         onConfirm={handleConfirmApplication}
@@ -1872,7 +1777,16 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         studentError={studentError}
         courseId={String(selectedCourse?.id)}
         token={token}
-      />
+      /> */}
+
+      {/* Confirmation Modal */}
+<ConfirmModal
+  isOpen={isConfirmModalOpen}
+  onClose={() => setIsConfirmModalOpen(false)}
+  onConfirm={handleConfirmApplication}
+  course={selectedCourse}
+  loading={isApplying}
+/>
 
       
 

@@ -13,7 +13,7 @@ interface Intake {
   course_start_date: string;
   application_start_date: string;
   application_deadline: string;
-  status: 'upcoming' | 'open' | 'closed' | 'ongoing' | 'completed';
+  // status: 'upcoming' | 'open' | 'closed' | 'ongoing' | 'completed';
   is_active: boolean;
 }
 
@@ -57,7 +57,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({
         course_start_date: intake.course_start_date?.split('T')[0] || "",
         application_start_date: intake.application_start_date?.split('T')[0] || "",
         application_deadline: intake.application_deadline?.split('T')[0] || "",
-        status: intake.status || 'upcoming',
+        // status: intake.status || 'upcoming',
         is_active: intake.is_active !== undefined ? intake.is_active : true
       }));
       setIntakes(formattedIntakes);
@@ -102,7 +102,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({
       course_start_date: "",
       application_start_date: "",
       application_deadline: "",
-      status: "upcoming",
+      // status: "upcoming",
       is_active: true
     }]);
   };
@@ -160,7 +160,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({
         course_start_date: intake.course_start_date,
         application_start_date: intake.application_start_date,
         application_deadline: intake.application_deadline,
-        status: intake.status,
+        // status: intake.status,
         is_active: intake.is_active
       };
 
@@ -200,7 +200,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({
           course_start_date: intake.course_start_date?.split('T')[0] || "",
           application_start_date: intake.application_start_date?.split('T')[0] || "",
           application_deadline: intake.application_deadline?.split('T')[0] || "",
-          status: intake.status || 'upcoming',
+          // status: intake.status || 'upcoming',
           is_active: intake.is_active !== undefined ? intake.is_active : true
         }));
         
@@ -367,7 +367,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({
                 </div>
 
                 {/* Status */}
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                     Status *
                   </label>
@@ -382,7 +382,7 @@ const IntakesManager: React.FC<IntakesManagerProps> = ({
                       </option>
                     ))}
                   </select>
-                </div>
+                </div> */}
 
                 {/* Course Start Date */}
                 <div>
