@@ -9,10 +9,67 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
-import { Edit, Trash, Globe, Building2, Mail, MapPin, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Edit, Trash, Globe, Building2, Mail, MapPin, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, CheckCircle, Download, FileDown, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Country } from "country-state-city";
 import Image from "next/image";
+
+// Toast Notification Component
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  useEffect(()=>{
+    window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+  },[])
+
+  const bgColor = {
+    success: 'bg-green-50 dark:bg-green-900/20 border-green-500',
+    error: 'bg-red-50 dark:bg-red-900/20 border-red-500',
+    info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+  }[type];
+
+  const textColor = {
+    success: 'text-green-800 dark:text-green-200',
+    error: 'text-red-800 dark:text-red-200',
+    info: 'text-blue-800 dark:text-blue-200'
+  }[type];
+
+  const iconColor = {
+    success: 'text-green-500',
+    error: 'text-red-500',
+    info: 'text-blue-500'
+  }[type];
+
+  return (
+    <div className="flex z-[99999] animate-slide-down">
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 shadow-lg ${bgColor}`}>
+        <CheckCircle className={`w-5 h-5 ${iconColor}`} />
+        <p className={`text-sm font-medium ${textColor}`}>{message}</p>
+        <button
+          onClick={onClose}
+          className={`ml-4 hover:opacity-70 ${textColor}`}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 interface University {
   id: number;
@@ -107,6 +164,167 @@ const getCountryName = (code: string | undefined | null) => {
   if (!code) return '';
   const country = Country.getCountryByCode(code);
   return country ? country.name : code;
+};
+
+// Export Button Component
+const ExportButton: React.FC<{
+  filters: FilterOptions;
+  searchTerm: string;
+  onExportStart?: () => void;
+  onExportComplete?: (success: boolean, message?: string) => void;
+}> = ({ filters, searchTerm, onExportStart, onExportComplete }) => {
+  const [exporting, setExporting] = useState(false);
+  const [exportType, setExportType] = useState<'all' | 'filtered'>('all');
+  const { token } = useAuth();
+
+  const handleExport = async (type: 'all' | 'filtered') => {
+    try {
+      setExporting(true);
+      setExportType(type);
+      
+      if (onExportStart) onExportStart();
+      
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      let url = `${BASE_URL}/tenant/export/universities`;
+      
+      // Build query parameters for filtered export
+      if (type === 'filtered') {
+        const params = new URLSearchParams();
+        
+        // Add search term if exists
+        if (searchTerm) {
+          params.append('search', searchTerm);
+        }
+        
+        // Add filters if they're not "all"
+        if (filters.country !== "all") {
+          params.append('country_code', filters.country);
+        }
+        
+        if (filters.type !== "all") {
+          params.append('university_type', filters.type);
+        }
+        
+        if (filters.status !== "all") {
+          params.append('is_deleted', filters.status === "active" ? "0" : "1");
+        }
+        
+        if (filters.partnerType !== "all") {
+          params.append('partner_type', filters.partnerType);
+        }
+        
+        if (filters.collaborationType !== "all") {
+          params.append('collaboration_type', filters.collaborationType);
+        }
+        
+        // Only add params if there are any
+        if (Array.from(params).length > 0) {
+          url = `${BASE_URL}/tenant/export/universities/filtered?${params.toString()}`;
+        }
+      }
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Export failed');
+      }
+      
+      // Get the blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `universities_${type}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '');
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      if (onExportComplete) onExportComplete(true, `Successfully exported ${type} universities`);
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      if (onExportComplete) onExportComplete(false, error instanceof Error ? error.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+
+  const hasActiveFilters = Object.values(filters).some(v => v !== "all");
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Export All Button */}
+      <button
+        onClick={() => handleExport('all')}
+        disabled={exporting}
+        className="inline-flex items-center h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-gray-800 dark:focus:border-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {exporting && exportType === 'all' ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            Exporting...
+          </>
+        ) : (
+          <>
+            <Download className="w-4 h-4 mr-2" />
+            Export All
+          </>
+        )}
+      </button>
+
+      {/* Export Filtered Button (only show if filters are active) */}
+      {hasActiveFilters && (
+        <button
+          onClick={() => handleExport('filtered')}
+          disabled={exporting}
+          className="inline-flex items-center h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-gray-800 dark:focus:border-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {exporting && exportType === 'filtered' ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Filter className="w-4 h-4 mr-2" />
+              Export Filtered
+            </>
+          )}
+        </button>
+      )}
+
+    </div>
+  );
 };
 
 const FilterModal: React.FC<FilterModalProps> = ({
@@ -304,6 +522,9 @@ export default function UniversitiesTable() {
   });
   const { token } = useAuth();
 
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
   // Helper functions to find IDs from names
   const findTypeId = (typeName: string): string => {
     const type = filtersData.universityTypes.find(t => t.name === typeName);
@@ -336,7 +557,7 @@ export default function UniversitiesTable() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pagination.limit.toString(),
-        ...(search && { search }), // search parameter stays the same
+        ...(search && { search }),
         ...(filters.country !== "all" && { country_code: filters.country }),
         ...(filters.type !== "all" && { type_of_university_id: findTypeId(filters.type) }),
         ...(filters.status !== "all" && { is_deleted: filters.status === "active" ? "0" : "1" }),
@@ -504,8 +725,8 @@ export default function UniversitiesTable() {
     fetchUniversities(1, searchTerm, defaultFilters);
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this university?")) {
+  const handleDelete = async (id: number, universityName: string) => {
+    if (confirm(`Are you sure you want to delete "${universityName}"?`)) {
       try {
         const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
         const response = await fetch(`${BASE_URL}/tenant/university/${id}`, {
@@ -517,15 +738,39 @@ export default function UniversitiesTable() {
         });
 
         if (response.ok) {
+          // Show success toast
+          setToast({
+            message: `"${universityName}" has been successfully deleted.`,
+            type: 'success'
+          });
+          
           // Refresh the data
-          fetchUniversities(pagination.page, searchTerm, filters);
+          await fetchUniversities(pagination.page, searchTerm, filters);
         } else {
           throw new Error("Failed to delete university");
         }
       } catch (err) {
         console.error("Error deleting university:", err);
-        alert("Failed to delete university. Please try again.");
+        setToast({
+          message: "Failed to delete university. Please try again.",
+          type: 'error'
+        });
       }
+    }
+  };
+
+  // Handle export completion
+  const handleExportComplete = (success: boolean, message?: string) => {
+    if (success) {
+      setToast({
+        message: message || 'Export completed successfully',
+        type: 'success'
+      });
+    } else {
+      setToast({
+        message: message || 'Export failed',
+        type: 'error'
+      });
     }
   };
 
@@ -547,9 +792,10 @@ export default function UniversitiesTable() {
 
   return (
     <div className="space-y-4">
-
+      
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4">
+        
         {/* Search Input */}
         <div className="flex-1 max-w-md">
           <div className="relative">
@@ -578,16 +824,16 @@ export default function UniversitiesTable() {
           </div>
         </div>
 
-        {/* Filter Button and Active Filters */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Clear All
-            </button>
-          )}
+          {/* Export Buttons */}
+          <ExportButton 
+            filters={filters}
+            searchTerm={searchTerm}
+            onExportComplete={handleExportComplete}
+          />
+
+          {/* Filter Button */}
           <button
             onClick={() => setIsFilterModalOpen(true)}
             className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
@@ -596,7 +842,22 @@ export default function UniversitiesTable() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
             </svg>
             Apply Filters
+            {hasActiveFilters && (
+              <span className="ml-1 w-2 h-2 bg-brand-500 rounded-full"></span>
+            )}
           </button>
+
+          {/* Clear Filters Button (only if filters are active) */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Clear All
+            </button>
+          )}
+
+          {/* Add University Button */}
           <Link href="/admin/universities/add">
             <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -607,6 +868,15 @@ export default function UniversitiesTable() {
           </Link>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
 
       {/* Active Filters Display */}
       {hasActiveFilters && (
@@ -648,7 +918,7 @@ export default function UniversitiesTable() {
               <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                 <TableRow>
                   {[
-                    { key: "id", label: "ID" },
+                    { key: "logo", label: "Logo" },
                     { key: "university", label: "University Name" },
                     { key: "country_code", label: "Country" },
                     { key: "university_type_name", label: "Type" },
@@ -761,7 +1031,7 @@ export default function UniversitiesTable() {
                             <Edit size={18} />
                           </Link>
                           <button
-                            onClick={() => handleDelete(university.id)}
+                            onClick={() => handleDelete(university.id, university.university)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                           >
                             <Trash size={18} />
@@ -773,6 +1043,7 @@ export default function UniversitiesTable() {
                 ) : (
                   <TableRow>
                     <TableCell
+                      
                       className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                     >
                       No universities found matching your criteria.

@@ -9,9 +9,249 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Link from "next/link";
-import { Edit, Trash, Book, Building2, GraduationCap, Star, DollarSign } from "lucide-react";
+import { Edit, Trash, Book, Building2, GraduationCap, Star, DollarSign, CheckCircle, X, Download, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State } from "country-state-city";
+
+// Toast Notification Component
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  useEffect(()=>{
+    window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+  },[])
+
+  const bgColor = {
+    success: 'bg-green-50 dark:bg-green-900/20 border-green-500',
+    error: 'bg-red-50 dark:bg-red-900/20 border-red-500',
+    info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+  }[type];
+
+  const textColor = {
+    success: 'text-green-800 dark:text-green-200',
+    error: 'text-red-800 dark:text-red-200',
+    info: 'text-blue-800 dark:text-blue-200'
+  }[type];
+
+  const iconColor = {
+    success: 'text-green-500',
+    error: 'text-red-500',
+    info: 'text-blue-500'
+  }[type];
+
+  return (
+    <div className="flex z-[99999] animate-slide-down">
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 shadow-lg ${bgColor}`}>
+        <CheckCircle className={`w-5 h-5 ${iconColor}`} />
+        <p className={`text-sm font-medium ${textColor}`}>{message}</p>
+        <button
+          onClick={onClose}
+          className={`ml-4 hover:opacity-70 ${textColor}`}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Export Button Component
+const ExportButton: React.FC<{
+  filters: FilterOptions;
+  searchTerm: string;
+  onExportStart?: () => void;
+  onExportComplete?: (success: boolean, message?: string) => void;
+}> = ({ filters, searchTerm, onExportStart, onExportComplete }) => {
+  const [exporting, setExporting] = useState(false);
+  const [exportType, setExportType] = useState<'all' | 'filtered'>('all');
+  const { token } = useAuth();
+
+  const buildExportQueryString = useCallback(() => {
+    const params = new URLSearchParams();
+    
+    // Add search term
+    if (searchTerm) {
+      params.append('search', searchTerm);
+    }
+    
+    // Add filters
+    filters.discipline_ids.forEach(id => {
+      params.append('discipline_id', id.toString());
+    });
+    
+    if (filters.study_level_id) {
+      params.append('study_level_id', filters.study_level_id.toString());
+    }
+
+    if (filters.intake_id) {
+      params.append('intake_id', filters.intake_id.toString());
+    }
+
+    if (filters.intake_year) {
+      params.append('intake_year', filters.intake_year.toString());
+    }
+    
+    filters.university_ids.forEach(id => {
+      params.append('university_id', id.toString());
+    });
+    
+    filters.country_codes.forEach(code => {
+      params.append('country_code', code);
+    });
+    
+    filters.state_codes.forEach(code => {
+      params.append('state_code', code);
+    });
+    
+    filters.city_codes.forEach(code => {
+      params.append('city_code', code);
+    });
+    
+    return params.toString();
+  }, [filters, searchTerm]);
+
+  const handleExport = async (type: 'all' | 'filtered') => {
+    try {
+      setExporting(true);
+      setExportType(type);
+      
+      if (onExportStart) onExportStart();
+      
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      let url = `${BASE_URL}/tenant/export/courses`;
+      
+      // For filtered export, add query parameters
+      if (type === 'filtered') {
+        const queryString = buildExportQueryString();
+        if (queryString) {
+          url = `${BASE_URL}/tenant/export/courses/filtered?${queryString}`;
+        }
+      }
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Export failed');
+      }
+      
+      // Get the blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `courses_${type}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '');
+        }
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      if (onExportComplete) onExportComplete(true, `Successfully exported ${type} courses`);
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      if (onExportComplete) onExportComplete(false, error instanceof Error ? error.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const hasActiveFilters = 
+    filters.discipline_ids.length > 0 ||
+    filters.study_level_id !== null ||
+    filters.intake_id !== null ||
+    filters.intake_year !== null ||
+    filters.university_ids.length > 0 ||
+    filters.country_codes.length > 0 ||
+    filters.state_codes.length > 0 ||
+    filters.city_codes.length > 0;
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Export All Button */}
+      <button
+        onClick={() => handleExport('all')}
+        disabled={exporting}
+        className="inline-flex items-center h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-gray-800 dark:focus:border-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {exporting && exportType === 'all' ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            Exporting...
+          </>
+        ) : (
+          <>
+            <Download className="w-4 h-4 mr-2" />
+            Export All
+          </>
+        )}
+      </button>
+
+      {/* Export Filtered Button (only show if filters are active) */}
+      {hasActiveFilters && (
+        <button
+          onClick={() => handleExport('filtered')}
+          disabled={exporting}
+          className="inline-flex items-center h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-gray-800 dark:focus:border-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {exporting && exportType === 'filtered' ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Filter className="w-4 h-4 mr-2" />
+              Export Filtered
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
 
 interface Course {
   id: number;
@@ -141,7 +381,7 @@ interface FilterModalProps {
   filtersData: FiltersData | null;
   appliedFilters: FilterOptions;
   intakeOptions: IntakeOption[];
-  onFilterChange: (filters: FilterOptions) => void; // New prop for real-time filter changes
+  onFilterChange: (filters: FilterOptions) => void;
 }
 
 const getCountryName = (code: string | undefined | null) => {
@@ -163,7 +403,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
   filtersData,
   appliedFilters,
   intakeOptions,
-  onFilterChange // New prop
+  onFilterChange
 }) => {
   const [tempFilters, setTempFilters] = useState<FilterOptions>(appliedFilters);
 
@@ -185,7 +425,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
     };
     
     setTempFilters(newFilters);
-    // Call onFilterChange immediately when checkbox changes
     onFilterChange(newFilters);
   };
 
@@ -276,7 +515,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const handleApplyFilters = () => {
-    // Apply filters and close modal
     onApplyFilters(tempFilters);
     onClose();
   };
@@ -293,12 +531,10 @@ const FilterModal: React.FC<FilterModalProps> = ({
       city_codes: [],
     };
     setTempFilters(resetFilters);
-    // Also trigger filter change with reset filters
     onFilterChange(resetFilters);
   };
 
   const handleClose = () => {
-    // Reset temp filters to applied filters when closing without applying
     setTempFilters(appliedFilters);
     onClose();
   };
@@ -449,62 +685,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           </div>
 
-          {/* <div className="grid grid-cols-2 gap-2" >
-
-           
-            <div>
-              <label
-                htmlFor={`intake_year`}
-                className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
-              >
-                Intake Year *
-              </label>    
-              <select
-                value={tempFilters.intake_year ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value ? Number(e.target.value) : null;
-                  handleIntakeYearChange(value);
-                }}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select Intake Year</option>
-                {filtersData.filters.intakeYears.map((yearData) => (
-                  <option key={yearData.intake_year} value={yearData.intake_year}>
-                    {yearData.intake_year}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-           
-            <div>
-              <label
-                htmlFor={`intake_id`}
-                className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
-              >
-                Intake *
-              </label>
-              <select
-                id={`intake_id`}
-                value={tempFilters.intake_id ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value ? Number(e.target.value) : null;
-                  handleIntakeChange(value);
-                }}
-                className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-              >
-                <option value="">Select intake</option>
-                {filtersData.filters.intakes.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.intake}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-          </div> */}
-
-
+          {/* Intake Year and Intake filters - commented out as in original */}
         </div>
 
         <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -544,6 +725,9 @@ export default function CoursesTable() {
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  
   
   const [filters, setFilters] = useState<FilterOptions>({
     discipline_ids: [],
@@ -560,7 +744,7 @@ export default function CoursesTable() {
   const [limit] = useState<number>(10);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [apiCourseResponse, setApiCourseResponse] = useState<ApiCourseResponse | null>(null);
-  const [tempFilters, setTempFilters] = useState<FilterOptions>(filters); // For modal changes
+  const [tempFilters, setTempFilters] = useState<FilterOptions>(filters);
 
   // Fetch dynamic filters
   const fetchDynamicFilters = useCallback(async (params?: string) => {
@@ -600,7 +784,6 @@ export default function CoursesTable() {
   const buildFiltersQueryString = useCallback((filterOptions: FilterOptions) => {
     const params = new URLSearchParams();
     
-    // Add selected filters as query parameters for dynamic filters API
     if (filterOptions.study_level_id) {
       params.append('study_level_id', filterOptions.study_level_id.toString());
     }
@@ -640,16 +823,13 @@ export default function CoursesTable() {
   const buildCourseListQueryString = useCallback(() => {
     const params = new URLSearchParams();
     
-    // Add pagination
     params.append('page', currentPage.toString());
     params.append('limit', limit.toString());
     
-    // Add search term
     if (searchTerm) {
       params.append('search', searchTerm);
     }
     
-    // Add filters as query parameters
     filters.discipline_ids.forEach(id => {
       params.append('discipline_id', id.toString());
     });
@@ -714,7 +894,6 @@ export default function CoursesTable() {
       const result: ApiCourseResponse = await response.json();
       
       if (result.success && result.data) {
-        // Transform API data to match Course interface
         const transformedCourses: Course[] = result.data.map((apiCourse: ApiCourse) => ({
           id: apiCourse.id,
           courseName: apiCourse.course_name,
@@ -745,6 +924,21 @@ export default function CoursesTable() {
     }
   }, [token, buildCourseListQueryString]);
 
+  // Handle export completion
+  const handleExportComplete = (success: boolean, message?: string) => {
+    if (success) {
+      setToast({
+        message: message || 'Export completed successfully',
+        type: 'success'
+      });
+    } else {
+      setToast({
+        message: message || 'Export failed',
+        type: 'error'
+      });
+    }
+  };
+
   // Initial fetch of filters and courses
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -758,16 +952,14 @@ export default function CoursesTable() {
   // Handle real-time filter changes from modal
   const handleTempFilterChange = useCallback((newFilters: FilterOptions) => {
     setTempFilters(newFilters);
-    // Fetch dynamic filters immediately with new filter values
     const filtersQueryString = buildFiltersQueryString(newFilters);
     fetchDynamicFilters(filtersQueryString);
   }, [buildFiltersQueryString, fetchDynamicFilters]);
 
-  // Handle applying filters (when Apply Filters button is clicked)
+  // Handle applying filters
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
     setCurrentPage(1);
-    // Course list will be fetched in the next useEffect
   };
 
   // Handle search with debounce
@@ -790,7 +982,7 @@ export default function CoursesTable() {
     };
   }, [searchTerm]);
 
-  // Type-safe filter removal functions
+  // Filter removal functions
   const handleRemoveDisciplineFilter = (id: number) => {
     setFilters(prev => ({
       ...prev,
@@ -935,17 +1127,31 @@ export default function CoursesTable() {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         });
         
+        const data = await response.json();
+        
         if (response.ok) {
+          setToast({
+            message: data.message || "Course has been successfully deleted.",
+            type: 'success'
+          });
           fetchCourses();
         } else {
-          throw new Error('Failed to delete course');
+          setToast({
+            message: data.message || "Failed to delete course. Please try again.",
+            type: 'error'
+          });
+          console.error('Error deleting course:', data);
         }
       } catch (err) {
+        setToast({
+          message: "Network error. Please check your connection.",
+          type: 'error'
+        });
         console.error('Error deleting course:', err);
-        alert('Failed to delete course. Please try again.');
       }
     }
   };
@@ -1037,16 +1243,16 @@ export default function CoursesTable() {
           </div>
         </div>
 
-        {/* Filter Button and Active Filters */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Clear All Filters
-            </button>
-          )}
+          {/* Export Buttons */}
+          <ExportButton 
+            filters={filters}
+            searchTerm={searchTerm}
+            onExportComplete={handleExportComplete}
+          />
+
+          {/* Filter Button */}
           <button
             onClick={() => setIsFilterModalOpen(true)}
             className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
@@ -1055,7 +1261,22 @@ export default function CoursesTable() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
             </svg>
             Filter Courses
+            {hasActiveFilters && (
+              <span className="ml-1 w-2 h-2 bg-brand-500 rounded-full"></span>
+            )}
           </button>
+
+          {/* Clear All Filters Button */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Clear All
+            </button>
+          )}
+
+          {/* Add Course Button */}
           <Link href="/admin/courses/add">
             <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1067,6 +1288,15 @@ export default function CoursesTable() {
         </div>
       </div>
 
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
@@ -1075,7 +1305,7 @@ export default function CoursesTable() {
               Discipline: {getFilterName('discipline', id)}
               <button 
                 onClick={() => handleRemoveDisciplineFilter(id)}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1086,7 +1316,7 @@ export default function CoursesTable() {
               Study Level: {getStudyLevelName(filters.study_level_id)}
               <button 
                 onClick={handleRemoveStudyLevelFilter}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1097,7 +1327,7 @@ export default function CoursesTable() {
               University: {getFilterName('university', id)}
               <button 
                 onClick={() => handleRemoveUniversityFilter(id)}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1108,7 +1338,7 @@ export default function CoursesTable() {
               Country: {getCountryName(code)}
               <button 
                 onClick={() => handleRemoveCountryFilter(code)}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1119,7 +1349,7 @@ export default function CoursesTable() {
               State: {getStateName(code)}
               <button 
                 onClick={() => handleRemoveStateFilter(code)}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1130,7 +1360,7 @@ export default function CoursesTable() {
               City: {code}
               <button 
                 onClick={() => handleRemoveCityFilter(code)}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1141,7 +1371,7 @@ export default function CoursesTable() {
               Intake: {filtersData.filters.intakes.find(i => i.id === filters.intake_id)?.intake || ''}
               <button 
                 onClick={handleRemoveIntakeFilter}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1152,7 +1382,7 @@ export default function CoursesTable() {
               Intake Year: {filters.intake_year}
               <button 
                 onClick={handleRemoveIntakeYearFilter}
-                className="ml-1 text-xs"
+                className="ml-1 text-xs hover:text-red-500"
               >
                 ×
               </button>
@@ -1175,7 +1405,6 @@ export default function CoursesTable() {
                 <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                   <TableRow>
                     {[
-                      // { key: "id", label: "ID" },
                       { key: "courseName", label: "Course Name" },
                       { key: "universityName", label: "University" },
                       { key: "discipline", label: "Discipline" },
@@ -1209,11 +1438,6 @@ export default function CoursesTable() {
                   {filteredAndSortedData.length > 0 ? (
                     filteredAndSortedData.map((course) => (
                       <TableRow key={course.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        {/* <TableCell className="px-5 py-4 text-start">
-                          <div className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            #{course.id}
-                          </div>
-                        </TableCell> */}
                         <TableCell className="px-5 py-4 text-start">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
@@ -1312,6 +1536,7 @@ export default function CoursesTable() {
                   ) : (
                     <TableRow>
                       <TableCell
+                    
                         className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
                       >
                         No courses found matching your criteria.
@@ -1363,7 +1588,7 @@ export default function CoursesTable() {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onApplyFilters={handleApplyFilters}
-        onFilterChange={handleTempFilterChange} // New prop for real-time changes
+        onFilterChange={handleTempFilterChange}
         filtersData={filtersData}
         appliedFilters={filters}
         intakeOptions={filtersData?.filters?.intakes || []}
