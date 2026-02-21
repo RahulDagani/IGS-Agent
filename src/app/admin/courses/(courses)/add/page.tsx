@@ -1,7 +1,7 @@
 "use client"
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Book, Building2, GraduationCap, Calendar, Upload, DollarSign } from "lucide-react";
+import { Book, Building2, GraduationCap, Calendar, Upload, DollarSign, Download, X, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 import DatePicker from "react-datepicker";
@@ -75,7 +75,410 @@ interface DeadlineTypeOption {
   updated_at: string;
 }
 
+// Import Modal Types
+interface ImportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  token: string | null;
+  onSuccess: () => void;
+}
+
+interface ImportResponse {
+  status: string;
+  message: string;
+  data: {
+    file_info: {
+      filename: string;
+      size: number;
+      type: string;
+    };
+    total_rows: number;
+    inserted: number;
+    updated: number;
+    errors: number;
+    details: {
+      new_universities_created?: number;
+      new_study_levels_created?: number;
+      new_disciplines_created?: number;
+      new_intakes_created?: number;
+      new_deadline_types_created?: number;
+      inserted_courses: Array<{
+        id: number;
+        course_name: string;
+        university_name?: string;
+      }>;
+      updated_courses: any[];
+      errors: any[];
+    };
+  };
+}
+
 type Tab = "basics" | "scores" | "details" | "intakes";
+
+// Import Modal Component
+const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuccess }) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ];
+      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
+        setError('Please select a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+      setImportResult(null);
+    }
+  };
+
+  const handleDownloadSample = async () => {
+    try {
+      // Create a link to download the sample file
+      const link = document.createElement('a');
+      link.href = '/samples/course_feilds.xlsx';
+      link.download = 'course_import_sample.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading sample file:', error);
+      setError('Failed to download sample file');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile) {
+      setError('Please select a file to upload');
+      return;
+    }
+
+    if (!token) {
+      setError('Authentication required');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('excelFile', selectedFile);
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      const response = await fetch(`${BASE_URL}/tenant/import/courses`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to import courses');
+      }
+
+      setImportResult(result as ImportResponse);
+      
+      // Call onSuccess callback to refresh the course list
+      if (result.status === 'success') {
+        onSuccess();
+        
+        // Auto close after 3 seconds on success
+        setTimeout(() => {
+          handleClose();
+        }, 3000);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during import');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const resetModal = () => {
+    setSelectedFile(null);
+    setImportResult(null);
+    setError(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClose = () => {
+    resetModal();
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+        <div className="fixed inset-0 bg-black-800/50 transition-opacity" onClick={handleClose} />
+        
+        <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-900 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Import Courses</h3>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="px-6 py-4">
+            {/* Sample Download Section */}
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Download className="text-blue-600 dark:text-blue-400 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Download Sample File</h4>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 mb-2">
+                    Download our sample Excel file to see the required format and fields.
+                  </p>
+                  <button
+                    onClick={handleDownloadSample}
+                    className="inline-flex items-center gap-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+                  >
+                    <Download size={14} />
+                    Download Sample
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Excel File
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
+                <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md bg-white dark:bg-gray-900 font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        ref={fileInputRef}
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        accept=".xlsx,.xls"
+                        onChange={handleFileSelect}
+                        disabled={isUploading}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Excel files only (.xlsx, .xls) up to 10MB
+                  </p>
+                </div>
+              </div>
+              {selectedFile && (
+                <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px]">
+                    {selectedFile.name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {(selectedFile.size / 1024).toFixed(2)} KB
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {isUploading && (
+              <div className="mb-6">
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                  <div
+                    className="bg-brand-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <XCircle className="text-red-600 dark:text-red-400" size={18} />
+                  <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Import Result - Success */}
+            {importResult && importResult.status === 'success' && (
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
+                  <h4 className="text-sm font-medium text-green-800 dark:text-green-300">
+                    Import Successful!
+                  </h4>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Total Rows</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{importResult.data.total_rows}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Inserted</p>
+                    <p className="font-medium text-green-600">{importResult.data.inserted}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Updated</p>
+                    <p className="font-medium text-blue-600">{importResult.data.updated}</p>
+                  </div>
+                </div>
+                
+                {/* New entities created */}
+                {importResult.data.details && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    {importResult.data.details.new_universities_created !== undefined && (
+                      <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded">
+                        <span className="text-gray-600 dark:text-gray-400">New Universities:</span>
+                        <span className="ml-2 font-medium text-green-700 dark:text-green-300">
+                          {importResult.data.details.new_universities_created}
+                        </span>
+                      </div>
+                    )}
+                    {importResult.data.details.new_study_levels_created !== undefined && (
+                      <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded">
+                        <span className="text-gray-600 dark:text-gray-400">New Study Levels:</span>
+                        <span className="ml-2 font-medium text-green-700 dark:text-green-300">
+                          {importResult.data.details.new_study_levels_created}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {importResult.data.details && importResult.data.details.inserted_courses && 
+                 importResult.data.details.inserted_courses.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Inserted Courses:</p>
+                    <div className="max-h-24 overflow-y-auto">
+                      {importResult.data.details.inserted_courses.map((course, idx) => (
+                        <p key={idx} className="text-xs text-gray-700 dark:text-gray-300">
+                          • {course.course_name} {course.university_name ? `(${course.university_name})` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Import Result - Fail */}
+            {importResult && importResult.status === "fail" && (
+              <div className="mt-4 p-4 border border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">
+                  {importResult.message}
+                </p>
+                <div className="text-xs text-red-700 dark:text-red-400 space-y-1 mb-3">
+                  <p>Total Rows: {importResult.data?.total_rows}</p>
+                  <p>Inserted: {importResult.data?.inserted}</p>
+                  <p>Updated: {importResult.data?.updated}</p>
+                  <p>Total Errors: {importResult.data?.errors}</p>
+                </div>
+                {importResult.data?.details?.errors?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">
+                      Row Errors:
+                    </p>
+                    <ul className="list-disc pl-4 max-h-40 overflow-y-auto text-xs text-red-600 dark:text-red-400 space-y-1">
+                      {importResult.data.details.errors.map((error: string, idx: number) => (
+                        <li key={idx}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!selectedFile || isUploading}
+              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              {isUploading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload size={18} />
+                  Import Courses
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AddCourse() {
   const router = useRouter();
@@ -84,6 +487,7 @@ export default function AddCourse() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const [intakeOptions, setIntakeOptions] = useState<IntakeOption[]>([]);
   const [deadlineTypeOptions, setDeadlineTypeOptions] = useState<DeadlineTypeOption[]>([]);
@@ -386,22 +790,6 @@ export default function AddCourse() {
       }
     }
 
-    // Validate intakes
-    // for (const intake of formData.intakes) {
-    //   if (!intake.intake_year || !intake.intake_id) {
-    //     showMessage('error', 'Please fill all intake information');
-    //     return false;
-    //   }
-
-    //   // Validate deadlines for each intake
-    //   for (const deadline of intake.deadlines) {
-    //     if (!deadline.deadline_type_id || !deadline.deadline_date) {
-    //       showMessage('error', 'Please fill all deadline information');
-    //       return false;
-    //     }
-    //   }
-    // }
-
     return true;
   };
 
@@ -476,7 +864,6 @@ export default function AddCourse() {
       const {id} = result;
      
       if(id){
-
         router.push(`/admin/courses/edit/${id}?tab=intakes`);
       }else{
         router.push(`/admin/courses`);
@@ -488,6 +875,12 @@ export default function AddCourse() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle successful import
+  const handleImportSuccess = () => {
+    showMessage('success', 'Courses imported successfully!');
+    // You can refresh the course list or redirect if needed
   };
 
   const tabs = [
@@ -941,234 +1334,6 @@ export default function AddCourse() {
     </div>
   );
 
-  // const renderIntakesTab = () => (
-  //   <div className="space-y-5">
-  //     {formData.intakes.map((intake, intakeIndex) => (
-  //       <div
-  //         key={intakeIndex}
-  //         className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-  //       >
-  //         <div className="flex justify-between items-center mb-4">
-  //           <div className="flex justify-between w-[100%]">
-  //             <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-  //             Intake {intakeIndex + 1} 
-  //           </h4>
-  //             {/* Is Active */}
-  //           <div className="flex items-center">
-  //             <input
-  //               type="checkbox"
-  //               id={`is_active_${intakeIndex}`}
-  //               checked={intake.is_active}
-  //               onChange={(e) =>
-  //                 handleIntakeChange(intakeIndex, "is_active", e.target.checked)
-  //               }
-  //               className="h-4 w-4 rounded border-gray-300 bg-transparent text-brand-600 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-800 dark:checked:bg-brand-500"
-  //             />
-  //             <label
-  //               htmlFor={`is_active_${intakeIndex}`}
-  //               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
-  //             >
-  //               Active
-  //             </label>
-  //           </div>
-  //           </div>
-            
-  //           {formData.intakes.length > 1 && (
-  //             <button
-  //               type="button"
-  //               onClick={() => removeIntake(intakeIndex)}
-  //               className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm"
-  //             >
-  //               Remove
-  //             </button>
-  //           )}
-  //         </div>
-
-  //         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-  //           {/* Intake Year */}
-  //           <div>
-  //             <label
-  //               htmlFor={`intake_year_${intakeIndex}`}
-  //               className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
-  //             >
-  //               Intake Year *
-  //             </label>
-  //             <select
-  //               id={`intake_year_${intakeIndex}`}
-  //               value={intake.intake_year || ""}
-  //               onChange={(e) =>
-  //                 handleIntakeChange(intakeIndex, "intake_year", e.target.value)
-  //               }
-  //               className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-  //             >
-  //               <option value="">Select year</option>
-  //               {[2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
-  //                 <option key={year} value={year}>
-  //                   {year}
-  //                 </option>
-  //               ))}
-  //             </select>
-  //           </div>
-
-  //           {/* Intake Selection */}
-  //           <div>
-  //             <label
-  //               htmlFor={`intake_id_${intakeIndex}`}
-  //               className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300"
-  //             >
-  //               Intake *
-  //             </label>
-  //             <select
-  //               id={`intake_id_${intakeIndex}`}
-  //               value={intake.intake_id || ""}
-  //               onChange={(e) =>
-  //                 handleIntakeChange(intakeIndex, "intake_id", e.target.value)
-  //               }
-  //               className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-  //             >
-  //               <option value="">Select intake</option>
-  //               {intakeOptions?.map((option) => (
-  //                 <option key={option.id} value={option.id}>
-  //                   {option.name}
-  //                 </option>
-  //               ))}
-  //             </select>
-  //           </div>
-
-            
-  //         </div>
-
-  //         {/* Deadlines Section */}
-  //         <div className="mt-4">
-  //           <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-  //             Deadlines
-  //           </h5>
-  //           {intake.deadlines.map((deadline, deadlineIndex) => (
-  //             <div key={deadlineIndex} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
-  //               <div className="flex justify-between items-center md:col-span-4">
-  //                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-  //                   Deadline {deadlineIndex + 1}
-  //                 </span>
-  //                 {intake.deadlines.length > 1 && (
-  //                   <button
-  //                     type="button"
-  //                     onClick={() => removeDeadline(intakeIndex, deadlineIndex)}
-  //                     className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-  //                   >
-  //                     Remove
-  //                   </button>
-  //                 )}
-  //               </div>
-                
-  //               <div>
-  //                 <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-  //                   Deadline Type *
-  //                 </label>
-  //                 <select
-  //                   value={deadline.deadline_type_id || ""}
-  //                   onChange={(e) =>
-  //                     handleDeadlineChange(intakeIndex, deadlineIndex, "deadline_type_id", e.target.value)
-  //                   }
-  //                   className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-  //                 >
-  //                   <option value="">Select type</option>
-  //                   {deadlineTypeOptions?.map((option) => (
-  //                     <option key={option.id} value={option.id}>
-  //                       {option.name}
-  //                     </option>
-  //                   ))}
-  //                 </select>
-  //               </div>
-
-  //               <div>
-  //                 <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-  //                   Deadline Date *
-  //                 </label>
-  //                 <DatePicker
-  //                   selected={deadline.deadline_date ? new Date(deadline.deadline_date) : null}
-  //                   onChange={(date) =>
-  //                     handleDeadlineChange(
-  //                       intakeIndex,
-  //                       deadlineIndex,
-  //                       "deadline_date",
-  //                       date?.toISOString().split("T")[0] || ""
-  //                     )
-  //                   }
-  //                   dateFormat="yyyy-MM-dd"
-  //                   placeholderText="Select date"
-  //                   showYearDropdown
-  //                   showMonthDropdown
-  //                   dropdownMode="select"
-  //                   yearDropdownItemNumber={50}
-  //                   scrollableYearDropdown
-  //                   className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-  //                 />
-  //               </div>
-
-  //               <div className="md:col-span-2">
-  //                 <label className="block text-xs font-medium text-gray-600 mb-1 dark:text-gray-400">
-  //                   Notes
-  //                 </label>
-  //                 <input
-  //                   type="text"
-  //                   value={deadline.notes || ""}
-  //                   onChange={(e) =>
-  //                     handleDeadlineChange(intakeIndex, deadlineIndex, "notes", e.target.value)
-  //                   }
-  //                   placeholder="Optional notes"
-  //                   className="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90"
-  //                 />
-  //               </div>
-  //             </div>
-  //           ))}
-
-  //           <button
-  //             type="button"
-  //             onClick={() => addDeadline(intakeIndex)}
-  //             className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 mt-2"
-  //           >
-  //             <svg
-  //               className="w-3 h-3"
-  //               fill="none"
-  //               stroke="currentColor"
-  //               viewBox="0 0 24 24"
-  //             >
-  //               <path
-  //                 strokeLinecap="round"
-  //                 strokeLinejoin="round"
-  //                 strokeWidth={2}
-  //                 d="M12 4v16m8-8H4"
-  //               />
-  //             </svg>
-  //             Add Deadline
-  //           </button>
-  //         </div>
-  //       </div>
-  //     ))}
-
-  //     <button
-  //       type="button"
-  //       onClick={addIntake}
-  //       className="flex items-center gap-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm font-medium"
-  //     >
-  //       <svg
-  //         className="w-4 h-4"
-  //         fill="none"
-  //         stroke="currentColor"
-  //         viewBox="0 0 24 24"
-  //       >
-  //         <path
-  //           strokeLinecap="round"
-  //           strokeLinejoin="round"
-  //           strokeWidth={2}
-  //           d="M12 4v16m8-8H4"
-  //         />
-  //       </svg>
-  //       Add Another Intake
-  //     </button>
-  //   </div>
-  // );
-
   return (
     <>
       {message && (
@@ -1181,13 +1346,22 @@ export default function AddCourse() {
         </div>
       )}
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="px-5 py-4 sm:px-6 sm:py-5">
-          <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-            Add New Course
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Create a new course with comprehensive information.
-          </p>
+        <div className="px-5 py-4 sm:px-6 sm:py-5 flex justify-between items-center">
+          <div>
+            <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
+              Add New Course
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Create a new course with comprehensive information.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+          >
+            <Upload size={18} />
+            Import Excel
+          </button>
         </div>
         
         {/* Tab Navigation */}
@@ -1296,6 +1470,14 @@ export default function AddCourse() {
           </form>
         </div>
       </div>
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        token={token}
+        onSuccess={handleImportSuccess}
+      />
     </>
   );
 }
