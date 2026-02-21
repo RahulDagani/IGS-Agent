@@ -228,6 +228,7 @@ export default function CommissionsTable() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [importResult, setImportResult] = useState<ImportSummary | null>(null);
+  const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -451,6 +452,52 @@ export default function CommissionsTable() {
     }
   };
 
+
+    const handleSavedExport = async () => {
+    try {
+      setIsExporting(true);
+      
+      const response = await fetch(`${BASE_URL}/tenant/export/commissions/saved`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get the blob from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'university_saved_commissions.xlsx';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/);
+        if (match) filename = match[1];
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Failed to export saved commissions. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   // Export filtered data
   const handleExportFiltered = async () => {
     try {
@@ -506,12 +553,32 @@ export default function CommissionsTable() {
     }
   };
 
+  // Updated template download handler using local file
+  const handleDownloadSample = async () => {
+    try {
+      // Create a link to download the sample file from public folder
+      const link = document.createElement('a');
+      link.href = '/samples/commissions_template.xlsx';
+      link.download = 'commissions_import_sample.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading sample file for import:', error);
+      setError('Failed to download sample file for import');
+    }
+  };
+
   // Import functionality
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setImportFile(file);
       setIsImportModalOpen(true);
+      // Reset validation and import results when selecting new file
+      setValidationResult(null);
+      setImportResult(null);
+      setImportSuccessMessage(null);
     }
   };
 
@@ -536,6 +603,8 @@ export default function CommissionsTable() {
       if (result.status === 'success') {
         setValidationResult(result.data);
         setIsValidationModalOpen(true);
+        // Close the import modal when opening validation modal
+        setIsImportModalOpen(false);
       } else {
         alert(result.message || 'Validation failed');
       }
@@ -567,7 +636,19 @@ export default function CommissionsTable() {
       
       if (result.status === 'success' || result.status === 'warning') {
         setImportResult(result.data);
+        
+        // Set success message
+        const message = result.data.errors === 0 
+          ? `Successfully imported ${result.data.inserted} new commissions and updated ${result.data.updated} existing commissions.`
+          : `Import completed with warnings: ${result.data.inserted} inserted, ${result.data.updated} updated, ${result.data.warnings} warnings.`;
+        
+        setImportSuccessMessage(message);
+        
+        // Close all modals
+        setIsValidationModalOpen(false);
         setIsImportModalOpen(false);
+        setImportFile(null);
+        setValidationResult(null);
         
         // Refresh the commissions list
         const refreshResponse = await fetch(`${BASE_URL}/tenant/agent/commissions`, {
@@ -579,6 +660,12 @@ export default function CommissionsTable() {
         });
         const refreshData: ApiResponse = await refreshResponse.json();
         setCommissions(refreshData.data);
+        
+        // Auto-hide success message after 10 seconds
+        setTimeout(() => {
+          setImportSuccessMessage(null);
+          setImportResult(null);
+        }, 10000);
       } else {
         alert(result.message || 'Import failed');
       }
@@ -590,24 +677,10 @@ export default function CommissionsTable() {
     }
   };
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/tenant/commissions/template`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      // For template info, we're just showing the structure
-      const data = await response.json();
-      alert('Template information:\n\n' + 
-            'Required columns: ' + data.data.required_fields.join(', ') + '\n\n' +
-            'Notes:\n- ' + data.data.notes.join('\n- '));
-    } catch (err) {
-      console.error('Template fetch error:', err);
-      alert('Failed to fetch template information');
-    }
+  // Clear import success message
+  const dismissImportMessage = () => {
+    setImportSuccessMessage(null);
+    setImportResult(null);
   };
 
   if (isLoading) {
@@ -678,125 +751,127 @@ export default function CommissionsTable() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          {/* Import Button */}
-          <div className="relative">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isValidating || isImporting}
-              className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Upload className="w-4 h-4" />
-              {isValidating ? 'Validating...' : isImporting ? 'Importing...' : 'Import'}
-            </button>
-          </div>
+     {/* Action Buttons */}
+<div className="flex items-center gap-3">
+  {/* Import Button */}
+  <div className="relative">
+    <input
+      type="file"
+      ref={fileInputRef}
+      onChange={handleFileSelect}
+      accept=".xlsx,.xls,.csv"
+      className="hidden"
+    />
+    <button
+      onClick={() => fileInputRef.current?.click()}
+      disabled={isValidating || isImporting}
+      className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <Upload className="w-4 h-4" />
+      {isValidating ? 'Validating...' : isImporting ? 'Importing...' : 'Import'}
+    </button>
+  </div>
 
-          {/* Export Button with Dropdown */}
-          <div className="relative group">
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2 disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              {isExporting ? 'Exporting...' : 'Export'}
-            </button>
-            
-            {/* Dropdown Menu */}
-            <div className="absolute right-0 top-7 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hidden group-hover:block z-50">
-              <button
-                onClick={handleExport}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export All
-              </button>
-              {hasActiveFilters && (
-                <button
-                  onClick={handleExportFiltered}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  Export Filtered
-                </button>
-              )}
-              <button
-                onClick={handleDownloadTemplate}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                Template Info
-              </button>
-            </div>
-          </div>
+  {/* Export Button with Dropdown */}
+  <div className="relative group">
+    <button
+      onClick={handleExport}
+      disabled={isExporting}
+      className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2 disabled:opacity-50"
+    >
+      <Download className="w-4 h-4" />
+      {isExporting ? 'Exporting...' : 'Export'}
+    </button>
+    
+    {/* Dropdown Menu */}
+    <div className="absolute right-0 top-7 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hidden group-hover:block z-50">
+      <button
+        onClick={handleExport}
+        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+      >
+        <Download className="w-4 h-4" />
+        Export All
+      </button>
+      <button
+        onClick={handleSavedExport}
+        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+      >
+        <Download className="w-4 h-4" />
+        Export Saved
+      </button>
+      {hasActiveFilters && (
+        <button
+          onClick={handleExportFiltered}
+          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        >
+          <FileText className="w-4 h-4" />
+          Export Filtered
+        </button>
+      )}
+    </div>
+  </div>
 
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Clear All
-            </button>
-          )}
-          
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-            </svg>
-            Apply Filters
-          </button>
-          
-          <Link href={"/admin/partners/accounts/commission/add"}>
-            <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add
-            </button>
-          </Link>
-        </div>
+  {/* Download Sample Button */}
+  <button
+    onClick={handleDownloadSample}
+    className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
+  >
+    <FileText className="w-4 h-4" />
+    Download Import Sample
+  </button>
+
+  {hasActiveFilters && (
+    <button
+      onClick={clearAllFilters}
+      className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+    >
+      Clear All
+    </button>
+  )}
+  
+  <button
+    onClick={() => setIsFilterModalOpen(true)}
+    className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
+  >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+    </svg>
+    Apply Filters
+  </button>
+  
+  <Link href={"/admin/partners/accounts/commission/add"}>
+    <button className="dark:border-green-500 h-11 px-4 rounded-lg border-2 border-green-500 bg-transparent text-sm text-green-500 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-green-500 dark:focus:border-brand-800 flex items-center gap-2">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+      Add
+    </button>
+  </Link>
+</div>
       </div>
 
-      {/* Import Result Display */}
-      {importResult && (
+      {/* Import Success Message */}
+      {importSuccessMessage && (
         <div className={`rounded-lg p-4 ${
-          importResult.errors === 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20'
+          importResult?.errors === 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20'
         }`}>
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
-              {importResult.errors === 0 ? (
+              {importResult?.errors === 0 ? (
                 <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
               )}
               <div>
                 <h3 className={`text-sm font-medium ${
-                  importResult.errors === 0 ? 'text-green-800 dark:text-green-200' : 'text-yellow-800 dark:text-yellow-200'
+                  importResult?.errors === 0 ? 'text-green-800 dark:text-green-200' : 'text-yellow-800 dark:text-yellow-200'
                 }`}>
-                  Import {importResult.errors === 0 ? 'Successful' : 'Completed with Warnings'}
+                  Import {importResult?.errors === 0 ? 'Successful' : 'Completed with Warnings'}
                 </h3>
-                <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-                  <p>Processed: {importResult.total_rows_processed} rows</p>
-                  <p>Inserted: {importResult.inserted} | Updated: {importResult.updated}</p>
-                  {importResult.errors > 0 && (
-                    <p className="text-red-600 dark:text-red-400">Errors: {importResult.errors}</p>
-                  )}
-                  {importResult.warnings > 0 && (
-                    <p className="text-yellow-600 dark:text-yellow-400">Warnings: {importResult.warnings}</p>
-                  )}
-                </div>
-                {importResult.details.errors.length > 0 && (
+                <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                  {importSuccessMessage}
+                </p>
+                {importResult && importResult.details.errors.length > 0 && (
                   <div className="mt-2">
                     <button
                       onClick={() => alert(importResult.details.errors.join('\n'))}
@@ -806,14 +881,14 @@ export default function CommissionsTable() {
                     </button>
                   </div>
                 )}
-                <button
-                  onClick={() => setImportResult(null)}
-                  className="mt-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  Dismiss
-                </button>
               </div>
             </div>
+            <button
+              onClick={dismissImportMessage}
+              className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
+            >
+              <XCircle className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}
@@ -978,12 +1053,11 @@ export default function CommissionsTable() {
           onClose={() => {
             setIsImportModalOpen(false);
             setImportFile(null);
+            setValidationResult(null);
           }}
           onValidate={handleValidate}
-          onImport={handleImport}
           fileName={importFile.name}
           isValidating={isValidating}
-          isImporting={isImporting}
           validationResult={validationResult}
         />
       )}
@@ -1001,10 +1075,7 @@ export default function CommissionsTable() {
           isImporting={isImporting}
         />
       )}
-
     </div>
-
-      
   );
 }
 
@@ -1012,10 +1083,8 @@ interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onValidate: () => void;
-  onImport: () => void;
   fileName: string;
   isValidating: boolean;
-  isImporting: boolean;
   validationResult: any;
 }
 
@@ -1023,10 +1092,8 @@ function ImportModal({
   isOpen,
   onClose,
   onValidate,
-  onImport,
   fileName,
   isValidating,
-  isImporting,
   validationResult,
 }: ImportModalProps) {
   if (!isOpen) return null;
@@ -1041,7 +1108,7 @@ function ImportModal({
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            disabled={isValidating || isImporting}
+            disabled={isValidating}
           >
             <XCircle className="w-6 h-6" />
           </button>
@@ -1073,14 +1140,14 @@ function ImportModal({
           <div className="flex gap-3 mt-6">
             <button
               onClick={onClose}
-              disabled={isValidating || isImporting}
+              disabled={isValidating}
               className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={onValidate}
-              disabled={isValidating || isImporting}
+              disabled={isValidating}
               className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isValidating ? (
@@ -1092,23 +1159,9 @@ function ImportModal({
                 'Validate File'
               )}
             </button>
-            <button
-              onClick={onImport}
-              disabled={isValidating || isImporting || !validationResult}
-              className="flex-1 px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isImporting ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                'Import Now'
-              )}
-            </button>
           </div>
 
-          {/* Validation Result Summary */}
+          {/* Validation Result Summary - Show if validation already done */}
           {validationResult && (
             <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1139,7 +1192,6 @@ function ImportModal({
     </div>
   );
 }
-
 
 interface ValidationModalProps {
   isOpen: boolean;
