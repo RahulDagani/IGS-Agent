@@ -207,10 +207,10 @@ function AgentLoginContent() {
           <div>
             <div className="mb-5 sm:mb-8">
               <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
-                Agent Sign In
+                Partner Sign In
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Enter your email and password to access your agent portal
+                Enter your email and password to access your partner portal
               </p>
             </div>
 
@@ -224,7 +224,7 @@ function AgentLoginContent() {
                   <InputField 
                     type="email"
                     name="email"
-                    placeholder="agent@company.com"
+                    placeholder="partner@company.com"
                     value={formData.email}
                     onChange={handleChange}
                     error={errors.email}
@@ -291,7 +291,7 @@ function AgentLoginContent() {
                     ) : (
                       <LogIn className="w-5 h-5" />
                     )}
-                    {loading ? "SIGNING IN..." : "SIGN IN AS AGENT"}
+                    {loading ? "SIGNING IN..." : "SIGN IN AS PARTNER"}
                   </Button>
                 </div>
               </div>
@@ -301,7 +301,7 @@ function AgentLoginContent() {
 
             <div className="mt-3">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Need an agent account? {""}
+                Need an partner account? {""}
                 <Link
                   href="/signup/agent"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"

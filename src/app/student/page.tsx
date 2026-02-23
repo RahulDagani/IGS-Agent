@@ -85,6 +85,39 @@ export default function StudentDashboard() {
     }
   }, [token]);
 
+  // Add this function to your component
+const checkAndRedirectForInterests = async (): Promise<void> => {
+  try {
+    const response = await fetch(`${BASE_URL}/student/interests`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Check if interests are saved
+    // Based on your API response structure, we check if data exists and has required fields
+    if (result.success && result.data && result.data.student_id) {
+      // Interests are saved - redirect to recommended courses
+      window.location.href = '/student/courses/recommended';
+    } else {
+      // No interests saved - redirect to interest form
+      window.location.href = '/student/editProfile?profileTab=interests';
+    }
+  } catch (err) {
+    console.error('Error checking student interests:', err);
+    // If there's an error, redirect to interests form as a fallback
+    window.location.href = '/student/editProfile?profileTab=interests';
+  }
+};
+
+
   // Calculate document upload percentage
   const calculateDocumentPercentage = () => {
     if (!dashboardData) return 0;
@@ -285,25 +318,25 @@ export default function StudentDashboard() {
                     </div>
 
                     {/* Get Recommended Courses */}
-                    <div className="flex flex-col items-start justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
-                      <div className="flex items-start gap-3 w-full mb-3">
-                        <div className="flex items-center justify-center w-12 h-12 bg-white rounded-lg border border-gray-200 dark:border-gray-800 dark:bg-gray-800">
-                          <Heart className="text-indigo-600" size={24} />
-                        </div>
-                        <div className="flex-grow">
-                          <strong className="text-gray-800 dark:text-white">Get Recommended Courses</strong>
-                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            Discover courses that match your profile and interests
-                          </p>
-                        </div>
-                      </div>
-                      <Link
-                        href="/student/courses/recommended"
-                        className="w-full inline-flex items-center justify-center gap-1 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-400 dark:hover:bg-indigo-900/30 text-sm px-4 py-2.5 rounded-md whitespace-nowrap"
-                      >
-                        Get Recommendations ›
-                      </Link>
-                    </div>
+<div className="flex flex-col items-start justify-between shadow-sm rounded-xl p-4 dark:text-white transition border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md">
+  <div className="flex items-start gap-3 w-full mb-3">
+    <div className="flex items-center justify-center w-12 h-12 bg-white rounded-lg border border-gray-200 dark:border-gray-800 dark:bg-gray-800">
+      <Heart className="text-indigo-600" size={24} />
+    </div>
+    <div className="flex-grow">
+      <strong className="text-gray-800 dark:text-white">Get Recommended Courses</strong>
+      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+        Discover courses that match your profile and interests
+      </p>
+    </div>
+  </div>
+  <button
+    onClick={checkAndRedirectForInterests}
+    className="w-full inline-flex items-center justify-center gap-1 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-400 dark:hover:bg-indigo-900/30 text-sm px-4 py-2.5 rounded-md whitespace-nowrap"
+  >
+    Get Recommendations ›
+  </button>
+</div>
                   </div>
                 </div>
               </div>
