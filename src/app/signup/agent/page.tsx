@@ -1,10 +1,150 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, User, Phone, Lock, ChevronLeftIcon, Save, CheckCircle, X, Info, Eye, EyeOff } from "lucide-react";
+import { Mail, User, Phone, Lock, ChevronLeftIcon, Save, CheckCircle, X, Info, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import countries from "country-list-with-dial-code-and-flag";
+
+
+// Types for country data
+interface Country {
+  name: string;
+  dial_code: string;
+  code: string;
+  flag: string;
+}
+
+// Phone Input with Country Code
+const PhoneInput = ({
+  value,
+  onChange,
+  name,
+  error,
+  disabled = false,
+  selectedCountry,
+  onCountryChange
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  name: string;
+  error?: string;
+  disabled?: boolean;
+  selectedCountry: Country;
+  onCountryChange: (country: Country) => void;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Get all countries
+  const allCountries = countries.getAll() as Country[];
+  
+  // Filter countries based on search
+  const filteredCountries = allCountries.filter(country => 
+    country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    country.dial_code.includes(searchTerm) ||
+    country.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="flex">
+        {/* Country Code Dropdown */}
+        <div className="relative mr-2">
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            disabled={disabled}
+            className={`flex items-center gap-2 px-3 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 ${
+              error ? "border-red-500" : ""
+            } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-50" : ""}`}
+          >
+            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.flag}</span>
+            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          </button>
+
+          {/* Country Dropdown Menu */}
+          {isOpen && (
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 z-10"
+                onClick={() => setIsOpen(false)}
+              />
+              
+              {/* Dropdown */}
+              <div className="absolute left-0 z-20 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg dark:bg-gray-800 dark:border-gray-700">
+                {/* Search Input */}
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                  <input
+                    type="text"
+                    placeholder="Search country..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Country List */}
+                <div className="max-h-60 overflow-y-auto">
+                  {filteredCountries.map((country) => (
+                    <button
+                      key={country.code}
+                      type="button"
+                      onClick={() => {
+                        onCountryChange(country);
+                        setIsOpen(false);
+                        setSearchTerm("");
+                      }}
+                      className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <span className="text-xl mr-3">{country.flag}</span>
+                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300">
+                        {country.name}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {country.dial_code}
+                      </span>
+                    </button>
+                  ))}
+                  
+                  {filteredCountries.length === 0 && (
+                    <div className="px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                      No countries found
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Phone Number Input */}
+        <div className="flex-1 relative">
+          <Phone className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+            disabled ? "text-gray-300 dark:text-gray-600" : "text-gray-400"
+          }`} />
+          <input
+            type="tel"
+            name={name}
+            placeholder="Phone number"
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            className={`w-full px-4 py-3 pl-10 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
+              error ? "border-red-500" : ""
+            } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+          />
+        </div>
+      </div>
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
+
 
 // InputField component
 const InputField = ({ 
@@ -188,6 +328,12 @@ export default function AgentRegistrationPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    const allCountries = countries.getAll() as Country[];
+const defaultCountry = allCountries.find(c => c.code === "US") || allCountries[0];
+
+const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
+
   const [formData, setFormData] = useState({
     name: "",
     phoneNumber: "",
@@ -209,6 +355,9 @@ export default function AgentRegistrationPage() {
   const [verificationSuccessful, setVerificationSuccessful] = useState(false);
   const [alert, setAlert] = useState<{type: 'success' | 'error' | 'info'; message: string} | null>(null);
   const [showAlert, setShowAlert] = useState(false);
+
+
+
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -252,12 +401,16 @@ export default function AgentRegistrationPage() {
       newErrors.name = "Name must be at least 2 characters";
     }
 
-    // Phone validation
-    if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = "Phone number is required";
-    } else if (!/^\+?[\d\s-()]{10,}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = "Please enter a valid phone number";
-    }
+   // Phone validation
+if (!formData.phoneNumber.trim()) {
+  newErrors.phoneNumber = "Phone number is required";
+} else {
+  // Remove any non-digit characters for validation
+  const phoneDigits = formData.phoneNumber.replace(/\D/g, '');
+  if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+    newErrors.phoneNumber = "Please enter a valid phone number";
+  }
+}
 
     // Email validation
     if (!formData.email.trim()) {
@@ -310,6 +463,8 @@ export default function AgentRegistrationPage() {
     setLoading(true);
     
     try {
+      const fullPhoneNumber = `${selectedCountry.dial_code}${formData.phoneNumber.replace(/\D/g, '')}`;
+      
       const response = await fetch(`${BASE_URL}/agent/save`, {
         method: "POST",
         headers: {
@@ -317,7 +472,7 @@ export default function AgentRegistrationPage() {
         },
         body: JSON.stringify({
           name: formData.name.trim(),
-          phone_number: formData.phoneNumber,
+          phone_number: fullPhoneNumber,
           email: formData.email,
           password: formData.password,
         }),
@@ -431,6 +586,10 @@ export default function AgentRegistrationPage() {
     }
   };
 
+  const handleCountryChange = (country: Country) => {
+  setSelectedCountry(country);
+};
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
@@ -441,7 +600,19 @@ export default function AgentRegistrationPage() {
       if (errors.otp) {
         setErrors(prev => ({ ...prev, otp: undefined }));
       }
-    } else {
+    } else if (name === "phoneNumber") {
+    // Allow only digits, spaces, and basic phone number characters
+    const phoneValue = value.replace(/[^\d\s\-\(\)\+]/g, '');
+    setFormData(prev => ({
+      ...prev,
+      [name]: phoneValue,
+    }));
+    
+    if (errors.phoneNumber) {
+      setErrors(prev => ({ ...prev, phoneNumber: undefined }));
+    }
+  }
+  else {
       setFormData(prev => ({
         ...prev,
         [name]: value,
@@ -544,14 +715,13 @@ export default function AgentRegistrationPage() {
 
                       <div>
                         <Label required>Phone Number</Label>
-                        <InputField 
-                          type="tel"
+                        <PhoneInput
                           name="phoneNumber"
-                          placeholder="+1 (555) 123-4567"
                           value={formData.phoneNumber}
                           onChange={handleChange}
                           error={errors.phoneNumber}
-                          icon={Phone}
+                          selectedCountry={selectedCountry}
+                          onCountryChange={handleCountryChange}
                         />
                       </div>
 

@@ -14,6 +14,8 @@ import WorkExperience from "./WorkExperience";
 import AcademicQualifications from "./AcademicQualifications";
 import AIAutofillModal from "./AutoFillModal";
 
+import phoneCountries from "country-list-with-dial-code-and-flag";
+
 interface StudentFormData {
   // Personal Info
   salutation: string;
@@ -50,6 +52,144 @@ interface FormSection {
   description?: string;
   completed: boolean;
 }
+
+// Types for country data
+interface Country {
+  name: string;
+  dial_code: string;
+  code: string;
+  flag: string;
+}
+
+// Phone Input with Country Code
+const PhoneInput = ({
+  value,
+  onChange,
+  name,
+  error,
+  disabled = false,
+  selectedCountry,
+  onCountryChange,
+  placeholder = "Phone number"
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  name: string;
+  error?: string;
+  disabled?: boolean;
+  selectedCountry: Country;
+  onCountryChange: (country: Country) => void;
+  placeholder?: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Get all countries
+  const allCountries = phoneCountries.getAll() as Country[];
+  
+  // Filter countries based on search
+  const filteredCountries = allCountries.filter(country => 
+    country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    country.dial_code.includes(searchTerm) ||
+    country.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="flex">
+        {/* Country Code Dropdown */}
+        <div className="relative mr-2">
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            disabled={disabled}
+            className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-900 dark:border-gray-900 dark:hover:bg-gray-700 ${
+              error ? "border-red-500" : ""
+            } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-50" : ""}`}
+          >
+            <span className="text-xl text-gray-700 dark:text-gray-300">{selectedCountry.flag}</span>
+            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          </button>
+
+          {/* Country Dropdown Menu */}
+          {isOpen && (
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 z-10"
+                onClick={() => setIsOpen(false)}
+              />
+              
+              {/* Dropdown */}
+              <div className="absolute left-0 z-20 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg dark:bg-gray-800 dark:border-gray-700">
+                {/* Search Input */}
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                  <input
+                    type="text"
+                    placeholder="Search country..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Country List */}
+                <div className="max-h-60 overflow-y-auto">
+                  {filteredCountries.map((country) => (
+                    <button
+                      key={country.code}
+                      type="button"
+                      onClick={() => {
+                        onCountryChange(country);
+                        setIsOpen(false);
+                        setSearchTerm("");
+                      }}
+                      className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <span className="text-xl mr-3">{country.flag}</span>
+                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300">
+                        {country.name}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {country.dial_code}
+                      </span>
+                    </button>
+                  ))}
+                  
+                  {filteredCountries.length === 0 && (
+                    <div className="px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                      No countries found
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Phone Number Input */}
+        <div className="flex-1 relative">
+          
+          <input
+            type="tel"
+            name={name}
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none border-gray-300 dark:border-gray-700 ${
+  error ? "border-red-500" : ""
+} ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+            
+          />
+        </div>
+      </div>
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
 
 export default function ProfileForm() {
   const router = useRouter();
@@ -109,6 +249,9 @@ export default function ProfileForm() {
     address: false,
     emergency: false,
   });
+
+  const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<Country | null>(null);
+const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useState<Country | null>(null);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -179,6 +322,35 @@ export default function ProfileForm() {
 
     fetchStudentData();
   }, []);
+
+  // Add this useEffect after the existing fetch useEffect:
+
+// Initialize phone country codes when data loads
+useEffect(() => {
+  if (formData.phone || formData.emergency_c_phone) {
+    const allCountries = phoneCountries.getAll() as Country[];
+    
+    // Try to extract country code from phone number
+    if (formData.phone) {
+      // Look for matching country code in the phone number
+      const matchedCountry = allCountries.find(country => 
+        formData.phone.startsWith(country.dial_code)
+      );
+      setSelectedPhoneCountry(matchedCountry || allCountries.find(c => c.code === "US") || allCountries[0]);
+    } else {
+      setSelectedPhoneCountry(allCountries.find(c => c.code === "US") || allCountries[0]);
+    }
+    
+    if (formData.emergency_c_phone) {
+      const matchedCountry = allCountries.find(country => 
+        formData.emergency_c_phone.startsWith(country.dial_code)
+      );
+      setSelectedEmergencyPhoneCountry(matchedCountry || allCountries.find(c => c.code === "US") || allCountries[0]);
+    } else {
+      setSelectedEmergencyPhoneCountry(allCountries.find(c => c.code === "US") || allCountries[0]);
+    }
+  }
+}, [formData.phone, formData.emergency_c_phone]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
@@ -255,24 +427,33 @@ export default function ProfileForm() {
     setFieldErrors(prev => ({ ...prev, ...errors }));
     return Object.keys(errors).length === 0;
   };
+// Update the handleInputChange function - modify the phone number handling part:
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    // Clear field error when user starts typing
-    if (fieldErrors[name]) {
-      setFieldErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const { name, value, type } = e.target;
+  
+  // Clear field error when user starts typing
+  if (fieldErrors[name]) {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[name];
+      return newErrors;
+    });
+  }
 
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
+  if (type === 'checkbox') {
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
+  } else {
+    // For phone numbers, allow only digits
+    if (name === 'phone' || name === 'emergency_c_phone') {
+      const digitsOnly = value.replace(/\D/g, '');
       setFormData(prev => ({
         ...prev,
-        [name]: checked
+        [name]: digitsOnly
       }));
     } else {
       setFormData(prev => ({
@@ -280,24 +461,25 @@ export default function ProfileForm() {
         [name]: value
       }));
     }
+  }
 
-    // Update country and state selections for dependent dropdowns
-    if (name === 'country_code') {
-      setSelectedCountry(value);
-      setSelectedState("");
-      setFormData(prev => ({
-        ...prev,
-        state_code: "",
-        city_code: ""
-      }));
-    } else if (name === 'state_code') {
-      setSelectedState(value);
-      setFormData(prev => ({
-        ...prev,
-        city_code: ""
-      }));
-    }
-  };
+  // Update country and state selections for dependent dropdowns
+  if (name === 'country_code') {
+    setSelectedCountry(value);
+    setSelectedState("");
+    setFormData(prev => ({
+      ...prev,
+      state_code: "",
+      city_code: ""
+    }));
+  } else if (name === 'state_code') {
+    setSelectedState(value);
+    setFormData(prev => ({
+      ...prev,
+      city_code: ""
+    }));
+  }
+};
 
   const handleDateChange = (date: Date | null) => {
     setFormData(prev => ({
@@ -345,7 +527,7 @@ export default function ProfileForm() {
         middle_name: formData.middle_name,
         last_name: formData.last_name,
         email: formData.email,
-        phone: formData.phone,
+        phone: selectedPhoneCountry ? `${selectedPhoneCountry.dial_code}${formData.phone}` : formData.phone,
         passport_number: formData.passport_number,
         country_code: formData.country_code,
         state_code: formData.state_code,
@@ -358,7 +540,7 @@ export default function ProfileForm() {
         emergency_c_name: formData.emergency_c_name,
         emergency_c_relation: formData.emergency_c_relation,
         emergency_c_email: formData.emergency_c_email,
-        emergency_c_phone: formData.emergency_c_phone,
+        emergency_c_phone: selectedEmergencyPhoneCountry ? `${selectedEmergencyPhoneCountry.dial_code}${formData.emergency_c_phone}` : formData.emergency_c_phone,
       };
 
       const response = await fetch(`${BASE_URL}/student`, {
@@ -384,6 +566,14 @@ export default function ProfileForm() {
       setIsSubmitting(false);
     }
   };
+
+  const handlePhoneCountryChange = (country: Country) => {
+  setSelectedPhoneCountry(country);
+};
+
+const handleEmergencyPhoneCountryChange = (country: Country) => {
+  setSelectedEmergencyPhoneCountry(country);
+};
 
   // Get countries, states, and cities
   const countries = Country.getAllCountries();
@@ -612,29 +802,22 @@ export default function ProfileForm() {
         </div>
 
         {/* Phone Number */}
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Phone Number *
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Phone size={18} />
-            </span>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              placeholder="Enter your phone number"
-              required
-              className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
-                fieldErrors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
-              }`}
-            />
-          </div>
-          {fieldErrors.phone && <p className="mt-1 text-sm text-red-500">{fieldErrors.phone}</p>}
-        </div>
+      <div>
+  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+    Phone Number *
+  </label>
+  {selectedPhoneCountry && (
+    <PhoneInput
+      name="phone"
+      value={formData.phone.replace(selectedPhoneCountry?.dial_code || '', '')}
+      onChange={handleInputChange}
+      error={fieldErrors.phone}
+      selectedCountry={selectedPhoneCountry}
+      onCountryChange={handlePhoneCountryChange}
+      placeholder="Enter your phone number"
+    />
+  )}
+</div>
 
         {/* Passport Number */}
         <div>
@@ -862,29 +1045,22 @@ export default function ProfileForm() {
         </div>
 
         {/* Emergency Contact Phone */}
-        <div>
-          <label htmlFor="emergency_c_phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Phone Number *
-          </label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-              <Phone size={18} />
-            </span>
-            <input
-              type="tel"
-              id="emergency_c_phone"
-              name="emergency_c_phone"
-              value={formData.emergency_c_phone}
-              onChange={handleInputChange}
-              placeholder="Enter emergency contact phone"
-              required
-              className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
-                fieldErrors.emergency_c_phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
-              }`}
-            />
-          </div>
-          {fieldErrors.emergency_c_phone && <p className="mt-1 text-sm text-red-500">{fieldErrors.emergency_c_phone}</p>}
-        </div>
+      <div>
+  <label htmlFor="emergency_c_phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+    Phone Number *
+  </label>
+  {selectedEmergencyPhoneCountry && (
+    <PhoneInput
+      name="emergency_c_phone"
+      value={formData.emergency_c_phone.replace(selectedEmergencyPhoneCountry?.dial_code || '', '')}
+      onChange={handleInputChange}
+      error={fieldErrors.emergency_c_phone}
+      selectedCountry={selectedEmergencyPhoneCountry}
+      onCountryChange={handleEmergencyPhoneCountryChange}
+      placeholder="Enter emergency contact phone"
+    />
+  )}
+</div>
 
         {/* Emergency Contact Email */}
         <div>

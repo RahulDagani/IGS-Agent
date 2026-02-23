@@ -1,11 +1,12 @@
 "use client"
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Calendar, FileText } from "lucide-react";
+import { User, Mail, Phone, Calendar, FileText, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Country } from "country-state-city";
+import phoneCountries from "country-list-with-dial-code-and-flag";
 
 
 interface StudentFormData {
@@ -19,14 +20,153 @@ interface StudentFormData {
   dob: string;
 }
 
+// Types for country data
+interface Country {
+  name: string;
+  dial_code: string;
+  code: string;
+  flag: string;
+}
+
+// Phone Input with Country Code
+const PhoneInput = ({
+  value,
+  onChange,
+  name,
+  error,
+  disabled = false,
+  selectedCountry,
+  onCountryChange,
+  placeholder = "Phone number"
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  name: string;
+  error?: string;
+  disabled?: boolean;
+  selectedCountry: Country;
+  onCountryChange: (country: Country) => void;
+  placeholder?: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Get all countries using getAll() method
+  const allCountries = phoneCountries.getAll() as Country[];
+  
+  // Filter countries based on search
+  const filteredCountries = allCountries.filter(country => 
+    country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    country.dial_code.includes(searchTerm) ||
+    country.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="flex">
+        {/* Country Code Dropdown */}
+        <div className="relative mr-2">
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            disabled={disabled}
+            className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-900 dark:border-gray-900 dark:hover:bg-gray-700 ${
+                                     error ? "border-red-500" : ""
+                                   } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-50" : ""}`}
+                                 >
+                                   <span className="text-gray-700 dark:text-gray-300">{selectedCountry.flag}</span>
+                                   <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
+                                   <ChevronDown className="w-4 h-4 text-gray-400" />
+          </button>
+
+          {/* Country Dropdown Menu */}
+          {isOpen && (
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 z-10"
+                onClick={() => setIsOpen(false)}
+              />
+              
+              {/* Dropdown */}
+              <div className="absolute left-0 z-20 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg dark:bg-gray-800 dark:border-gray-700">
+                {/* Search Input */}
+                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                  <input
+                    type="text"
+                    placeholder="Search country..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Country List */}
+                <div className="max-h-60 overflow-y-auto">
+                  {filteredCountries.map((country) => (
+                    <button
+                      key={country.code}
+                      type="button"
+                      onClick={() => {
+                        onCountryChange(country);
+                        setIsOpen(false);
+                        setSearchTerm("");
+                      }}
+                      className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <span className="text-xl mr-3">{country.flag}</span>
+                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300">
+                        {country.name}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {country.dial_code}
+                      </span>
+                    </button>
+                  ))}
+                  
+                  {filteredCountries.length === 0 && (
+                    <div className="px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
+                      No countries found
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Phone Number Input */}
+        <div className="flex-1 relative">
+          
+          <input
+            type="tel"
+            name={name}
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none border-gray-300 dark:border-gray-700 ${
+  error ? "border-red-500" : ""
+} ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+          />
+        </div>
+      </div>
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
+
 export default function AddStudent() {
   const router = useRouter();
   const {token} = useAuth(); 
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const countries = Country.getAllCountries();
+  const countries = Country.getAllCountries();
   
+  // Add this state declaration with the other state declarations:
+  const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<Country | null>(null);
   
   const [formData, setFormData] = useState<StudentFormData>({
     first_name: "",
@@ -41,21 +181,33 @@ export default function AddStudent() {
 
   const [errors, setErrors] = useState<Partial<StudentFormData>>({});
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+// Find the handleInputChange function and update it:
+
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const { name, value } = e.target;
+  
+  // For phone number, allow only digits
+  if (name === 'phone') {
+    const digitsOnly = value.replace(/\D/g, '');
+    setFormData(prev => ({
+      ...prev,
+      [name]: digitsOnly
+    }));
+  } else {
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+  }
 
-    // Clear error when user starts typing
-    if (errors[name as keyof StudentFormData]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
-    }
-  };
+  // Clear error when user starts typing
+  if (errors[name as keyof StudentFormData]) {
+    setErrors(prev => ({
+      ...prev,
+      [name]: ""
+    }));
+  }
+};
 
   const validateForm = (): boolean => {
     const newErrors: Partial<StudentFormData> = {};
@@ -74,11 +226,16 @@ export default function AddStudent() {
       newErrors.email = "Please enter a valid email address";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^\+[1-9]\d{1,14}$/.test(formData.phone)) {
-      newErrors.phone = "Please enter a valid phone number with country code (e.g., +1234567890)";
-    }
+
+if (!formData.phone.trim()) {
+  newErrors.phone = "Phone number is required";
+} else {
+  // Check if phone number contains only digits and has reasonable length
+  const phoneDigits = formData.phone.replace(/\D/g, '');
+  if (phoneDigits.length < 4 || phoneDigits.length > 15) {
+    newErrors.phone = "Please enter a valid phone number";
+  }
+}
 
     // if (!formData.passport_number.trim()) {
     //   newErrors.passport_number = "Passport number is required";
@@ -98,6 +255,19 @@ export default function AddStudent() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Add this useEffect after the useState declarations:
+
+useEffect(() => {
+  const allCountries = phoneCountries.getAll() as Country[];
+  // Default to US or first country
+  const defaultCountry = allCountries.find(c => c.code === "US") || allCountries[0];
+  setSelectedPhoneCountry(defaultCountry);
+}, []);
+
+const handlePhoneCountryChange = (country: Country) => {
+  setSelectedPhoneCountry(country);
+};
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -111,14 +281,17 @@ export default function AddStudent() {
 
     try {
       // API call to create student
-      const response = await fetch(`${BASE_URL}/tenant/student/student`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
+     const response = await fetch(`${BASE_URL}/tenant/student/student`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    ...formData,
+    phone: selectedPhoneCountry ? `${selectedPhoneCountry.dial_code}${formData.phone}` : formData.phone
+  })
+});
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -337,29 +510,22 @@ export default function AddStudent() {
               
 
                 {/* Phone Number */}
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                    Phone Number *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <Phone size={18} />
-                    </span>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      placeholder="+1 (555) 123-4567"
-                      required
-                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                    />
-                  </div>
-                  {errors.phone && (
-                    <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-                  )}
-                </div>
+<div>
+  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+    Phone Number *
+  </label>
+  {selectedPhoneCountry && (
+    <PhoneInput
+      name="phone"
+      value={formData.phone}
+      onChange={handleInputChange}
+      error={errors.phone}
+      selectedCountry={selectedPhoneCountry}
+      onCountryChange={handlePhoneCountryChange}
+      placeholder="Enter phone number"
+    />
+  )}
+</div>
 
                 {/* Passport Number */}
                 {/* <div className="">
