@@ -3,41 +3,28 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Globe, GraduationCap, Pencil, Percent, University, Calendar,
-  Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Info, Loader 
+  Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Info, Loader, X
 } from "lucide-react";
 import { Country } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
 
-// Import/Export Types
-interface ImportSummary {
-  total_rows_processed: number;
-  inserted: number;
-  updated: number;
-  errors: number;
-  warnings: number;
-  details: {
-    inserted_commissions: any[];
-    updated_commissions: any[];
-    errors: string[];
-    warnings: string[];
-  };
-}
-
-interface ValidationResult {
-  valid_rows: number;
-  invalid_rows: number;
-  new_commissions: any[];
-  updated_commissions: any[];
-  errors: Array<{ row: number; errors: string[]; warnings?: string[] }>;
-  warnings: Array<{ row: number; warnings: string[] }>;
-  summary: {
-    total_to_process: number;
-    will_be_inserted: number;
-    will_be_updated: number;
-    valid_rows: number;
-    invalid_rows: number;
-    warnings_count: number;
-    total_rows_processed?: number;
+// Import Response Types
+interface ImportResponse {
+  success: boolean;
+  message: string;
+  data: {
+    summary: {
+      total_rows: number;
+      successful: number;
+      failed: number;
+      success_rate: string;
+    };
+    file_info: {
+      filename: string;
+      size: number;
+      sheet: string;
+    };
+    details: any[];
   };
 }
 
@@ -48,35 +35,6 @@ interface CommissionFormData {
   commission_type: string;
   no_of_installments: string;
   remark: string;
-}
-
-interface University {
-  id: number;
-  uuid: string;
-  tenant_id: number;
-  university: string;
-  university_slug: string;
-  description: string;
-  state_code: string;
-  city_code: string;
-  address: string | null;
-  map_url: string | null;
-  location_url: string | null;
-  kind_of_partner_id: number;
-  type_of_university_id: number;
-  collaboration_type_id: number;
-  logo: string | null;
-  image: string | null;
-  brochure: string | null;
-  video_link: string | null;
-  tuition_url: string | null;
-  email: string;
-  is_deleted: number;
-  created_at: string;
-  updated_at: string;
-  kind_of_partner_name: string;
-  collaboration_type_name: string;
-  university_type_name: string;
 }
 
 interface StudyLevel {
@@ -105,19 +63,9 @@ export default function AddCommission() {
   const [studyLevels, setStudyLevels] = useState<StudyLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const {token} = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
-  // Import/Export states
-  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
-  const [isValidationModalOpen, setIsValidationModalOpen] = useState<boolean>(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
-  const [importResult, setImportResult] = useState<ImportSummary | null>(null);
-  const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [isImporting, setIsImporting] = useState<boolean>(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -257,121 +205,10 @@ export default function AddCommission() {
     }
   };
 
-  // Download sample file function
-  const handleDownloadSample = async () => {
-    try {
-      const link = document.createElement('a');
-      link.href = '/samples/commissions_template.xlsx';
-      link.download = 'commissions_import_sample.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error downloading sample file for import:', error);
-      setError('Failed to download sample file for import');
-    }
+  const handleImportSuccess = () => {
+    // Refresh or show success message
+    router.refresh();
   };
-
-  // Handle file selection
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImportFile(file);
-      setIsImportModalOpen(true);
-      setValidationResult(null);
-      setImportResult(null);
-      setImportSuccessMessage(null);
-    }
-  };
-
-  // Handle file validation
-  const handleValidate = async () => {
-    if (!importFile) return;
-
-    setIsValidating(true);
-    const formData = new FormData();
-    formData.append('excelFile', importFile);
-
-    try {
-      const response = await fetch(`${BASE_URL}/tenant/commissions/validate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      const result = await response.json();
-      
-      if (result.status === 'success') {
-        setValidationResult(result.data);
-        setIsValidationModalOpen(true);
-        setIsImportModalOpen(false);
-      } else {
-        alert(result.message || 'Validation failed');
-      }
-    } catch (err) {
-      console.error('Validation error:', err);
-      alert('Failed to validate file. Please try again.');
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  // Handle import
-  const handleImport = async () => {
-    if (!importFile) return;
-
-    setIsImporting(true);
-    const formData = new FormData();
-    formData.append('excelFile', importFile);
-
-    try {
-      const response = await fetch(`${BASE_URL}/tenant/import/commissions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      const result = await response.json();
-      
-      if (result.status === 'success' || result.status === 'warning') {
-        setImportResult(result.data);
-        
-        const message = result.data.errors === 0 
-          ? `Successfully imported ${result.data.inserted} new commissions and updated ${result.data.updated} existing commissions.`
-          : `Import completed with warnings: ${result.data.inserted} inserted, ${result.data.updated} updated, ${result.data.warnings} warnings.`;
-        
-        setImportSuccessMessage(message);
-        
-        setIsValidationModalOpen(false);
-        setIsImportModalOpen(false);
-        setImportFile(null);
-        setValidationResult(null);
-        
-        setTimeout(() => {
-          setImportSuccessMessage(null);
-          setImportResult(null);
-        }, 10000);
-      } else {
-        alert(result.message || 'Import failed');
-      }
-    } catch (err) {
-      console.error('Import error:', err);
-      alert('Failed to import commissions. Please try again.');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  // Clear import success message
-  const dismissImportMessage = () => {
-    setImportSuccessMessage(null);
-    setImportResult(null);
-  };
-
 
   if (isLoading) {
     return (
@@ -392,7 +229,7 @@ export default function AddCommission() {
   return (
     <>
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        {/* Header with Import/Export buttons */}
+        {/* Header with Import button */}
         <div className="px-5 py-4 sm:px-6 sm:py-5 flex justify-between items-center">
           <div>
             <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
@@ -403,82 +240,15 @@ export default function AddCommission() {
             </p>
           </div>
           
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            {/* Import Button */}
-            <div className="relative">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isValidating || isImporting}
-                className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Upload className="w-4 h-4" />
-                {isValidating ? 'Validating...' : isImporting ? 'Importing...' : 'Import'}
-              </button>
-            </div>
-
-          
-
-            {/* Download Sample Button */}
-            <button
-              onClick={handleDownloadSample}
-              className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              Download Import Sample
-            </button>
-          </div>
+          {/* Import Button */}
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+          >
+            <Upload size={18} />
+            Import Excel
+          </button>
         </div>
-
-        {/* Import Success Message */}
-        {importSuccessMessage && (
-          <div className={`mx-5 mb-4 rounded-lg p-4 ${
-            importResult?.errors === 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20'
-          }`}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                {importResult?.errors === 0 ? (
-                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
-                )}
-                <div>
-                  <h3 className={`text-sm font-medium ${
-                    importResult?.errors === 0 ? 'text-green-800 dark:text-green-200' : 'text-yellow-800 dark:text-yellow-200'
-                  }`}>
-                    Import {importResult?.errors === 0 ? 'Successful' : 'Completed with Warnings'}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-                    {importSuccessMessage}
-                  </p>
-                  {importResult && importResult.details.errors.length > 0 && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() => alert(importResult.details.errors.join('\n'))}
-                        className="text-sm text-red-600 dark:text-red-400 underline"
-                      >
-                        View Errors
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={dismissImportMessage}
-                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
         
         {/* Form Section */}
         <div className="space-y-6 border-t border-gray-100 p-5 sm:p-6 dark:border-gray-800">
@@ -690,34 +460,12 @@ export default function AddCommission() {
       </div>
 
       {/* Import Modal */}
-      {isImportModalOpen && importFile && (
-        <ImportModal
-          isOpen={isImportModalOpen}
-          onClose={() => {
-            setIsImportModalOpen(false);
-            setImportFile(null);
-            setValidationResult(null);
-          }}
-          onValidate={handleValidate}
-          fileName={importFile.name}
-          isValidating={isValidating}
-          validationResult={validationResult}
-        />
-      )}
-
-      {/* Validation Modal */}
-      {isValidationModalOpen && validationResult && (
-        <ValidationModal
-          isOpen={isValidationModalOpen}
-          onClose={() => {
-            setIsValidationModalOpen(false);
-            setValidationResult(null);
-          }}
-          onConfirm={handleImport}
-          validationResult={validationResult}
-          isImporting={isImporting}
-        />
-      )}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        token={token}
+        onSuccess={handleImportSuccess}
+      />
     </>
   );
 }
@@ -726,357 +474,349 @@ export default function AddCommission() {
 interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onValidate: () => void;
-  fileName: string;
-  isValidating: boolean;
-  validationResult: any;
+  token: string | null;
+  onSuccess: () => void;
 }
 
-function ImportModal({
-  isOpen,
-  onClose,
-  onValidate,
-  fileName,
-  isValidating,
-  validationResult,
-}: ImportModalProps) {
+const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuccess }) => {
+  const router = useRouter();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ];
+      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
+        setError('Please select a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+      setImportResult(null);
+    }
+  };
+
+  const handleDownloadSample = async () => {
+    try {
+      // Create a link to download the sample file
+      const link = document.createElement('a');
+      link.href = '/samples/commissions_template.xlsx';
+      link.download = 'commissions_import_sample.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading sample file:', error);
+      setError('Failed to download sample file');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile) {
+      setError('Please select a file to upload');
+      return;
+    }
+
+    if (!token) {
+      setError('Authentication required');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('excelFile', selectedFile);
+
+      // Simulate progress (since fetch doesn't support upload progress natively)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const response = await fetch(`${BASE_URL}/tenant/import/commissions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to import commissions');
+      }
+
+      setImportResult(result as ImportResponse);
+      
+      // Call onSuccess callback to refresh the commission list
+      if (result.success) {
+        onSuccess();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during import');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSeeCommissions = () => {
+    onClose();
+    router.push('/admin/partners/accounts/commission');
+  };
+
+  const resetModal = () => {
+    setSelectedFile(null);
+    setImportResult(null);
+    setError(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClose = () => {
+    resetModal();
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-lg">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Import Commissions
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            disabled={isValidating}
-          >
-            <XCircle className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Selected file: <span className="font-medium text-gray-800 dark:text-white">{fileName}</span>
-            </p>
-          </div>
-
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-yellow-700 dark:text-yellow-300">
-              <p className="font-medium mb-1">Please Note:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Always validate your file before importing</li>
-                <li>Existing commissions will be updated based on University + Study Level combination</li>
-                <li>New commissions will be created for empty rows</li>
-                <li>Maximum file size: 10MB</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-6">
+    <div className="fixed inset-0 z-999999 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+        <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={handleClose} />
+        
+        <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-900 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Import Commissions</h3>
             <button
-              onClick={onClose}
-              disabled={isValidating}
-              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
             >
-              Cancel
-            </button>
-            <button
-              onClick={onValidate}
-              disabled={isValidating}
-              className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isValidating ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Validating...
-                </>
-              ) : (
-                'Validate File'
-              )}
+              <X size={20} />
             </button>
           </div>
 
-          {validationResult && (
-            <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Validation Summary:
-              </h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded">
-                  <span className="text-green-600 dark:text-green-400">Valid Rows:</span>
-                  <span className="ml-2 font-medium">{validationResult.valid_rows}</span>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                  <span className="text-red-600 dark:text-red-400">Invalid Rows:</span>
-                  <span className="ml-2 font-medium">{validationResult.invalid_rows}</span>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                  <span className="text-blue-600 dark:text-blue-400">To Insert:</span>
-                  <span className="ml-2 font-medium">{validationResult.summary.will_be_inserted}</span>
-                </div>
-                <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded">
-                  <span className="text-purple-600 dark:text-purple-400">To Update:</span>
-                  <span className="ml-2 font-medium">{validationResult.summary.will_be_updated}</span>
+          <div className="px-6 py-4">
+            {/* Sample Download Section */}
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Download className="text-blue-600 dark:text-blue-400 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Download Sample File</h4>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 mb-2">
+                    Download our sample Excel file to see the required format and fields.
+                  </p>
+                  <button
+                    onClick={handleDownloadSample}
+                    className="inline-flex items-center gap-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+                  >
+                    <Download size={14} />
+                    Download Sample
+                  </button>
                 </div>
               </div>
             </div>
-          )}
+
+            {/* File Upload Section */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Excel File
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
+                <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md bg-white dark:bg-gray-900 font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        ref={fileInputRef}
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        accept=".xlsx,.xls"
+                        onChange={handleFileSelect}
+                        disabled={isUploading}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Excel files only (.xlsx, .xls) up to 10MB
+                  </p>
+                </div>
+              </div>
+              {selectedFile && (
+                <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px]">
+                    {selectedFile.name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {(selectedFile.size / 1024).toFixed(2)} KB
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {isUploading && (
+              <div className="mb-6">
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                  <div
+                    className="bg-brand-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <XCircle className="text-red-600 dark:text-red-400" size={18} />
+                  <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Import Result - Success */}
+            {importResult && importResult.success && (
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
+                  <h4 className="text-sm font-medium text-green-800 dark:text-green-300">
+                    Import Completed!
+                  </h4>
+                </div>
+                
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  {importResult.message}
+                </p>
+
+                <div className="grid grid-cols-3 gap-3 text-sm mb-3">
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Total Rows</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{importResult.data.summary.total_rows}</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Successful</p>
+                    <p className="font-medium text-green-600">{importResult.data.summary.successful}</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Failed</p>
+                    <p className="font-medium text-red-600">{importResult.data.summary.failed}</p>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  <p>File: {importResult.data.file_info.filename}</p>
+                  <p>Sheet: {importResult.data.file_info.sheet}</p>
+                </div>
+
+                {/* See Commissions Button */}
+                <button
+                  onClick={handleSeeCommissions}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                >
+                  <FileText size={18} />
+                  See Commissions
+                </button>
+              </div>
+            )}
+
+            {/* Import Result - Fail */}
+            {importResult && !importResult.success && (
+              <div className="mb-6 p-4 border border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle className="text-red-600 dark:text-red-400" size={20} />
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                    Import Failed
+                  </p>
+                </div>
+                <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                  {importResult.message}
+                </p>
+                <div className="text-xs text-red-700 dark:text-red-400 space-y-1">
+                  <p>Total Rows: {importResult.data?.summary?.total_rows}</p>
+                  <p>Successful: {importResult.data?.summary?.successful}</p>
+                  <p>Failed: {importResult.data?.summary?.failed}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600"
+            >
+              Cancel
+            </button>
+            {!importResult?.success && (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!selectedFile || isUploading}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={18} />
+                    Import Commissions
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Validation Modal Component
-interface ValidationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  validationResult: any;
-  isImporting: boolean;
-}
-
-function ValidationModal({
-  isOpen,
-  onClose,
-  onConfirm,
-  validationResult,
-  isImporting,
-}: ValidationModalProps) {
-  if (!isOpen) return null;
-
-  const hasErrors = validationResult.errors.length > 0;
-  const hasWarnings = validationResult.warnings.length > 0;
-  const canProceed = validationResult.valid_rows > 0;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Validation Results
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            disabled={isImporting}
-          >
-            <XCircle className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-gray-800 dark:text-white">
-                {validationResult.summary.total_rows_processed || validationResult.summary.total_to_process}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Total Rows</div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {validationResult.valid_rows}
-              </div>
-              <div className="text-xs text-green-600 dark:text-green-400">Valid</div>
-            </div>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {validationResult.invalid_rows}
-              </div>
-              <div className="text-xs text-red-600 dark:text-red-400">Invalid</div>
-            </div>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                {validationResult.summary.warnings_count}
-              </div>
-              <div className="text-xs text-yellow-600 dark:text-yellow-400">Warnings</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Will be Inserted
-                </span>
-              </div>
-              <div className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {validationResult.summary.will_be_inserted}
-              </div>
-            </div>
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-purple-500" />
-                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  Will be Updated
-                </span>
-              </div>
-              <div className="mt-1 text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {validationResult.summary.will_be_updated}
-              </div>
-            </div>
-          </div>
-
-          {hasErrors && (
-            <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
-              <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2 border-b border-red-200 dark:border-red-800">
-                <h4 className="text-sm font-medium text-red-800 dark:text-red-200 flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Errors ({validationResult.errors.length})
-                </h4>
-              </div>
-              <div className="max-h-40 overflow-y-auto p-4 space-y-2">
-                {validationResult.errors.map((error: any, index: number) => (
-                  <div key={index} className="text-sm">
-                    <span className="font-medium text-red-600 dark:text-red-400">Row {error.row}:</span>
-                    <ul className="mt-1 list-disc list-inside text-red-600 dark:text-red-400">
-                      {error.errors.map((msg: string, i: number) => (
-                        <li key={i} className="text-xs">{msg}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {hasWarnings && (
-            <div className="border border-yellow-200 dark:border-yellow-800 rounded-lg overflow-hidden">
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2 border-b border-yellow-200 dark:border-yellow-800">
-                <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  Warnings ({validationResult.warnings.length})
-                </h4>
-              </div>
-              <div className="max-h-40 overflow-y-auto p-4 space-y-2">
-                {validationResult.warnings.map((warning: any, index: number) => (
-                  <div key={index} className="text-sm">
-                    <span className="font-medium text-yellow-600 dark:text-yellow-400">Row {warning.row}:</span>
-                    <ul className="mt-1 list-disc list-inside text-yellow-600 dark:text-yellow-400">
-                      {warning.warnings.map((msg: string, i: number) => (
-                        <li key={i} className="text-xs">{msg}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {validationResult.new_commissions?.length > 0 && (
-            <div className="border border-green-200 dark:border-green-800 rounded-lg overflow-hidden">
-              <div className="bg-green-50 dark:bg-green-900/20 px-4 py-2 border-b border-green-200 dark:border-green-800">
-                <h4 className="text-sm font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  New Commissions to Insert ({validationResult.new_commissions.length})
-                </h4>
-              </div>
-              <div className="max-h-40 overflow-y-auto p-4">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500 dark:text-gray-400">
-                      <th className="pb-2">Row</th>
-                      <th className="pb-2">University</th>
-                      <th className="pb-2">Study Level</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {validationResult.new_commissions.slice(0, 5).map((item: any, index: number) => (
-                      <tr key={index} className="text-gray-700 dark:text-gray-300">
-                        <td className="py-1">{item.row}</td>
-                        <td className="py-1">{item.university}</td>
-                        <td className="py-1">{item.study_level}</td>
-                      </tr>
-                    ))}
-                    {validationResult.new_commissions.length > 5 && (
-                      <tr>
-                        <td colSpan={3} className="pt-2 text-xs text-gray-500">
-                          ... and {validationResult.new_commissions.length - 5} more
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {validationResult.updated_commissions?.length > 0 && (
-            <div className="border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
-              <div className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-200 dark:border-purple-800">
-                <h4 className="text-sm font-medium text-purple-800 dark:text-purple-200 flex items-center gap-2">
-                  <Info className="w-4 h-4" />
-                  Commissions to Update ({validationResult.updated_commissions.length})
-                </h4>
-              </div>
-              <div className="max-h-40 overflow-y-auto p-4">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500 dark:text-gray-400">
-                      <th className="pb-2">Row</th>
-                      <th className="pb-2">University</th>
-                      <th className="pb-2">Study Level</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {validationResult.updated_commissions.slice(0, 5).map((item: any, index: number) => (
-                      <tr key={index} className="text-gray-700 dark:text-gray-300">
-                        <td className="py-1">{item.row}</td>
-                        <td className="py-1">{item.university}</td>
-                        <td className="py-1">{item.study_level}</td>
-                      </tr>
-                    ))}
-                    {validationResult.updated_commissions.length > 5 && (
-                      <tr>
-                        <td colSpan={3} className="pt-2 text-xs text-gray-500">
-                          ... and {validationResult.updated_commissions.length - 5} more
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={onClose}
-              disabled={isImporting}
-              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              disabled={!canProceed || isImporting}
-              className="flex-1 px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-hidden focus:ring-2 focus:ring-green-500/10 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isImporting ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                'Proceed with Import'
-              )}
-            </button>
-          </div>
-
-          {!canProceed && (
-            <p className="text-sm text-red-600 dark:text-red-400 text-center">
-              Cannot proceed with import as there are no valid rows to process.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+};
