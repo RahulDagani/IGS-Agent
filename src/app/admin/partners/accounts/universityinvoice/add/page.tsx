@@ -5,6 +5,8 @@ import UniversityList from './components/UniversityList';
 import ApplicationList from './components/ApplicationList';
 import CommissionNotes from './components/CommissionNotes';
 import { Application } from './types';
+import { useRouter } from 'next/navigation';
+
 
 export default function UniversityPaymentsPage() {
   const [selectedUniversityId, setSelectedUniversityId] = useState<number | null>(null);
@@ -12,6 +14,7 @@ export default function UniversityPaymentsPage() {
   const [currentStep, setCurrentStep] = useState<'university' | 'applications' | 'commission-notes'>('university');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const router = useRouter();
   const handleUniversitySelect = (universityId: number) => {
     setSelectedUniversityId(universityId);
     setCurrentStep('applications');
@@ -37,10 +40,12 @@ export default function UniversityPaymentsPage() {
 
   const handleSuccess = () => {
     // Reset the flow after successful submission
-    setSelectedUniversityId(null);
-    setSelectedApplications([]);
-    setCurrentStep('university');
-    setRefreshKey(prev => prev + 1); // Force re-render
+    // setSelectedUniversityId(null);
+    // setSelectedApplications([]);
+    // setCurrentStep('university');
+    // setRefreshKey(prev => prev + 1); // Force re-render
+
+    router.push("/admin/partners/accounts/universityinvoice/add");
   };
 
   return (

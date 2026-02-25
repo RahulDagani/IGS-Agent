@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Application, GenerateInvoicePayload } from '../types';
 import { DollarSign, AlertCircle, Loader2, CheckCircle, ArrowLeft, Send } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface CommissionNotesProps {
   applications: Application[];
@@ -29,7 +30,7 @@ export default function CommissionNotes({ applications, universityId, onBack, on
 
   const {token} = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
+  const router = useRouter();
 
   const handleFeeChange = (applicationId: number, value: string) => {
     const numValue = value === '' ? 0 : parseFloat(value);
@@ -48,56 +49,58 @@ export default function CommissionNotes({ applications, universityId, onBack, on
       });
   };
 
-  const handleSubmit = async () => {
-    if (!validateFees()) {
-      setError('Please enter valid tuition fees for percentage-based applications');
-      return;
-    }
+const handleSubmit = async () => {
+  if (!validateFees()) {
+    setError('Please enter valid tuition fees for percentage-based applications');
+    return;
+  }
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    // Only include applications in payload that have tuition fees set
-    // For fixed commissions, we don't need to send commissionable_tuition_fee
-    const payloadApplications = applications
-      .filter(app => app.commission_type === 'percentage') // Only percentage apps need tuition fee
-      .map(app => ({
-        application_id: app.application_id,
-        commissionable_tuition_fee: tuitionFees[app.application_id]
-      }));
+  // Include ALL applications in the payload
+  const payloadApplications = applications.map(app => ({
+    application_id: app.application_id,
+    // Only include commissionable_tuition_fee for percentage-based applications
+    ...(app.commission_type === 'percentage' && {
+      commissionable_tuition_fee: tuitionFees[app.application_id]
+    })
+    // For fixed commissions, don't send commissionable_tuition_fee at all
+  }));
 
-    const payload: GenerateInvoicePayload = {
-      university_id: universityId,
-      applications: payloadApplications
-    };
-
-    try {
-      const response = await fetch(`${BASE_URL}/tenant/invoice/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (data.status === 'success') {
-        setSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-        }, 2000);
-      } else {
-        setError(data.message || 'Failed to generate invoice');
-      }
-    } catch (err) {
-      setError('Error connecting to server. Please try again.');
-      console.error('Error generating invoice:', err);
-    } finally {
-      setLoading(false);
-    }
+  const payload = {
+    university_id: universityId,
+    applications: payloadApplications
   };
+
+  try {
+    const response = await fetch(`${BASE_URL}/tenant/invoice/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (data.status === 'success') {
+      setSuccess(true);
+      setTimeout(() => {
+        // onSuccess();
+        router.push("/admin/partners/accounts/universityinvoice/add");
+      }, 2000);
+    } else {
+      setError(data.message || 'Failed to generate invoice');
+    }
+  } catch (err) {
+    setError('Error connecting to server. Please try again.');
+    console.error('Error generating invoice:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const calculateTotalCommission = (app: Application) => {
     if (app.commission_type === 'percentage') {
