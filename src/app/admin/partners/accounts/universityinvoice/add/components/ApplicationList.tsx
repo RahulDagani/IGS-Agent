@@ -142,8 +142,12 @@ export default function ApplicationList({ universityId, onApplicationsSelect, on
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Application ID
                 </th>
+                
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Student ID
+                  Student
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Course
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Commission
@@ -185,7 +189,10 @@ export default function ApplicationList({ universityId, onApplicationsSelect, on
                     #{app.application_id}
                   </td>
                   <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                    {app.student_id}
+                    {app.student_name_email}
+                  </td>
+                  <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                    {app.course_study_level_intake}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-1">

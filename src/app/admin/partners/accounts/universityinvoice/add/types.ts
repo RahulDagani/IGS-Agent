@@ -7,6 +7,8 @@ export interface University {
 export interface Application {
   application_id: number;
   student_id: number;
+  student_name_email: string;
+  course_study_level_intake: string;
   study_level_id: number;
   total_installments_created: number;
   total_installments_paid: number;
