@@ -19,6 +19,7 @@ interface Commission {
   university_id: number;
   study_level_id: number;
   commission_value: string;
+  currency: string;
   commission_type: string;
   remark: string;
   created_at: string;
@@ -294,9 +295,9 @@ export default function CommissionsTable() {
 
   const getCommissionDisplay = (commission: Commission) => {
     if (commission.commission_type === "percentage") {
-      return `${commission.commission_value}%`;
+      return `${commission.commission_value}`;
     } else {
-      return `$${commission.commission_value}`;
+      return `${commission.commission_value}`;
     }
   };
 
@@ -561,7 +562,8 @@ export default function CommissionsTable() {
                     { key: "university_name", label: "University Name" },
                     { key: "study_level_name", label: "Study Level" },
                     { key: "commission_type", label: "Type" },
-                    { key: "commission_value", label: "Tenant Commission" },
+                    { key: "commission_value", label: "Commission Value" },
+                    { key: "currency", label: "Currency" },
                     { key: "no_of_installments", label: "No of Installment" },
                     { key: "remark", label: "Remark" },
                     { key: "created_at", label: "Created" },
@@ -616,6 +618,11 @@ export default function CommissionsTable() {
                         >
                           {getCommissionDisplay(commission)}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start text-gray-600 text-theme-sm dark:text-gray-400">
+                        
+                          {commission.currency}
+                       
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <div className="text-gray-600 text-theme-sm dark:text-gray-400 max-w-[200px] truncate">

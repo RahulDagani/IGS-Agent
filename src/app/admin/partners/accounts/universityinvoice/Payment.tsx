@@ -64,7 +64,7 @@ interface FilterOptions {
   universities: string[];
   status: string[];
   invoiceNumber: string;
-  universitySearch: string;
+  studentEmail: string;
 }
 
 interface University {
@@ -102,7 +102,7 @@ export default function InvoicesPage() {
     universities: [],
     status: [],
     invoiceNumber: "",
-    universitySearch: "",
+    studentEmail: "",
   });
 
   const [appliedFilters, setAppliedFilters] = useState<FilterOptions>(filters);
@@ -173,8 +173,8 @@ export default function InvoicesPage() {
         params.append('end_date', filterOptions.dateRange[1].toISOString().split('T')[0]);
       }
       
-      if (filterOptions.universitySearch) {
-        params.append('university_search', filterOptions.universitySearch);
+      if (filterOptions.studentEmail) {
+        params.append('student_email', filterOptions.studentEmail);
       }
       
       params.append('page', page.toString());
@@ -376,6 +376,47 @@ export default function InvoicesPage() {
     }
   }, [BASE_URL, token]);
 
+  // Send invoice email
+  const sendInvoiceEmail = useCallback(async (invoiceId: number) => {
+    try {
+      setProcessingAction(true);
+      setError(null);
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/invoice/${invoiceId}/send`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to send email: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        setSuccess('Invoice email sent successfully');
+        // Refresh invoice details to update status
+        if (activeInvoiceId) {
+          fetchInvoiceDetail(activeInvoiceId);
+        }
+        // Refresh invoices list
+        fetchInvoices(pagination.page);
+      } else {
+        throw new Error(data.message || "Failed to send invoice email");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred while sending email");
+    } finally {
+      setProcessingAction(false);
+    }
+  }, [BASE_URL, token, activeInvoiceId, fetchInvoiceDetail, fetchInvoices, pagination.page]);
+
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
     setFilters(prev => ({
@@ -398,7 +439,7 @@ export default function InvoicesPage() {
       universities: [],
       status: [],
       invoiceNumber: "",
-      universitySearch: ""
+      studentEmail: ""
     };
     
     setFilters(clearedFilters);
@@ -811,14 +852,14 @@ const handlePageChange = (newPage: number) => {
             {/* University Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                University Search
+                Student Email Search
               </label>
               <input
                 type="text"
-                placeholder="Search by university name"
+                placeholder="Search by Student Email"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-                value={filters.universitySearch}
-                onChange={(e) => handleFilterChange('universitySearch', e.target.value)}
+                value={filters.studentEmail}
+                onChange={(e) => handleFilterChange('studentEmail', e.target.value)}
               />
             </div>
 
@@ -981,6 +1022,14 @@ const handlePageChange = (newPage: number) => {
                           >
                             <Download size={16} />
                             Download PDF
+                          </button>
+                          <button
+                            onClick={() => sendInvoiceEmail(activeInvoiceDetail.invoice.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            disabled={processingAction}
+                          >
+                            <Send size={16} />
+                            Send Email
                           </button>
                           {/* <button
                             onClick={() => window.open(`/admin/invoice/view/${activeInvoiceDetail.invoice.id}`, '_blank')}
