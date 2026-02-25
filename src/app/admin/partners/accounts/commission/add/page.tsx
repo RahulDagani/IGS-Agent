@@ -48,6 +48,421 @@ interface UniversityType {
   university: string;
 }
 
+// Import Modal Component Props
+interface ImportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  token: string | null;
+  onSuccess: () => void;
+}
+
+interface FailedRow {
+  row: number;
+  status: string;
+  data: Record<string, any>;
+  message: string;
+}
+
+// Import Modal Component
+const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuccess }) => {
+  const router = useRouter();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showFailedDetails, setShowFailedDetails] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ];
+      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
+        setError('Please select a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+      setImportResult(null);
+    }
+  };
+
+  const handleDownloadSample = async () => {
+    try {
+      // Create a link to download the sample file
+      const link = document.createElement('a');
+      link.href = '/samples/commissions_template.xlsx';
+      link.download = 'commissions_import_sample.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading sample file:', error);
+      setError('Failed to download sample file');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile) {
+      setError('Please select a file to upload');
+      return;
+    }
+
+    if (!token) {
+      setError('Authentication required');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('excelFile', selectedFile);
+
+      // Simulate progress (since fetch doesn't support upload progress natively)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const response = await fetch(`${BASE_URL}/tenant/import/commissions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to import commissions');
+      }
+
+      setImportResult(result as ImportResponse);
+      
+      // Only call onSuccess if there are successful imports
+      if (result.success && result.data.summary.successful > 0) {
+        onSuccess();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during import');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSeeCommissions = () => {
+    onClose();
+    router.push('/admin/partners/accounts/commission');
+  };
+
+  const resetModal = () => {
+    setSelectedFile(null);
+    setImportResult(null);
+    setError(null);
+    setUploadProgress(0);
+    setShowFailedDetails(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClose = () => {
+    resetModal();
+    onClose();
+  };
+
+  const getFailedRows = (): FailedRow[] => {
+    return importResult?.data?.details?.filter(detail => detail.status === 'failed') || [];
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+        <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={handleClose} />
+        
+        <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-900 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Import Commissions</h3>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+            {/* Sample Download Section */}
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Download className="text-blue-600 dark:text-blue-400 mt-0.5" size={18} />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Download Sample File</h4>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 mb-2">
+                    Download our sample Excel file to see the required format and fields.
+                  </p>
+                  <button
+                    onClick={handleDownloadSample}
+                    className="inline-flex items-center gap-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+                  >
+                    <Download size={14} />
+                    Download Sample
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Excel File
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
+                <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md bg-white dark:bg-gray-900 font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        ref={fileInputRef}
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        accept=".xlsx,.xls"
+                        onChange={handleFileSelect}
+                        disabled={isUploading}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Excel files only (.xlsx, .xls) up to 10MB
+                  </p>
+                </div>
+              </div>
+              {selectedFile && (
+                <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px]">
+                    {selectedFile.name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {(selectedFile.size / 1024).toFixed(2)} KB
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {isUploading && (
+              <div className="mb-6">
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                  <div
+                    className="bg-brand-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <XCircle className="text-red-600 dark:text-red-400" size={18} />
+                  <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Import Result */}
+            {importResult && (
+              <div className="mb-6">
+                {/* Summary Card */}
+                <div className={`p-4 border rounded-lg ${
+                  importResult.data.summary.failed === 0 
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : importResult.data.summary.successful > 0
+                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    {importResult.data.summary.failed === 0 ? (
+                      <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
+                    ) : importResult.data.summary.successful > 0 ? (
+                      <AlertCircle className="text-yellow-600 dark:text-yellow-400" size={20} />
+                    ) : (
+                      <XCircle className="text-red-600 dark:text-red-400" size={20} />
+                    )}
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                      Import {importResult.data.summary.failed === 0 ? 'Completed Successfully' : 'Completed with Errors'}
+                    </h4>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    {importResult.message}
+                  </p>
+
+                  {/* Statistics Grid */}
+                  <div className="grid grid-cols-4 gap-3 text-sm mb-3">
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Total Rows</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{importResult.data.summary.total_rows}</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Successful</p>
+                      <p className="font-medium text-green-600">{importResult.data.summary.successful}</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Failed</p>
+                      <p className="font-medium text-red-600">{importResult.data.summary.failed}</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-2 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Success Rate</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{importResult.data.summary.success_rate}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <p>File: {importResult.data.file_info.filename}</p>
+                    <p>Sheet: {importResult.data.file_info.sheet}</p>
+                    <p>Size: {(importResult.data.file_info.size / 1024).toFixed(2)} KB</p>
+                  </div>
+
+                  {/* Show Failed Rows Button - Only if there are failures */}
+                  {importResult.data.summary.failed > 0 && (
+                    <button
+                      onClick={() => setShowFailedDetails(!showFailedDetails)}
+                      className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                    >
+                      <AlertCircle size={16} />
+                      {showFailedDetails ? 'Hide' : 'Show'} Failed Rows ({importResult.data.summary.failed})
+                    </button>
+                  )}
+                </div>
+
+                {/* Failed Rows Details */}
+                {showFailedDetails && importResult.data.summary.failed > 0 && (
+                  <div className="mt-4">
+                    <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Failed Rows Details
+                    </h5>
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {getFailedRows().map((failedRow, index) => (
+                        <div key={index} className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <XCircle className="text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" size={16} />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                                Row {failedRow.row}: {failedRow.message}
+                              </p>
+                              <div className="mt-2 text-xs text-red-700 dark:text-red-400">
+                                <p className="font-medium mb-1">Data:</p>
+                                <ul className="list-disc list-inside space-y-1">
+                                  {Object.entries(failedRow.data).map(([key, value]) => (
+                                    <li key={key}>
+                                      <span className="font-medium">{key}:</span> {String(value)}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Success Actions */}
+                {importResult.data.summary.successful > 0 && (
+                  <div className="mt-4">
+                    <button
+                      onClick={handleSeeCommissions}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                    >
+                      <FileText size={18} />
+                      View All Commissions
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600"
+            >
+              {importResult ? 'Close' : 'Cancel'}
+            </button>
+            {!importResult && (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!selectedFile || isUploading}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={18} />
+                    Import Commissions
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Component
 export default function AddCommission() {
   const router = useRouter();
   const [formData, setFormData] = useState<CommissionFormData>({
@@ -469,354 +884,3 @@ export default function AddCommission() {
     </>
   );
 }
-
-// Import Modal Component
-interface ImportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  token: string | null;
-  onSuccess: () => void;
-}
-
-const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, token, onSuccess }) => {
-  const router = useRouter();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const validTypes = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel'
-      ];
-      if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
-        setError('Please select a valid Excel file (.xlsx or .xls)');
-        return;
-      }
-      
-      // Validate file size (10MB max)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB');
-        return;
-      }
-
-      setSelectedFile(file);
-      setError(null);
-      setImportResult(null);
-    }
-  };
-
-  const handleDownloadSample = async () => {
-    try {
-      // Create a link to download the sample file
-      const link = document.createElement('a');
-      link.href = '/samples/commissions_template.xlsx';
-      link.download = 'commissions_import_sample.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error downloading sample file:', error);
-      setError('Failed to download sample file');
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedFile) {
-      setError('Please select a file to upload');
-      return;
-    }
-
-    if (!token) {
-      setError('Authentication required');
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadProgress(0);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('excelFile', selectedFile);
-
-      // Simulate progress (since fetch doesn't support upload progress natively)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      const response = await fetch(`${BASE_URL}/tenant/import/commissions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to import commissions');
-      }
-
-      setImportResult(result as ImportResponse);
-      
-      // Call onSuccess callback to refresh the commission list
-      if (result.success) {
-        onSuccess();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during import');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSeeCommissions = () => {
-    onClose();
-    router.push('/admin/partners/accounts/commission');
-  };
-
-  const resetModal = () => {
-    setSelectedFile(null);
-    setImportResult(null);
-    setError(null);
-    setUploadProgress(0);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleClose = () => {
-    resetModal();
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-999999 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
-        <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={handleClose} />
-        
-        <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-900 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-          <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Import Commissions</h3>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="px-6 py-4">
-            {/* Sample Download Section */}
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="flex items-start gap-3">
-                <Download className="text-blue-600 dark:text-blue-400 mt-0.5" size={18} />
-                <div>
-                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Download Sample File</h4>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 mb-2">
-                    Download our sample Excel file to see the required format and fields.
-                  </p>
-                  <button
-                    onClick={handleDownloadSample}
-                    className="inline-flex items-center gap-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
-                  >
-                    <Download size={14} />
-                    Download Sample
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* File Upload Section */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Excel File
-              </label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
-                <div className="space-y-1 text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
-                    <label
-                      htmlFor="file-upload"
-                      className="relative cursor-pointer rounded-md bg-white dark:bg-gray-900 font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none"
-                    >
-                      <span>Upload a file</span>
-                      <input
-                        ref={fileInputRef}
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        className="sr-only"
-                        accept=".xlsx,.xls"
-                        onChange={handleFileSelect}
-                        disabled={isUploading}
-                      />
-                    </label>
-                    <p className="pl-1">or drag and drop</p>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Excel files only (.xlsx, .xls) up to 10MB
-                  </p>
-                </div>
-              </div>
-              {selectedFile && (
-                <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px]">
-                    {selectedFile.name}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {(selectedFile.size / 1024).toFixed(2)} KB
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Progress Bar */}
-            {isUploading && (
-              <div className="mb-6">
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">{uploadProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                  <div
-                    className="bg-brand-600 h-2.5 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <XCircle className="text-red-600 dark:text-red-400" size={18} />
-                  <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Import Result - Success */}
-            {importResult && importResult.success && (
-              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
-                  <h4 className="text-sm font-medium text-green-800 dark:text-green-300">
-                    Import Completed!
-                  </h4>
-                </div>
-                
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  {importResult.message}
-                </p>
-
-                <div className="grid grid-cols-3 gap-3 text-sm mb-3">
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs">Total Rows</p>
-                    <p className="font-medium text-gray-900 dark:text-white">{importResult.data.summary.total_rows}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs">Successful</p>
-                    <p className="font-medium text-green-600">{importResult.data.summary.successful}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                    <p className="text-gray-500 dark:text-gray-400 text-xs">Failed</p>
-                    <p className="font-medium text-red-600">{importResult.data.summary.failed}</p>
-                  </div>
-                </div>
-
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  <p>File: {importResult.data.file_info.filename}</p>
-                  <p>Sheet: {importResult.data.file_info.sheet}</p>
-                </div>
-
-                {/* See Commissions Button */}
-                <button
-                  onClick={handleSeeCommissions}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                >
-                  <FileText size={18} />
-                  See Commissions
-                </button>
-              </div>
-            )}
-
-            {/* Import Result - Fail */}
-            {importResult && !importResult.success && (
-              <div className="mb-6 p-4 border border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <XCircle className="text-red-600 dark:text-red-400" size={20} />
-                  <p className="text-sm font-semibold text-red-700 dark:text-red-400">
-                    Import Failed
-                  </p>
-                </div>
-                <p className="text-sm text-red-600 dark:text-red-400 mb-2">
-                  {importResult.message}
-                </p>
-                <div className="text-xs text-red-700 dark:text-red-400 space-y-1">
-                  <p>Total Rows: {importResult.data?.summary?.total_rows}</p>
-                  <p>Successful: {importResult.data?.summary?.successful}</p>
-                  <p>Failed: {importResult.data?.summary?.failed}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600"
-            >
-              Cancel
-            </button>
-            {!importResult?.success && (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!selectedFile || isUploading}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-              >
-                {isUploading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Importing...
-                  </>
-                ) : (
-                  <>
-                    <Upload size={18} />
-                    Import Commissions
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
