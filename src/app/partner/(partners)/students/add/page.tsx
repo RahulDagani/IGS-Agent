@@ -13,7 +13,6 @@ interface StudentFormData {
   last_name: string;
   email: string;
   phone: string;
-  passport_number: string;
   country_code: string;
   dob: string;
 }
@@ -37,7 +36,6 @@ export default function AddStudent() {
     last_name: "",
     email: "",
     phone: "",
-    passport_number: "",
     country_code: "",
     dob: "",
   });
@@ -83,9 +81,7 @@ export default function AddStudent() {
       newErrors.phone = "Please enter a valid phone number with country code (e.g., +1234567890)";
     }
 
-    if (!formData.passport_number.trim()) {
-      newErrors.passport_number = "Passport number is required";
-    }
+
 
     if (!formData.dob) {
       newErrors.dob = "Date of birth is required";
@@ -367,31 +363,6 @@ export default function AddStudent() {
                   </div>
                   {errors.phone && (
                     <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-                  )}
-                </div>
-
-                {/* Passport Number */}
-                <div className="">
-                  <label htmlFor="passport_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-                    Passport Number *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                      <FileText size={18} />
-                    </span>
-                    <input
-                      type="text"
-                      id="passport_number"
-                      name="passport_number"
-                      value={formData.passport_number}
-                      onChange={handleInputChange}
-                      placeholder="Enter passport number"
-                      required
-                      className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                    />
-                  </div>
-                  {errors.passport_number && (
-                    <p className="mt-1 text-sm text-red-500">{errors.passport_number}</p>
                   )}
                 </div>
 
