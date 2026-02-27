@@ -1,48 +1,95 @@
 "use client"
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Select from "react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ChevronLeft, ChevronRight, Send, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send, Search, Download } from "lucide-react";
 import Link from "next/link";
 
 interface CommissionNote {
-  commission_note_id?: number;
+  id: number;
   commission_note_number: string;
+  agent_id: number;
+  university_id: number;
+  po_number: string | null;
+  po_date: string | null;
+  currency: string;
+  gst_percentage: string;
+  tds_percentage: string;
+  total_commissionable_amount: string;
+  total_full_commission: string;
+  total_gst_amount: string;
+  total_commission_after_gst: string;
+  total_agent_commission: string;
+  total_company_retained: string;
+  total_commission_amount: string;
+  total_tds_amount: string;
+  total_net_payable: string;
   status: string;
-  company: string;
-  commission_amount: string;
+  remarks: string | null;
+  created_by: number;
   created_at: string;
   updated_at: string;
+  business_name: string;
+}
+
+interface CommissionNoteItem {
+  id: number;
+  commission_note_id: number;
+  invoice_item_id: number;
+  application_id: number;
+  installment_no: number;
+  commissionable_tuition_fee: string | null;
+  commission_type: string | null;
+  commission_value: string | null;
+  commission_amount: string;
+  partner_share: string;
+  conversion_currency: string;
+  exchange_rate: string;
+  shared_amount_in_inr: string;
+  gross_commission_payable: string;
+  tds_percentage: string;
+  tds_amount: string;
+  net_pay: string;
+  created_at: string;
+  gst_percentage: string;
+  gst_amount: string;
+  commission_after_gst: string;
 }
 
 interface CommissionNoteDetail {
-  commission_note_number: string;
-  status: string;
-  company: string;
-  commission_amount: string;
-  generated_by: string | null;
-  paid_by: string;
-  date_received_on: string;
-  date_of_payment: string;
-  last_updated_on: string;
-  agent_id: string;
-  comments: Comment[];
+  note: {
+    id: number;
+    commission_note_number: string;
+    agent_id: number;
+    university_id: number;
+    po_number: string | null;
+    po_date: string | null;
+    currency: string;
+    gst_percentage: string;
+    tds_percentage: string;
+    total_commissionable_amount: string;
+    total_full_commission: string;
+    total_gst_amount: string;
+    total_commission_after_gst: string;
+    total_agent_commission: string;
+    total_company_retained: string;
+    total_commission_amount: string;
+    total_tds_amount: string;
+    total_net_payable: string;
+    status: string;
+    remarks: string | null;
+    created_by: number;
+    created_at: string;
+    updated_at: string;
+  };
+  items: CommissionNoteItem[];
 }
 
 interface Comment {
   id: number;
-  comment: string;
-  created_by: string;
-  created_at: string;
-}
-
-interface ApiComment {
-  id: number;
-  tenant_id: number;
-  agent_id: number;
-  commission_note_id: number;
+  invoice_note_id: number;
   comment: string;
   who_has_created: string;
   created_by: number;
@@ -53,7 +100,6 @@ interface ApiComment {
   created_at: string;
   updated_at: string;
   created_by_name: string | null;
-  created_by_email: string | null;
 }
 
 type SortField = keyof CommissionNote | "";
@@ -89,7 +135,7 @@ interface Pagination {
 
 export default function PaymentsTable() {
   const [notes, setNotes] = useState<CommissionNote[]>([]);
-  const [activeNoteDetail, setActiveNoteDetail] = useState<CommissionNoteDetail | null>(null);
+  const [activeNoteDetail, setActiveNoteDetail] = useState<CommissionNoteDetail & { comments?: Comment[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notesLoading, setNotesLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -109,6 +155,11 @@ export default function PaymentsTable() {
   const [active, setActive] = useState<"progress" | "paid">("progress");
   const [commentText, setCommentText] = useState("");
   const [postingComment, setPostingComment] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  
+  // Add ref to track initial mount and prevent unnecessary fetches
+  const isInitialMount = useRef(true);
+  const prevLimitRef = useRef(pagination.limit);
   
   // Filter states
   const [filters, setFilters] = useState<FilterOptions>({
@@ -125,7 +176,7 @@ export default function PaymentsTable() {
   const [datePickerKey, setDatePickerKey] = useState(0);
 
   const { token } = useAuth();
-  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE || "https://api.applystore.org";
 
   // Fetch agents
   const fetchAgents = useCallback(async () => {
@@ -175,7 +226,7 @@ export default function PaymentsTable() {
       
       const data = await response.json();
       
-      if (data.success) {
+      if (data.status === "success") {
         setUniversities(data.data || []);
       } else {
         throw new Error(data.message || "Failed to fetch universities");
@@ -186,7 +237,7 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token]);
 
-  // Fetch commission notes
+  // Fetch commission notes using the new endpoint
   const fetchCommissionNotes = useCallback(async (page = 1, filterOptions = appliedFilters) => {
     try {
       setNotesLoading(true);
@@ -196,7 +247,8 @@ export default function PaymentsTable() {
       
       // Add status filter based on active tab
       if (active === "progress") {
-        params.delete("status");
+        // For progress tab, exclude paid status
+        params.append('status', 'draft,sent_to_partner,invoice_uploaded,revisions_in_invoice_needed,invoice_uploaded_after_corrections,revision_in_cn_needed');
       } else if (active === "paid") {
         params.append('status', 'commission_payment_done');
       }
@@ -237,7 +289,7 @@ export default function PaymentsTable() {
       params.append('limit', pagination.limit.toString());
       
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/notes?${params.toString()}`,
+        `${BASE_URL}/tenant/commission-notes?${params.toString()}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -252,23 +304,20 @@ export default function PaymentsTable() {
       
       const data = await response.json();
       
-      if (data.success) {
-        const notesWithId = data.data.map((note: CommissionNote, index: number) => ({
-          ...note,
-          id: index + 1
+      if (data.status === "success") {
+        setNotes(data.data);
+        
+        // Update pagination based on API response
+        setPagination(prev => ({
+          ...prev,
+          page: page,
+          total: data.total || data.data.length, // Adjust based on actual API response
+          pages: data.pages || Math.ceil((data.total || data.data.length) / pagination.limit)
         }));
         
-        setNotes(notesWithId);
-        setPagination(data.pagination || {
-          page: page,
-          limit: pagination.limit,
-          total: notesWithId.length,
-          pages: 1
-        });
-        
-        // Set first note as active if available
-        if (notesWithId.length > 0 && !activeNoteId) {
-          setActiveNoteId(notesWithId[0].commission_note_id || null);
+        // Set first note as active if available and no active note
+        if (data.data.length > 0 && !activeNoteId) {
+          setActiveNoteId(data.data[0].id);
         }
       } else {
         throw new Error(data.message || "Failed to fetch commission notes");
@@ -280,46 +329,11 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token, active, pagination.limit, activeNoteId, appliedFilters]);
 
-  // Fetch commission note details
-  const fetchCommissionNoteDetail = useCallback(async (noteId: number) => {
-    try {
-      setDetailLoading(true);
-      
-      const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/notes/${noteId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch note details: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setActiveNoteDetail(data.data);
-        // Fetch comments for this note
-        fetchComments(noteId);
-      } else {
-        throw new Error(data.message || "Failed to fetch note details");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setDetailLoading(false);
-    }
-  }, [BASE_URL, token]);
-
-  // Fetch comments for a commission note
+  // Fetch comments for a commission note (updated endpoint)
   const fetchComments = useCallback(async (noteId: number) => {
     try {
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/comments/${noteId}`,
+        `${BASE_URL}/tenant/agent-commission-notes/${noteId}/comments`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -334,21 +348,13 @@ export default function PaymentsTable() {
       
       const data = await response.json();
       
-      if (data.success) {
-        // Transform API comments to match our Comment interface
-        const comments: Comment[] = data.data.map((apiComment: ApiComment) => ({
-          id: apiComment.id,
-          comment: apiComment.comment,
-          created_by: apiComment.created_by_name || apiComment.created_by_email || `User ${apiComment.created_by}`,
-          created_at: apiComment.created_at
-        }));
-        
+      if (data.status === "success") {
         // Update the active note detail with comments
         setActiveNoteDetail(prev => {
           if (prev) {
             return {
               ...prev,
-              comments: comments
+              comments: data.data
             };
           }
           return prev;
@@ -361,31 +367,89 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token]);
 
-  // Post a new comment
+  // Fetch commission note details using the new endpoint
+  const fetchCommissionNoteDetail = useCallback(async (noteId: number) => {
+    try {
+      setDetailLoading(true);
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/commission-note/${noteId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch note details: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        setActiveNoteDetail(data.data);
+        // Fetch comments for this note
+        fetchComments(noteId);
+      } else {
+        throw new Error(data.message || "Failed to fetch note details");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [BASE_URL, token, fetchComments]);
+
+  // Download PDF function
+  const downloadPdf = useCallback(async (noteId: number) => {
+    if (!noteId) return;
+    
+    try {
+      setDownloadingPdf(true);
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/commission-note/${noteId}/pdf`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download PDF: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `commission-note-${noteId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred while downloading PDF");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [BASE_URL, token]);
+
+  // Post a new comment (updated endpoint and payload)
   const postComment = useCallback(async (noteId: number, comment: string) => {
     if (!comment.trim() || !activeNoteDetail) return;
     
     try {
       setPostingComment(true);
       
-      // Find agent_id from the active note detail or filters
-      // let agentId: number | null = null;
-      
- 
-      // If not in filters, try to find from agents list
-      // if (activeNoteDetail.company) {
-      //   const agent = agents.find(a => a.name === activeNoteDetail.company || a.email === activeNoteDetail.company);
-      //   if (agent) {
-      //     agentId = agent.agent_id;
-      //   }
-      // }
-      
-      // if (!agentId) {
-      //   throw new Error("Agent ID is required to post a comment");
-      // }
-      
       const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/comments/${noteId}`,
+        `${BASE_URL}/tenant/agent-commission-notes/${noteId}/comments`,
         {
           method: 'POST',
           headers: {
@@ -393,8 +457,11 @@ export default function PaymentsTable() {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
+            who_has_created: "tenant", // Fixed value
+            invoice_note_id: noteId,
             comment: comment.trim(),
-            agent_id: activeNoteDetail.agent_id || null
+            created_by: 1, // Fixed value - you might want to get this from auth context
+            is_internal_note: true
           })
         }
       );
@@ -405,7 +472,7 @@ export default function PaymentsTable() {
       
       const data = await response.json();
       
-      if (data.success) {
+      if (data.status === "success") {
         // Clear the comment input
         setCommentText("");
         
@@ -419,7 +486,7 @@ export default function PaymentsTable() {
     } finally {
       setPostingComment(false);
     }
-  }, [BASE_URL, token, activeNoteDetail, filters.agentId, agents, fetchComments]);
+  }, [BASE_URL, token, activeNoteDetail, fetchComments]);
 
   // Handle filter changes
   const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
@@ -429,7 +496,6 @@ export default function PaymentsTable() {
         [filterType]: value
       };
       
-      // If agent is changed, reset universities and fetch new ones
       if (filterType === 'agentId') {
         if (value) {
           fetchUniversities(value);
@@ -482,6 +548,21 @@ export default function PaymentsTable() {
     }
   };
 
+  // Handle limit change - FIXED INFINITE RENDER
+  const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLimit = parseInt(e.target.value);
+    
+    // Update pagination state
+    setPagination(prev => ({
+      ...prev,
+      limit: newLimit,
+      page: 1 // Reset to first page when changing limit
+    }));
+    
+    // We'll fetch in useEffect when limit changes, not here
+    // This prevents the infinite render
+  };
+
   // Handle comment submission
   const handleCommentSubmit = async () => {
     if (activeNoteId && commentText.trim()) {
@@ -489,11 +570,18 @@ export default function PaymentsTable() {
     }
   };
 
-  // Handle key press in comment input (Shift + Enter for new line, Enter to submit)
+  // Handle key press in comment input
   const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleCommentSubmit();
+    }
+  };
+
+  // Handle download PDF
+  const handleDownloadPdf = () => {
+    if (activeNoteId) {
+      downloadPdf(activeNoteId);
     }
   };
 
@@ -526,23 +614,25 @@ export default function PaymentsTable() {
 
   // Get status color
   const getStatusColor = (status: string) => {
-    if (status.includes("Received") || status.includes("Approved") || status.includes("Completed") || status.includes("Paid")) {
+    if (status === "commission_payment_done" || status.includes("Paid")) {
       return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-    } else if (status.includes("Pending") || status.includes("Processing") || status.includes("Progress") || status.includes("In Progress")) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-    } else if (status.includes("Rejected") || status.includes("Closed")) {
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-    } else if (status.includes("Sent To Partner")) {
+    } else if (status === "draft" || status.includes("Draft")) {
+      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+    } else if (status === "sent_to_partner") {
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
-    } else if (status.includes("Invoice Uploaded")) {
+    } else if (status === "invoice_uploaded") {
       return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+    } else if (status === "revisions_in_invoice_needed" || status === "revision_in_cn_needed") {
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    } else if (status === "invoice_uploaded_after_corrections") {
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300";
     }
     return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
   };
 
   // Status options for filter
   const statusOptions = [
-    { value: "Draft", label: "Draft" },
+    { value: "draft", label: "Draft" },
     { value: "sent_to_partner", label: "Sent To Partner" },
     { value: "invoice_uploaded", label: "Invoice Uploaded" },
     { value: "revisions_in_invoice_needed", label: "Revisions In Invoice Needed" },
@@ -558,6 +648,7 @@ export default function PaymentsTable() {
       await fetchAgents();
       await fetchCommissionNotes();
       setLoading(false);
+      isInitialMount.current = false;
     };
     
     fetchInitialData();
@@ -572,8 +663,19 @@ export default function PaymentsTable() {
 
   // Refresh notes when active tab changes
   useEffect(() => {
-    fetchCommissionNotes(1);
+    if (!isInitialMount.current) {
+      fetchCommissionNotes(1);
+    }
   }, [active, fetchCommissionNotes]);
+
+  // FIXED: Effect for limit changes - prevents infinite render
+  useEffect(() => {
+    // Check if limit actually changed and it's not the initial mount
+    if (!isInitialMount.current && prevLimitRef.current !== pagination.limit) {
+      prevLimitRef.current = pagination.limit;
+      fetchCommissionNotes(1);
+    }
+  }, [pagination.limit, fetchCommissionNotes]);
 
   // Custom styles for react-select
   const customSelectStyles = {
@@ -686,41 +788,19 @@ export default function PaymentsTable() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex justify-between w-full bg-[#f8fbff] dark:bg-gray-900 rounded-lg ">
-          {/* Tabs */}
-          <div className="flex gap-8 font-medium relative">
-            <button
-              onClick={() => setActive("progress")}
-              className={`pb-3 relative ${
-                active === "progress"
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-900 dark:text-gray-300"
-              }`}
-            >
-              In Progress
-              {active === "progress" && (
-                <span className="absolute left-0 -bottom-[1px] h-[3px] w-full bg-blue-600 dark:bg-blue-400 rounded-full" />
-              )}
-            </button>
-
-            <button
-              onClick={() => setActive("paid")}
-              className={`pb-3 relative ${
-                active === "paid"
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-900 dark:text-gray-300"
-              }`}
-            >
-              Paid
-              {active === "paid" && (
-                <span className="absolute left-0 -bottom-[1px] h-[3px] w-full bg-blue-600 dark:bg-blue-400 rounded-full" />
-              )}
-            </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Commission notes
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Manage and track all your commission notes
+            </p>
           </div>
 
           <Link
             href="/admin/partners/accounts/commissionnote/add"
             type="button"
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
+            className="px-6 py-2.5 mb-auto bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
           >
             <span>Create Commission Note</span>
           </Link>
@@ -728,197 +808,6 @@ export default function PaymentsTable() {
       </div>
       
       <div className="space-y-6">
-        {/* Filters Section */}
-        <div className="MSL-Searchform bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            
-            {/* Commission Note Number */}
-            <div className="SF-Keyword">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Commission Note
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search by commission note Number"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-                  value={filters.commissionNoteNumber}
-                  onChange={(e) => handleFilterChange('commissionNoteNumber', e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Status Multi-select */}
-            <div className="SF-University all-countries">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status
-                </label>
-                <Select
-                  key={JSON.stringify(filters.status)}
-                  isMulti
-                  options={statusOptions}
-                  value={statusOptions.filter(option => 
-                    filters.status.includes(option.value)
-                  )}
-                  onChange={(selectedOptions) => {
-                    handleFilterChange('status', 
-                      selectedOptions ? selectedOptions.map(option => option.value) : []
-                    );
-                  }}
-                  placeholder="Select status"
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={darkSelectStyles}
-                />
-              </div>
-            </div>
-
-            {/* Agent Select */}
-            <div className="SF-University all-countries">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Agent
-                </label>
-                <Select
-                  key={filters.agentId}
-                  options={agents.map(agent => ({
-                    value: agent.agent_id.toString(),
-                    label: agent.name || agent.email
-                  }))}
-                  value={agents
-                    .filter(agent => agent.agent_id.toString() === filters.agentId)
-                    .map(agent => ({
-                      value: agent.agent_id.toString(),
-                      label: agent.name || agent.email
-                    }))[0]}
-                  onChange={(selectedOption) => {
-                    handleFilterChange('agentId', selectedOption?.value || null);
-                  }}
-                  placeholder="Select agent"
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={darkSelectStyles}
-                />
-              </div>
-            </div>
-
-            {/* University Multi-select */}
-            <div className="SF-University all-countries">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  University
-                </label>
-                <Select
-                  key={JSON.stringify([filters.universities, filters.agentId])}
-                  isMulti
-                  options={universities.map(univ => ({
-                    value: univ.university_id.toString(),
-                    label: univ.university_name
-                  }))}
-                  value={universities.filter(univ => 
-                    filters.universities.includes(univ.university_id.toString())
-                  ).map(univ => ({
-                    value: univ.university_id.toString(),
-                    label: univ.university_name
-                  }))}
-                  onChange={(selectedOptions) => {
-                    handleFilterChange('universities', 
-                      selectedOptions ? selectedOptions.map(option => option.value) : []
-                    );
-                  }}
-                  placeholder={filters.agentId ? "Select universities" : "Select agent first"}
-                  isDisabled={!filters.agentId}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={darkSelectStyles}
-                />
-              </div>
-            </div>
-
-            {/* Date Created */}
-            <div className="SF-DateApp">
-              <div className="form-group calendar-one">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Date Created
-                </label>
-                <div className="relative">
-                  <DatePicker
-                    key={datePickerKey}
-                    selected={filters.dateRange[0]}
-                    onChange={(dates: [Date | null, Date | null]) => handleFilterChange('dateRange', dates)}
-                    startDate={filters.dateRange[0]}
-                    endDate={filters.dateRange[1]}
-                    selectsRange
-                    isClearable
-                    placeholderText="Select date range"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    dateFormat="dd-MM-yyyy"
-                    wrapperClassName="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Student Search */}
-            <div className="SF-Keyword">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Student
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search by student Name/Email"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-                  value={filters.studentSearch}
-                  onChange={(e) => handleFilterChange('studentSearch', e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Acknowledgement No. */}
-            <div className="SF-Keyword">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Acknowledgement No.
-                </label>
-                <input
-                  type="text"
-                  placeholder="Acknowledgement No."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-                  value={filters.acknowledgementNo}
-                  onChange={(e) => handleFilterChange('acknowledgementNo', e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-end gap-2">
-              <div className="form-group">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
-                  onClick={handleSearch}
-                  disabled={notesLoading}
-                >
-                  <Search size={18} />
-                  {notesLoading ? "Searching..." : "Search"}
-                </button>
-              </div>
-              
-              <div className="form-group">
-                <button
-                  type="button"
-                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium"
-                  onClick={handleClearFilters}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
           <div className="max-w-full overflow-x-auto">
@@ -938,16 +827,16 @@ export default function PaymentsTable() {
                     <>
                       {notes.map((note) => (
                         <div 
-                          key={note.commission_note_number}
+                          key={note.id}
                           className={`rounded-xl p-4 space-y-2 mb-0 relative cursor-pointer transition-all ${
-                            activeNoteId === note.commission_note_id 
+                            activeNoteId === note.id 
                               ? 'border-l-4 border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500' 
                               : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-transparent'
                           }`}
-                          onClick={() => handleNoteClick(note.commission_note_id!)}
+                          onClick={() => handleNoteClick(note.id)}
                         >
                           <span className={`absolute top-4 right-4 text-xs px-3 py-1 rounded-full ${getStatusColor(note.status)}`}>
-                            {note.status}
+                            {note.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </span>
 
                           <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
@@ -955,12 +844,12 @@ export default function PaymentsTable() {
                           </h3>
 
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {note.company}
+                            {note.business_name}
                           </p>
 
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             Commission Amount is{" "}
-                            <span className="font-semibold">{note.commission_amount}</span>
+                            <span className="font-semibold">{note.currency} {parseFloat(note.total_commission_amount).toFixed(2)}</span>
                           </p>
 
                           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
@@ -1010,14 +899,7 @@ export default function PaymentsTable() {
                       <select 
                         className="border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                         value={pagination.limit}
-                        onChange={(e) => {
-                          const newLimit = parseInt(e.target.value);
-                          setPagination(prev => ({
-                            ...prev,
-                            limit: newLimit
-                          }));
-                          fetchCommissionNotes(1);
-                        }}
+                        onChange={handleLimitChange}
                       >
                         <option value="10">10/page</option>
                         <option value="20">20/page</option>
@@ -1040,30 +922,27 @@ export default function PaymentsTable() {
                       <div className="flex justify-between items-start border-b border-gray-200 dark:border-white/[0.05] pb-4">
                         <div className="space-y-2">
                           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                            {activeNoteDetail.commission_note_number}
+                            {activeNoteDetail.note.commission_note_number}
                           </h2>
 
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {activeNoteDetail.company}
+                            Agent ID: {activeNoteDetail.note.agent_id}
                           </p>
 
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             Commission Amount is{" "}
-                            <span className="font-semibold">{activeNoteDetail.commission_amount}</span>
+                            <span className="font-semibold">{activeNoteDetail.note.currency} {parseFloat(activeNoteDetail.note.total_commission_amount).toFixed(2)}</span>
                           </p>
                         </div>
 
                         <div className="flex gap-3">
-                          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors dark:bg-blue-700 dark:hover:bg-blue-600">
-                            Generate Invoice
-                          </button>
-
-                          <button className="border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                            View Note
-                          </button>
-
-                          <button className="border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                            Download Note
+                          <button 
+                            className="flex items-center gap-2 border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 px-4 py-2 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={handleDownloadPdf}
+                            disabled={downloadingPdf}
+                          >
+                            <Download size={16} />
+                            {downloadingPdf ? "Downloading..." : "Download Note"}
                           </button>
                         </div>
                       </div>
@@ -1073,38 +952,92 @@ export default function PaymentsTable() {
                         <p className="text-gray-700 dark:text-gray-300">
                           Generated By:{" "}
                           <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.generated_by || '-'}
+                            User ID: {activeNoteDetail.note.created_by || '-'}
                           </span>
                         </p>
 
                         <p className="text-gray-700 dark:text-gray-300">
-                          Paid By:{" "}
+                          Currency:{" "}
                           <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.paid_by}
+                            {activeNoteDetail.note.currency}
                           </span>
                         </p>
 
                         <p className="text-gray-700 dark:text-gray-300">
-                          Date Received On:{" "}
+                          GST Percentage:{" "}
                           <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {formatDateTime(activeNoteDetail.date_received_on)}
+                            {activeNoteDetail.note.gst_percentage}%
                           </span>
                         </p>
 
                         <p className="text-gray-700 dark:text-gray-300">
-                          Date of Payment:{" "}
+                          TDS Percentage:{" "}
                           <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.date_of_payment}
+                            {activeNoteDetail.note.tds_percentage}%
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Net Payable:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {activeNoteDetail.note.currency} {parseFloat(activeNoteDetail.note.total_net_payable).toFixed(2)}
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Status:{" "}
+                          <span className={`font-medium px-2 py-1 rounded-full text-xs ${getStatusColor(activeNoteDetail.note.status)}`}>
+                            {activeNoteDetail.note.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        </p>
+
+                        <p className="text-gray-700 dark:text-gray-300">
+                          Created At:{" "}
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {formatDateTime(activeNoteDetail.note.created_at)}
                           </span>
                         </p>
 
                         <p className="text-gray-700 dark:text-gray-300">
                           Last Updated On:{" "}
                           <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {formatDateTime(activeNoteDetail.last_updated_on)}
+                            {formatDateTime(activeNoteDetail.note.updated_at)}
                           </span>
                         </p>
                       </div>
+
+                      {/* ITEMS TABLE */}
+                      {activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
+                        <div className="mb-6">
+                          <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Commission Items</h3>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                              <thead className="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Application ID</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Installment</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Commission</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">GST</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">TDS</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Net Pay</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                                {activeNoteDetail.items.map((item) => (
+                                  <tr key={item.id}>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.application_id}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.installment_no}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{activeNoteDetail.note.currency} {parseFloat(item.commission_amount).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage}% ({activeNoteDetail.note.currency} {parseFloat(item.gst_amount).toFixed(2)})</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage}% ({activeNoteDetail.note.currency} {parseFloat(item.tds_amount).toFixed(2)})</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{activeNoteDetail.note.currency} {parseFloat(item.net_pay).toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
 
                       {/* COMMENTS */}
                       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-100 dark:border-blue-900/30">
@@ -1135,11 +1068,11 @@ export default function PaymentsTable() {
 
                         {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
                           <div className="mt-4 space-y-4">
-                            {activeNoteDetail.comments.map((comment) => (
+                            {activeNoteDetail.comments.map((comment: Comment) => (
                               <div key={comment.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-white/[0.05] shadow-sm">
                                 <p className="text-gray-700 dark:text-gray-300">{comment.comment}</p>
                                 <div className="flex justify-between items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                  <span>By: {comment.created_by}</span>
+                                  <span>By: {comment.created_by_name || `User ${comment.created_by}`}</span>
                                   <span>{formatDateTime(comment.created_at)}</span>
                                 </div>
                               </div>
