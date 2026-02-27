@@ -57,9 +57,9 @@ interface Application {
   intake_id: number | null;
   intake_year: string | null;
   intake_name: string | null;
-  deadline_date: string | null;
-  deadline_type_id: number | null;
-  deadline_type_name: string | null;
+  // deadline_date: string | null;
+  // deadline_type_id: number | null;
+  // deadline_type_name: string | null;
   student_full_name: string | null;
 }
 
@@ -71,7 +71,7 @@ interface FilterOptionsData {
   disciplines: Array<{ id: string | number; name: string }>;
   courses: Array<{ id: string | number; name: string }>;
   intakeYears: Array<{ id: string; name: string; value: number }>;
-  deadlineTypes: Array<{ id: string | number; name: string }>;
+  // deadlineTypes: Array<{ id: string | number; name: string }>;
   intakes: Array<{ id: string; intake_name: string }>;
   applicationStatus: Array<{ 
     id: string | number; 
@@ -91,8 +91,8 @@ interface FilterOptions {
   acknowledgeNo: string;
   programName: string;
   studentName: string;
-  deadlineType: string | null;
-  deadlineDate: [Date | null, Date | null];
+  // deadlineType: string | null;
+  // deadlineDate: [Date | null, Date | null];
   students: string[];
   studyLevels: string[];
   disciplines: string[];
@@ -140,8 +140,8 @@ export default function ApplicationsTable() {
     acknowledgeNo: "",
     programName: "",
     studentName: "",
-    deadlineType: null,
-    deadlineDate: [null, null],
+    // deadlineType: null,
+    // deadlineDate: [null, null],
     students: [],
     studyLevels: [],
     disciplines: [],
@@ -159,8 +159,8 @@ export default function ApplicationsTable() {
     acknowledgeNo: "",
     programName: "",
     studentName: "",
-    deadlineType: null,
-    deadlineDate: [null, null],
+    // deadlineType: null,
+    // deadlineDate: [null, null],
     students: [],
     studyLevels: [],
     disciplines: [],
@@ -266,9 +266,9 @@ export default function ApplicationsTable() {
         });
       }
       
-      if (filtersToApply.deadlineType && filtersToApply.deadlineType !== 'all') {
-        params.append('deadline_type', filtersToApply.deadlineType);
-      }
+      // if (filtersToApply.deadlineType && filtersToApply.deadlineType !== 'all') {
+      //   params.append('deadline_type', filtersToApply.deadlineType);
+      // }
       
       if (filtersToApply.dateRange[0]) {
         params.append('date_created_start', filtersToApply.dateRange[0].toISOString().split('T')[0]);
@@ -278,13 +278,13 @@ export default function ApplicationsTable() {
         params.append('date_created_end', filtersToApply.dateRange[1].toISOString().split('T')[0]);
       }
       
-      if (filtersToApply.deadlineDate[0]) {
-        params.append('deadline_date_start', filtersToApply.deadlineDate[0].toISOString().split('T')[0]);
-      }
+      // if (filtersToApply.deadlineDate[0]) {
+      //   params.append('deadline_date_start', filtersToApply.deadlineDate[0].toISOString().split('T')[0]);
+      // }
       
-      if (filtersToApply.deadlineDate[1]) {
-        params.append('deadline_date_end', filtersToApply.deadlineDate[1].toISOString().split('T')[0]);
-      }
+      // if (filtersToApply.deadlineDate[1]) {
+      //   params.append('deadline_date_end', filtersToApply.deadlineDate[1].toISOString().split('T')[0]);
+      // }
       
       if (filtersToApply.acknowledgeNo) {
         params.append('acknowledgement_no', filtersToApply.acknowledgeNo);
@@ -432,10 +432,10 @@ export default function ApplicationsTable() {
     label: status.status_label || status.name || 'Unknown'
   })) || [];
 
-  const deadlineTypeOptions = filterOptions?.deadlineTypes?.map(type => ({
-    value: type.id.toString(),
-    label: type.name
-  })) || [];
+  // const deadlineTypeOptions = filterOptions?.deadlineTypes?.map(type => ({
+  //   value: type.id.toString(),
+  //   label: type.name
+  // })) || [];
 
   const studyLevelOptions = filterOptions?.studyLevels?.map(level => ({
     value: level.id.toString(),
@@ -469,8 +469,8 @@ export default function ApplicationsTable() {
       acknowledgeNo: "",
       programName: "",
       studentName: "",
-      deadlineType: null,
-      deadlineDate: [null, null],
+      // deadlineType: null,
+      // deadlineDate: [null, null],
       students: [],
       studyLevels: [],
       disciplines: [],
@@ -901,8 +901,8 @@ export default function ApplicationsTable() {
               </div>
             </div>
 
-            {/* Deadline Type */}
-            <div className="SF-Intake all-countries">
+         
+            {/* <div className="SF-Intake all-countries">
               <div className="form-group">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Deadline Type
@@ -929,7 +929,7 @@ export default function ApplicationsTable() {
               </div>
             </div>
 
-            {/* Deadline Date */}
+          
             <div className="SF-DateApp">
               <div className="form-group calendar-one">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -947,7 +947,7 @@ export default function ApplicationsTable() {
                   dateFormat="dd-MM-yyyy"
                 />
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Search Button */}
