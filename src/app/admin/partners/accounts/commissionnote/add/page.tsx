@@ -10,7 +10,11 @@ import {
   Users,
   School,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  DollarSign,
+  Percent,
+  Calculator,
+  Globe
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,14 +35,48 @@ interface Application {
   invoice_item_id: number;
   application_id: number;
   installment_no: number;
-  commission_amount: string;
+  commission_amount: number;
   currency: string;
-  commissionable_tuition_fee: string | null;
+  commissionable_tuition_fee: number;
   student: string;
   course_name: string;
   study_level: string;
   intake_year: number;
+  gst_percentage: number;
+  gst_amount: number;
+  commission_after_gst: number;
+  agent_share_percentage: number;
+  agent_commission_amount: number;
+  conversion_currency: string;
+  exchange_rate: number;
+  shared_amount_in_inr: number;
+  tds_percentage: number;
+  tds_amount: number;
+  gross_commission_payable: number;
+  net_pay: number;
   selected?: boolean;
+}
+
+interface ApplicationsResponse {
+  status: string;
+  data: {
+    items: Application[];
+    summary: {
+      total_items: number;
+      currency_summary: string[];
+      exchange_rates: Record<string, number>;
+      totals: {
+        total_commissionable_amount: number;
+        total_full_commission: number;
+        total_gst_amount: number;
+        total_commission_after_gst: number;
+        total_agent_amount_in_inr: number;
+        total_gross_payable: number;
+        total_tds_amount: number;
+        total_net_payable: number;
+      };
+    };
+  };
 }
 
 type Step = 'agents' | 'universities' | 'applications';
@@ -157,7 +195,7 @@ const AddCommissionNote = () => {
       const data = await response.json();
       
       if (data.status === "success") {
-        setApplications(data.data || []);
+        setApplications(data.data.items || []);
         setCurrentStep('applications');
       } else {
         throw new Error(data.message || "Failed to fetch applications");
@@ -265,13 +303,24 @@ const AddCommissionNote = () => {
     }
   };
 
-  // Calculate totals
-  const totalCommissionAmount = applications
-    .filter(app => selectedApplicationIds.includes(app.invoice_item_id))
-    .reduce((sum, app) => sum + parseFloat(app.commission_amount), 0);
+  // Calculate totals from selected applications
+  const selectedApplications = applications.filter(app => 
+    selectedApplicationIds.includes(app.invoice_item_id)
+  );
+
+  const totals = {
+    totalFullCommission: selectedApplications.reduce((sum, app) => sum + app.commission_amount, 0),
+    totalGST: selectedApplications.reduce((sum, app) => sum + app.gst_amount, 0),
+    totalCommissionAfterGST: selectedApplications.reduce((sum, app) => sum + app.commission_after_gst, 0),
+    totalAgentCommission: selectedApplications.reduce((sum, app) => sum + app.agent_commission_amount, 0),
+    totalSharedInINR: selectedApplications.reduce((sum, app) => sum + app.shared_amount_in_inr, 0),
+    totalTDS: selectedApplications.reduce((sum, app) => sum + app.tds_amount, 0),
+    totalGrossPayable: selectedApplications.reduce((sum, app) => sum + app.gross_commission_payable, 0),
+    totalNetPay: selectedApplications.reduce((sum, app) => sum + app.net_pay, 0),
+  };
 
   return (
-    <div className="max-w-7xl mx-auto ">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -531,26 +580,35 @@ const AddCommissionNote = () => {
                       <span className="sr-only">Select</span>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Student
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Course
+                      Student & Course
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Installment
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Commission Amount
+                      Commission Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Tuition Fee
+                      GST
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Agent Share
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Conversion
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      TDS
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Net Pay
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {applications.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                         No applications found
                       </td>
                     </tr>
@@ -581,31 +639,92 @@ const AddCommissionNote = () => {
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             App ID: {application.application_id}
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 dark:text-white">
+                          <div className="text-sm text-gray-900 dark:text-white mt-1">
                             {application.course_name}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
                             {application.study_level} - {application.intake_year}
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full">
-                            Installment {application.installment_no}
+                            #{application.installment_no}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                            {application.currency} {parseFloat(application.commission_amount).toFixed(2)}
-                          </span>
+                          <div className="space-y-1">
+                            <div className="text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">Full: </span>
+                              <span className="font-medium text-green-600 dark:text-green-400">
+                                {application.currency} {application.commission_amount.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">After GST: </span>
+                              <span className="font-medium">
+                                {application.currency} {application.commission_after_gst.toFixed(2)}
+                              </span>
+                            </div>
+                            {application.commissionable_tuition_fee > 0 && (
+                              <div className="text-xs text-gray-500">
+                                Tuition: {application.currency} {application.commissionable_tuition_fee.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {application.commissionable_tuition_fee 
-                              ? `${application.currency} ${parseFloat(application.commissionable_tuition_fee).toFixed(2)}`
-                              : 'N/A'}
-                          </span>
+                          <div className="space-y-1">
+                            <div className="text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">{application.gst_percentage}%: </span>
+                              <span className="font-medium">
+                                {application.currency} {application.gst_amount.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">{application.agent_share_percentage}%: </span>
+                              <span className="font-medium">
+                                {application.currency} {application.agent_commission_amount.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="text-sm flex items-center space-x-1">
+                              <Globe className="h-3 w-3 text-gray-400" />
+                              <span className="font-medium">{application.conversion_currency}</span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Rate: 1 {application.currency} = {application.exchange_rate} {application.conversion_currency}
+                            </div>
+                            <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                              ₹{application.shared_amount_in_inr.toFixed(2)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">{application.tds_percentage}%: </span>
+                              <span className="font-medium text-red-600 dark:text-red-400">
+                                ₹{application.tds_amount.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Gross: ₹{application.gross_commission_payable.toFixed(2)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                              ₹{application.net_pay.toFixed(2)}
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -617,19 +736,94 @@ const AddCommissionNote = () => {
 
           {/* Summary and Submit */}
           {selectedApplicationIds.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Selected Applications: {selectedApplicationIds.length}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Total Commission Amount: 
-                    <span className="ml-2 font-medium text-green-600 dark:text-green-400">
-                      ${totalCommissionAmount.toFixed(2)}
-                    </span>
-                  </p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Selected Applications Summary ({selectedApplicationIds.length} items)
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="text-sm">Full Commission</span>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">
+                    ${totals.totalFullCommission.toFixed(2)}
+                  </div>
                 </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <Percent className="h-4 w-4" />
+                    <span className="text-sm">Total GST</span>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">
+                    ${totals.totalGST.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <Calculator className="h-4 w-4" />
+                    <span className="text-sm">After GST</span>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">
+                    ${totals.totalCommissionAfterGST.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <Users className="h-4 w-4" />
+                    <span className="text-sm">Agent Commission</span>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">
+                    ${totals.totalAgentCommission.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <Globe className="h-4 w-4" />
+                    <span className="text-sm">INR Amount</span>
+                  </div>
+                  <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                    ₹{totals.totalSharedInINR.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <Percent className="h-4 w-4" />
+                    <span className="text-sm">TDS Amount</span>
+                  </div>
+                  <div className="text-xl font-bold text-red-600 dark:text-red-400">
+                    ₹{totals.totalTDS.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <Calculator className="h-4 w-4" />
+                    <span className="text-sm">Gross Payable</span>
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">
+                    ₹{totals.totalGrossPayable.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border-2 border-green-200 dark:border-green-800">
+                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">Net Payable</span>
+                  </div>
+                  <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                    ₹{totals.totalNetPay.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
