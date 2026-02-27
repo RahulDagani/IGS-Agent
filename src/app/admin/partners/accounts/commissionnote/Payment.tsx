@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import Select from "react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ChevronLeft, ChevronRight, Send, Search, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send, Search, Download, CheckCircle } from "lucide-react";
 import Link from "next/link";
 
 interface CommissionNote {
@@ -34,57 +34,50 @@ interface CommissionNote {
   business_name: string;
 }
 
+// Updated interface for the new commission note item structure
 interface CommissionNoteItem {
-  id: number;
-  commission_note_id: number;
   invoice_item_id: number;
   application_id: number;
   installment_no: number;
-  commissionable_tuition_fee: string | null;
-  commission_type: string | null;
-  commission_value: string | null;
-  commission_amount: string;
-  partner_share: string;
+  commission_amount: number;
+  currency: string;
+  commissionable_tuition_fee: number;
+  student: string;
+  course_name: string;
+  study_level: string;
+  intake_year: number;
+  gst_percentage: number;
+  gst_amount: number;
+  commission_after_gst: number;
+  agent_share_percentage: number;
+  agent_commission_amount: number;
   conversion_currency: string;
-  exchange_rate: string;
-  shared_amount_in_inr: string;
-  gross_commission_payable: string;
-  tds_percentage: string;
-  tds_amount: string;
-  net_pay: string;
-  created_at: string;
-  gst_percentage: string;
-  gst_amount: string;
-  commission_after_gst: string;
+  exchange_rate: number;
+  shared_amount_in_inr: number;
+  tds_percentage: number;
+  tds_amount: number;
+  gross_commission_payable: number;
+  net_pay: number;
 }
 
+// Updated interface for the new commission note detail structure
 interface CommissionNoteDetail {
-  note: {
-    id: number;
-    commission_note_number: string;
-    agent_id: number;
-    university_id: number;
-    po_number: string | null;
-    po_date: string | null;
-    currency: string;
-    gst_percentage: string;
-    tds_percentage: string;
-    total_commissionable_amount: string;
-    total_full_commission: string;
-    total_gst_amount: string;
-    total_commission_after_gst: string;
-    total_agent_commission: string;
-    total_company_retained: string;
-    total_commission_amount: string;
-    total_tds_amount: string;
-    total_net_payable: string;
-    status: string;
-    remarks: string | null;
-    created_by: number;
-    created_at: string;
-    updated_at: string;
-  };
   items: CommissionNoteItem[];
+  summary: {
+    total_items: number;
+    currency_summary: string[];
+    exchange_rates: Record<string, number>;
+    totals: {
+      total_commissionable_amount: number;
+      total_full_commission: number;
+      total_gst_amount: number;
+      total_commission_after_gst: number;
+      total_agent_amount_in_inr: number;
+      total_gross_payable: number;
+      total_tds_amount: number;
+      total_net_payable: number;
+    };
+  };
 }
 
 interface Comment {
@@ -156,6 +149,7 @@ export default function PaymentsTable() {
   const [commentText, setCommentText] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [markingAsPaid, setMarkingAsPaid] = useState(false);
   
   // Add ref to track initial mount and prevent unnecessary fetches
   const isInitialMount = useRef(true);
@@ -311,7 +305,7 @@ export default function PaymentsTable() {
         setPagination(prev => ({
           ...prev,
           page: page,
-          total: data.total || data.data.length, // Adjust based on actual API response
+          total: data.total || data.data.length,
           pages: data.pages || Math.ceil((data.total || data.data.length) / pagination.limit)
         }));
         
@@ -367,7 +361,7 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token]);
 
-  // Fetch commission note details using the new endpoint
+  // Fetch commission note details using the updated endpoint
   const fetchCommissionNoteDetail = useCallback(async (noteId: number) => {
     try {
       setDetailLoading(true);
@@ -401,6 +395,54 @@ export default function PaymentsTable() {
       setDetailLoading(false);
     }
   }, [BASE_URL, token, fetchComments]);
+
+  // Mark commission note as paid
+  const markAsPaid = useCallback(async (noteId: number) => {
+    if (!noteId) return;
+    
+    try {
+      setMarkingAsPaid(true);
+      
+      const response = await fetch(
+        `${BASE_URL}/tenant/commission-note/mark-paid`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            commission_note_id: noteId
+          })
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to mark as paid: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        // Show success message
+        alert("Commission note marked as paid successfully!");
+        
+        // Refresh the notes list
+        fetchCommissionNotes(pagination.page);
+        
+        // If the current note is the one that was marked as paid, refresh its details
+        if (activeNoteId === noteId) {
+          fetchCommissionNoteDetail(noteId);
+        }
+      } else {
+        throw new Error(data.message || "Failed to mark as paid");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred while marking as paid");
+    } finally {
+      setMarkingAsPaid(false);
+    }
+  }, [BASE_URL, token, fetchCommissionNotes, fetchCommissionNoteDetail, activeNoteId, pagination.page]);
 
   // Download PDF function
   const downloadPdf = useCallback(async (noteId: number) => {
@@ -457,10 +499,10 @@ export default function PaymentsTable() {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            who_has_created: "tenant", // Fixed value
+            who_has_created: "tenant",
             invoice_note_id: noteId,
             comment: comment.trim(),
-            created_by: 1, // Fixed value - you might want to get this from auth context
+            created_by: 1,
             is_internal_note: true
           })
         }
@@ -548,19 +590,15 @@ export default function PaymentsTable() {
     }
   };
 
-  // Handle limit change - FIXED INFINITE RENDER
+  // Handle limit change
   const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLimit = parseInt(e.target.value);
     
-    // Update pagination state
     setPagination(prev => ({
       ...prev,
       limit: newLimit,
-      page: 1 // Reset to first page when changing limit
+      page: 1
     }));
-    
-    // We'll fetch in useEffect when limit changes, not here
-    // This prevents the infinite render
   };
 
   // Handle comment submission
@@ -582,6 +620,15 @@ export default function PaymentsTable() {
   const handleDownloadPdf = () => {
     if (activeNoteId) {
       downloadPdf(activeNoteId);
+    }
+  };
+
+  // Handle mark as paid
+  const handleMarkAsPaid = () => {
+    if (activeNoteId) {
+      if (window.confirm("Are you sure you want to mark this commission note as paid?")) {
+        markAsPaid(activeNoteId);
+      }
     }
   };
 
@@ -610,6 +657,13 @@ export default function PaymentsTable() {
       second: '2-digit',
       hour12: true
     });
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number | string, currency: string = 'USD') => {
+    if (amount === undefined || amount === null) return '-';
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `${currency} ${numAmount.toFixed(2)}`;
   };
 
   // Get status color
@@ -668,9 +722,8 @@ export default function PaymentsTable() {
     }
   }, [active, fetchCommissionNotes]);
 
-  // FIXED: Effect for limit changes - prevents infinite render
+  // Effect for limit changes
   useEffect(() => {
-    // Check if limit actually changed and it's not the initial mount
     if (!isInitialMount.current && prevLimitRef.current !== pagination.limit) {
       prevLimitRef.current = pagination.limit;
       fetchCommissionNotes(1);
@@ -849,7 +902,7 @@ export default function PaymentsTable() {
 
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             Commission Amount is{" "}
-                            <span className="font-semibold">{note.currency} {parseFloat(note.total_commission_amount).toFixed(2)}</span>
+                            <span className="font-semibold">{formatCurrency(note.total_commission_amount, note.currency)}</span>
                           </p>
 
                           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
@@ -922,16 +975,16 @@ export default function PaymentsTable() {
                       <div className="flex justify-between items-start border-b border-gray-200 dark:border-white/[0.05] pb-4">
                         <div className="space-y-2">
                           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                            {activeNoteDetail.note.commission_note_number}
+                            Commission Note #{activeNoteId}
                           </h2>
 
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Agent ID: {activeNoteDetail.note.agent_id}
+                            Agent ID: {notes.find(n => n.id === activeNoteId)?.agent_id || '-'}
                           </p>
 
                           <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Commission Amount is{" "}
-                            <span className="font-semibold">{activeNoteDetail.note.currency} {parseFloat(activeNoteDetail.note.total_commission_amount).toFixed(2)}</span>
+                            Total Items:{" "}
+                            <span className="font-semibold">{activeNoteDetail.summary?.total_items || 0}</span>
                           </p>
                         </div>
 
@@ -944,97 +997,127 @@ export default function PaymentsTable() {
                             <Download size={16} />
                             {downloadingPdf ? "Downloading..." : "Download Note"}
                           </button>
+
+                          {/* Mark as Paid button - only show if not already paid */}
+                          {notes.find(n => n.id === activeNoteId)?.status !== 'commission_payment_done' && (
+                            <button 
+                              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={handleMarkAsPaid}
+                              disabled={markingAsPaid}
+                            >
+                              <CheckCircle size={16} />
+                              {markingAsPaid ? "Processing..." : "Mark as Paid"}
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      {/* DETAILS */}
-                      <div className="grid grid-cols-2 gap-y-4 gap-x-10 py-6 text-sm">
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Generated By:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            User ID: {activeNoteDetail.note.created_by || '-'}
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Currency:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.note.currency}
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          GST Percentage:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.note.gst_percentage}%
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          TDS Percentage:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.note.tds_percentage}%
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Net Payable:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {activeNoteDetail.note.currency} {parseFloat(activeNoteDetail.note.total_net_payable).toFixed(2)}
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Status:{" "}
-                          <span className={`font-medium px-2 py-1 rounded-full text-xs ${getStatusColor(activeNoteDetail.note.status)}`}>
-                            {activeNoteDetail.note.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Created At:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {formatDateTime(activeNoteDetail.note.created_at)}
-                          </span>
-                        </p>
-
-                        <p className="text-gray-700 dark:text-gray-300">
-                          Last Updated On:{" "}
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {formatDateTime(activeNoteDetail.note.updated_at)}
-                          </span>
-                        </p>
-                      </div>
+                      {/* CURRENCY SUMMARY */}
+                      {activeNoteDetail.summary?.currency_summary && (
+                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Currencies: {activeNoteDetail.summary.currency_summary.join(', ')}
+                          </p>
+                          {activeNoteDetail.summary.exchange_rates && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              Exchange Rates: {Object.entries(activeNoteDetail.summary.exchange_rates).map(([curr, rate]) => 
+                                `1 ${curr} = ${rate} INR`
+                              ).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {/* ITEMS TABLE */}
                       {activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
-                        <div className="mb-6">
+                        <div className="mb-6 mt-4">
                           <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Commission Items</h3>
                           <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                               <thead className="bg-gray-50 dark:bg-gray-800">
                                 <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Application ID</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Installment</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Commission</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">GST</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">After GST</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Agent Share</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">INR Amount</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">TDS</th>
                                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Net Pay</th>
                                 </tr>
                               </thead>
                               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                                {activeNoteDetail.items.map((item) => (
-                                  <tr key={item.id}>
+                                {activeNoteDetail.items.map((item, index) => (
+                                  <tr key={item.invoice_item_id || index}>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.student}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.course_name} ({item.study_level}, {item.intake_year})</td>
                                     <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.application_id}</td>
                                     <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.installment_no}</td>
-                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{activeNoteDetail.note.currency} {parseFloat(item.commission_amount).toFixed(2)}</td>
-                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage}% ({activeNoteDetail.note.currency} {parseFloat(item.gst_amount).toFixed(2)})</td>
-                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage}% ({activeNoteDetail.note.currency} {parseFloat(item.tds_amount).toFixed(2)})</td>
-                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{activeNoteDetail.note.currency} {parseFloat(item.net_pay).toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{formatCurrency(item.commission_amount, item.currency)}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage}% ({formatCurrency(item.gst_amount, item.currency)})</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{formatCurrency(item.commission_after_gst, item.currency)}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.agent_share_percentage}%</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">INR {item.shared_amount_in_inr.toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage}% (INR {item.tds_amount.toFixed(2)})</td>
+                                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">INR {item.net_pay.toFixed(2)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SUMMARY TOTALS */}
+                      {activeNoteDetail.summary?.totals && (
+                        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Summary Totals</h3>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Total Full Commission</p>
+                              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                {formatCurrency(activeNoteDetail.summary.totals.total_full_commission, activeNoteDetail.summary.currency_summary[0])}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Total GST Amount</p>
+                              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                {formatCurrency(activeNoteDetail.summary.totals.total_gst_amount, activeNoteDetail.summary.currency_summary[0])}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Commission After GST</p>
+                              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                {formatCurrency(activeNoteDetail.summary.totals.total_commission_after_gst, activeNoteDetail.summary.currency_summary[0])}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Agent Amount (INR)</p>
+                              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                INR {activeNoteDetail.summary.totals.total_agent_amount_in_inr.toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Gross Payable (INR)</p>
+                              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                INR {activeNoteDetail.summary.totals.total_gross_payable.toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Total TDS Amount</p>
+                              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                INR {activeNoteDetail.summary.totals.total_tds_amount.toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                              <p className="text-xs text-green-600 dark:text-green-400">Net Payable</p>
+                              <p className="text-lg font-semibold text-green-700 dark:text-green-300">
+                                INR {activeNoteDetail.summary.totals.total_net_payable.toFixed(2)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       )}
