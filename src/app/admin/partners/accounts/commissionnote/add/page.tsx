@@ -661,7 +661,7 @@ const AddCommissionNote = () => {
                             </div>
                             <div className="text-sm">
                               <span className="text-gray-500 dark:text-gray-400">After GST: </span>
-                              <span className="font-medium">
+                              <span className="font-medium text-indigo-600 dark:text-indigo-400">
                                 {application.currency} {application.commission_after_gst.toFixed(2)}
                               </span>
                             </div>
@@ -676,7 +676,7 @@ const AddCommissionNote = () => {
                           <div className="space-y-1">
                             <div className="text-sm">
                               <span className="text-gray-500 dark:text-gray-400">{application.gst_percentage}%: </span>
-                              <span className="font-medium">
+                              <span className="font-medium text-indigo-600 dark:text-indigo-400">
                                 {application.currency} {application.gst_amount.toFixed(2)}
                               </span>
                             </div>
@@ -686,7 +686,7 @@ const AddCommissionNote = () => {
                           <div className="space-y-1">
                             <div className="text-sm">
                               <span className="text-gray-500 dark:text-gray-400">{application.agent_share_percentage}%: </span>
-                              <span className="font-medium">
+                              <span className="font-medium text-indigo-600 dark:text-indigo-400">
                                 {application.currency} {application.agent_commission_amount.toFixed(2)}
                               </span>
                             </div>
@@ -696,7 +696,7 @@ const AddCommissionNote = () => {
                           <div className="space-y-1">
                             <div className="text-sm flex items-center space-x-1">
                               <Globe className="h-3 w-3 text-gray-400" />
-                              <span className="font-medium">{application.conversion_currency}</span>
+                              <span className="font-medium text-indigo-600 dark:text-indigo-400">{application.conversion_currency}</span>
                             </div>
                             <div className="text-xs text-gray-500">
                               Rate: 1 {application.currency} = {application.exchange_rate} {application.conversion_currency}
