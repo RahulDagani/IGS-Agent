@@ -375,6 +375,108 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           </div> */}
 
+             {/* Locations Filter - Changed to Checkboxes */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => toggleSection('locations')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
+                Preferred Study Destination
+              </h4>
+              {expandedSections.locations ? (
+                <ChevronUp className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+            
+            {expandedSections.locations && (
+              <div className="space-y-4">
+                {/* Countries */}
+                <div className="space-y-2">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Countries
+                  </h5>
+                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
+                    {filterOptions.locations.countries.map((country) => (
+                      <label
+                        key={country.country_code}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('countries', country.country_code)}
+                          onChange={(e) => handleCheckboxChange('countries', country.country_code, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {getCountryName(country.country_code)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* States */}
+                <div className="space-y-2">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    States
+                  </h5>
+                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
+                    {filterOptions.locations.states.map((state) => (
+                      <label
+                        key={state.state_code}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('states', state.state_code)}
+                          onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                         {state.state_code}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cities */}
+                {/* <div className="space-y-2">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Cities
+                  </h5>
+                  <div className="space-y-2 max-h-32 overflow-y-auto p-2">
+                    {filterOptions.locations.cities.map((city) => (
+                      <label
+                        key={city.city_code}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('cities', city.city_code)}
+                          onChange={(e) => handleCheckboxChange('cities', city.city_code, e.target.checked)}
+                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {city.city_code}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div> */}
+              </div>
+            )}
+            {(localFilters.countries.length > 0 || localFilters.states.length > 0 || localFilters.cities.length > 0) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Selected: {localFilters.countries.length + localFilters.states.length + localFilters.cities.length} location(s)
+              </p>
+            )}
+          </div>
+
 
           {/* Study Levels Filter - Keep as Multi-Select */}
           <div className="space-y-3">
@@ -501,107 +603,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             )}
           </div>
 
-          {/* Locations Filter - Changed to Checkboxes */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => toggleSection('locations')}
-              className="flex items-center justify-between w-full text-left"
-            >
-              <h4 className="block text-lg font-medium text-gray-700 dark:text-gray-300 ">
-                Locations
-              </h4>
-              {expandedSections.locations ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            
-            {expandedSections.locations && (
-              <div className="space-y-4">
-                {/* Countries */}
-                <div className="space-y-2">
-                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Countries
-                  </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
-                    {filterOptions.locations.countries.map((country) => (
-                      <label
-                        key={country.country_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('countries', country.country_code)}
-                          onChange={(e) => handleCheckboxChange('countries', country.country_code, e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {getCountryName(country.country_code)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* States */}
-                <div className="space-y-2">
-                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    States
-                  </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
-                    {filterOptions.locations.states.map((state) => (
-                      <label
-                        key={state.state_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('states', state.state_code)}
-                          onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                         {state.state_code}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Cities */}
-                {/* <div className="space-y-2">
-                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Cities
-                  </h5>
-                  <div className="space-y-2 max-h-32 overflow-y-auto p-2">
-                    {filterOptions.locations.cities.map((city) => (
-                      <label
-                        key={city.city_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('cities', city.city_code)}
-                          onChange={(e) => handleCheckboxChange('cities', city.city_code, e.target.checked)}
-                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {city.city_code}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div> */}
-              </div>
-            )}
-            {(localFilters.countries.length > 0 || localFilters.states.length > 0 || localFilters.cities.length > 0) && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.countries.length + localFilters.states.length + localFilters.cities.length} location(s)
-              </p>
-            )}
-          </div>
+       
          
          
         </div>
