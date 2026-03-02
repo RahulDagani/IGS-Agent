@@ -1,20 +1,19 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, ChevronDown } from "lucide-react";
+import { useRouter, useParams ,useSearchParams} from "next/navigation";
+
+
+import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Country, State, City } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
-import phoneCountries from "country-list-with-dial-code-and-flag";
+import TestScores from "./TestScores";
+import AcademicInterests from "./AcademicInterests";
+import WorkExperience from "./WorkExperience";
+import AcademicQualifications from "./AcademicQualifications";
 
-// Types for country data
-interface Country {
-  name: string;
-  dial_code: string;
-  code: string;
-  flag: string;
-}
+import phoneCountries from "country-list-with-dial-code-and-flag";
 
 interface StudentFormData {
   // Personal Info
@@ -24,7 +23,6 @@ interface StudentFormData {
   last_name: string;
   email: string;
   phone: string;
-  phone_country_code: string;
   passport_number: string;
   dob: Date | null;
   gender: string;
@@ -42,12 +40,27 @@ interface StudentFormData {
   emergency_c_relation: string;
   emergency_c_email: string;
   emergency_c_phone: string;
-  emergency_c_phone_country_code: string;
 }
 
-type Tab = "personal" | "address" | "emergency";
+type MainTab = "profile" | "testscores" | "interests" | "workexperience" | "academics";
 
-// Phone Input Component
+interface FormSection {
+  id: string;
+  title: string;
+  icon: React.ComponentType<any>;
+  description?: string;
+  completed: boolean;
+}
+
+// Types for country data
+interface Country {
+  name: string;
+  dial_code: string;
+  code: string;
+  flag: string;
+}
+
+// Phone Input with Country Code
 const PhoneInput = ({
   value,
   onChange,
@@ -70,7 +83,7 @@ const PhoneInput = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Get all countries using getAll() method
+  // Get all countries
   const allCountries = phoneCountries.getAll() as Country[];
   
   // Filter countries based on search
@@ -89,11 +102,11 @@ const PhoneInput = ({
             type="button"
             onClick={() => setIsOpen(!isOpen)}
             disabled={disabled}
-            className={`flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-900 dark:hover:bg-gray-700 ${
-              error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+            className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-900 dark:border-gray-900 dark:hover:bg-gray-700 ${
+              error ? "border-red-500" : ""
             } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-50" : ""}`}
           >
-            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.flag}</span>
+            <span className="text-xl text-gray-700 dark:text-gray-300">{selectedCountry.flag}</span>
             <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
             <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
@@ -157,6 +170,7 @@ const PhoneInput = ({
 
         {/* Phone Number Input */}
         <div className="flex-1 relative">
+          
           <input
             type="tel"
             name={name}
@@ -164,9 +178,10 @@ const PhoneInput = ({
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none ${
-              error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-            } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+            className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none border-gray-300 dark:border-gray-700 ${
+  error ? "border-red-500" : ""
+} ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+            
           />
         </div>
       </div>
@@ -176,17 +191,29 @@ const PhoneInput = ({
 };
 
 export default function ProfileForm() {
-  const { id: studentId } = useParams();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("personal");
+  const {id: studentId} = useParams();
+  const [activeMainTab, setActiveMainTab] = useState<string>("profile");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { token } = useAuth();
-  
-  // Get default country (you can set your preferred default)
-  const allCountries = phoneCountries.getAll() as Country[];
-  const defaultCountry = allCountries.find(c => c.code === "US") || allCountries[0];
-  
+
+    const searchParams = useSearchParams();
+    const activeTabFromUrl = searchParams.get("profileTab");
+
+
+    // Add these state declarations after the existing state declarations:
+const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<Country | null>(null);
+const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useState<Country | null>(null);
+
+      useEffect(() => {
+          if (activeTabFromUrl) {
+            setActiveMainTab(activeTabFromUrl);
+          }
+        }, [activeTabFromUrl]);
+    
+
+
   const [formData, setFormData] = useState<StudentFormData>({
     // Personal Info
     salutation: "",
@@ -195,7 +222,6 @@ export default function ProfileForm() {
     last_name: "",
     email: "",
     phone: "",
-    phone_country_code: defaultCountry?.code || "US",
     passport_number: "",
     dob: null,
     gender: "",
@@ -213,7 +239,6 @@ export default function ProfileForm() {
     emergency_c_relation: "",
     emergency_c_email: "",
     emergency_c_phone: "",
-    emergency_c_phone_country_code: defaultCountry?.code || "US",
   });
 
   const [selectedCountry, setSelectedCountry] = useState<string>("");
@@ -221,12 +246,25 @@ export default function ProfileForm() {
   const [error, setError] = useState<string>("");
   const [validationMessage, setValidationMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  // Selected country objects for phone inputs
-  const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<Country>(defaultCountry);
-  const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useState<Country>(defaultCountry);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    personal: true,
+    address: false,
+    emergency: false,
+  });
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  useEffect(()=> {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+
+      setTimeout(()=> {
+        setValidationMessage("")
+        setError("")
+      },3000)
+  }, [validationMessage, error])
 
   // Fetch student data on component mount
   useEffect(() => {
@@ -244,13 +282,6 @@ export default function ProfileForm() {
          
           // Transform API data to match form structure
           if (data) {
-            // Find country codes for phone numbers
-            const phoneCountry = allCountries.find(c => c.code === data.phone_country_code) || defaultCountry;
-            const emergencyPhoneCountry = allCountries.find(c => c.code === data.emergency_c_phone_country_code) || defaultCountry;
-
-            setSelectedPhoneCountry(phoneCountry);
-            setSelectedEmergencyPhoneCountry(emergencyPhoneCountry);
-
             setFormData(prev => ({
               ...prev,
               salutation: data.salutation || "",
@@ -259,7 +290,6 @@ export default function ProfileForm() {
               last_name: data.last_name || "",
               email: data.email || "",
               phone: data.phone || "",
-              phone_country_code: data.phone_country_code || defaultCountry.code,
               passport_number: data.passport_number || "",
               dob: data.dob ? new Date(data.dob) : null,
               gender: data.gender || "",
@@ -273,7 +303,6 @@ export default function ProfileForm() {
               emergency_c_relation: data.emergency_c_relation || "",
               emergency_c_email: data.emergency_c_email || "",
               emergency_c_phone: data.emergency_c_phone || "",
-              emergency_c_phone_country_code: data.emergency_c_phone_country_code || defaultCountry.code,
             }));
 
             setSelectedCountry(data.country_code);
@@ -293,10 +322,79 @@ export default function ProfileForm() {
     fetchStudentData();
   }, []);
 
-  const validateTab = (tab: Tab): boolean => {
+  // Add this useEffect after the existing fetch useEffect:
+
+// Initialize phone country codes when data loads
+useEffect(() => {
+  if (formData.phone || formData.emergency_c_phone) {
+    const allCountries = phoneCountries.getAll() as Country[];
+    
+    // Try to extract country code from phone number
+    if (formData.phone) {
+      // Look for matching country code in the phone number
+      const matchedCountry = allCountries.find(country => 
+        formData.phone.startsWith(country.dial_code)
+      );
+      setSelectedPhoneCountry(matchedCountry || allCountries.find(c => c.code === "US") || allCountries[0]);
+    } else {
+      setSelectedPhoneCountry(allCountries.find(c => c.code === "US") || allCountries[0]);
+    }
+    
+    if (formData.emergency_c_phone) {
+      const matchedCountry = allCountries.find(country => 
+        formData.emergency_c_phone.startsWith(country.dial_code)
+      );
+      setSelectedEmergencyPhoneCountry(matchedCountry || allCountries.find(c => c.code === "US") || allCountries[0]);
+    } else {
+      setSelectedEmergencyPhoneCountry(allCountries.find(c => c.code === "US") || allCountries[0]);
+    }
+  }
+}, [formData.phone, formData.emergency_c_phone]);
+
+
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const isSectionComplete = (sectionId: string): boolean => {
+    switch (sectionId) {
+      case "personal":
+        return !!(formData.salutation && 
+                 formData.first_name.trim() && 
+                 formData.last_name.trim() && 
+                 formData.email.trim() && 
+                 /^\S+@\S+\.\S+$/.test(formData.email) &&
+                 formData.phone.trim() && 
+                 formData.dob && 
+                 formData.gender);
+                 
+      case "address":
+        return !!(formData.address.trim() && 
+                 formData.country_code && 
+                 formData.state_code && 
+                 formData.city_code && 
+                 formData.postal_code.trim() && 
+                 formData.citizenship);
+                 
+      case "emergency":
+        return !!(formData.emergency_c_name.trim() && 
+                 formData.emergency_c_relation && 
+                 formData.emergency_c_phone.trim() &&
+                 (!formData.emergency_c_email || /^\S+@\S+\.\S+$/.test(formData.emergency_c_email)));
+                 
+      default:
+        return false;
+    }
+  };
+
+  const validateSection = (sectionId: string): boolean => {
     const errors: Record<string, string> = {};
     
-    switch (tab) {
+    switch (sectionId) {
       case "personal":
         if (!formData.salutation) errors.salutation = "Salutation is required";
         if (!formData.first_name.trim()) errors.first_name = "First name is required";
@@ -327,58 +425,47 @@ export default function ProfileForm() {
         break;
     }
     
-    setFieldErrors(errors);
+    setFieldErrors(prev => ({ ...prev, ...errors }));
     return Object.keys(errors).length === 0;
   };
 
-  const isTabComplete = (tab: Tab): boolean => {
-    switch (tab) {
-      case "personal":
-        return !!(formData.salutation && 
-                 formData.first_name.trim() && 
-                 formData.last_name.trim() && 
-                 formData.email.trim() && 
-                 /^\S+@\S+\.\S+$/.test(formData.email) &&
-                 formData.phone.trim() && 
-                 formData.dob && 
-                 formData.gender);
-                 
-      case "address":
-        return !!(formData.address.trim() && 
-                 formData.country_code && 
-                 formData.state_code && 
-                 formData.city_code && 
-                 formData.postal_code.trim() && 
-                 formData.citizenship);
-                 
-      case "emergency":
-        return !!(formData.emergency_c_name.trim() && 
-                 formData.emergency_c_relation && 
-                 formData.emergency_c_phone.trim() &&
-                 (!formData.emergency_c_email || /^\S+@\S+\.\S+$/.test(formData.emergency_c_email)));
-                 
-      default:
-        return false;
-    }
-  };
+  // Add these functions inside the ProfileForm component:
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    // Clear field error when user starts typing
-    if (fieldErrors[name]) {
-      setFieldErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
+const handlePhoneCountryChange = (country: Country) => {
+  setSelectedPhoneCountry(country);
+};
 
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
+const handleEmergencyPhoneCountryChange = (country: Country) => {
+  setSelectedEmergencyPhoneCountry(country);
+};
+
+// Update the handleInputChange function - modify the phone number handling part:
+
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const { name, value, type } = e.target;
+  
+  // Clear field error when user starts typing
+  if (fieldErrors[name]) {
+    setFieldErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[name];
+      return newErrors;
+    });
+  }
+
+  if (type === 'checkbox') {
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
+  } else {
+    // For phone numbers, allow only digits
+    if (name === 'phone' || name === 'emergency_c_phone') {
+      const digitsOnly = value.replace(/\D/g, '');
       setFormData(prev => ({
         ...prev,
-        [name]: checked
+        [name]: digitsOnly
       }));
     } else {
       setFormData(prev => ({
@@ -386,24 +473,25 @@ export default function ProfileForm() {
         [name]: value
       }));
     }
+  }
 
-    // Update country and state selections for dependent dropdowns
-    if (name === 'country_code') {
-      setSelectedCountry(value);
-      setSelectedState("");
-      setFormData(prev => ({
-        ...prev,
-        state_code: "",
-        city_code: ""
-      }));
-    } else if (name === 'state_code') {
-      setSelectedState(value);
-      setFormData(prev => ({
-        ...prev,
-        city_code: ""
-      }));
-    }
-  };
+  // Update country and state selections for dependent dropdowns
+  if (name === 'country_code') {
+    setSelectedCountry(value);
+    setSelectedState("");
+    setFormData(prev => ({
+      ...prev,
+      state_code: "",
+      city_code: ""
+    }));
+  } else if (name === 'state_code') {
+    setSelectedState(value);
+    setFormData(prev => ({
+      ...prev,
+      city_code: ""
+    }));
+  }
+};
 
   const handleDateChange = (date: Date | null) => {
     setFormData(prev => ({
@@ -421,48 +509,22 @@ export default function ProfileForm() {
     }
   };
 
-  const handlePhoneCountryChange = (country: Country) => {
-    setSelectedPhoneCountry(country);
-    setFormData(prev => ({
-      ...prev,
-      phone_country_code: country.code
-    }));
-  };
-
-  const handleEmergencyPhoneCountryChange = (country: Country) => {
-    setSelectedEmergencyPhoneCountry(country);
-    setFormData(prev => ({
-      ...prev,
-      emergency_c_phone_country_code: country.code
-    }));
-  };
-
-  const handleNextTab = () => {
-    if (validateTab(activeTab)) {
-      const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-      if (tabIndex < tabs.length - 1) {
-        setActiveTab(tabs[tabIndex + 1].id as Tab);
-      }
-    }
-  };
-
-  const handlePreviousTab = () => {
-    const tabIndex = tabs.findIndex(tab => tab.id === activeTab);
-    if (tabIndex > 0) {
-      setActiveTab(tabs[tabIndex - 1].id as Tab);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate all tabs before submission
-    const isPersonalValid = validateTab("personal");
-    const isAddressValid = validateTab("address");
-    const isEmergencyValid = validateTab("emergency");
+    // Validate all sections before submission
+    const isPersonalValid = validateSection("personal");
+    const isAddressValid = validateSection("address");
+    const isEmergencyValid = validateSection("emergency");
     
     if (!isPersonalValid || !isAddressValid || !isEmergencyValid) {
       setValidationMessage("Please fix all validation errors before submitting.");
+      // Expand sections with errors
+      setExpandedSections({
+        personal: isPersonalValid ? expandedSections.personal : true,
+        address: isAddressValid ? expandedSections.address : true,
+        emergency: isEmergencyValid ? expandedSections.emergency : true,
+      });
       return;
     }
 
@@ -477,8 +539,7 @@ export default function ProfileForm() {
         middle_name: formData.middle_name,
         last_name: formData.last_name,
         email: formData.email,
-        phone: formData.phone,
-        phone_country_code: formData.phone_country_code,
+        phone:  selectedPhoneCountry ? `${selectedPhoneCountry.dial_code}${formData.phone}` : formData.phone,
         passport_number: formData.passport_number,
         country_code: formData.country_code,
         state_code: formData.state_code,
@@ -491,8 +552,7 @@ export default function ProfileForm() {
         emergency_c_name: formData.emergency_c_name,
         emergency_c_relation: formData.emergency_c_relation,
         emergency_c_email: formData.emergency_c_email,
-        emergency_c_phone: formData.emergency_c_phone,
-        emergency_c_phone_country_code: formData.emergency_c_phone_country_code,
+        emergency_c_phone: selectedEmergencyPhoneCountry ? `${selectedEmergencyPhoneCountry.dial_code}${formData.emergency_c_phone}` : formData.emergency_c_phone,
       };
 
       const response = await fetch(`${BASE_URL}/agent/student/${studentId}`, {
@@ -509,10 +569,8 @@ export default function ProfileForm() {
         setValidationMessage(result.message);
       } else {
         setValidationMessage("Student data saved successfully!");
-        // Redirect back to applications list or show success message
-        setTimeout(() => {
-          router.push(`/partner/editProfile/${studentId}?tab=applications`);
-        }, 2000);
+
+        
       }
       
     } catch (error) {
@@ -532,10 +590,36 @@ export default function ProfileForm() {
   const genders = ["Male", "Female", "Other", "Prefer not to say"];
   const relationships = ["Parent", "Spouse", "Sibling", "Relative", "Friend", "Guardian"];
 
-  const tabs = [
-    { id: "personal", label: "Personal Info", icon: User },
-    { id: "address", label: "Current Address", icon: MapPin },
-    { id: "emergency", label: "Emergency Contact", icon: Users },
+  const mainTabs = [
+    { id: "profile", label: "Profile Information", icon: User },
+    { id: "academics", label: "Academic Qualifications", icon: GraduationCap },
+    { id: "testscores", label: "Test Scores", icon: Award },
+    // { id: "interests", label: "Academic Interests", icon: BookOpen },
+    { id: "workexperience", label: "Work Experience", icon: Briefcase },
+  ];
+
+  const formSections: FormSection[] = [
+    { 
+      id: "personal", 
+      title: "Personal Information", 
+      icon: User, 
+      description: "Provide your basic personal details",
+      completed: isSectionComplete("personal")
+    },
+    { 
+      id: "address", 
+      title: "Current Address", 
+      icon: MapPin, 
+      description: "Enter your current residential address",
+      completed: isSectionComplete("address")
+    },
+    { 
+      id: "emergency", 
+      title: "Emergency Contact", 
+      icon: Users, 
+      description: "Add your emergency contact information",
+      completed: isSectionComplete("emergency")
+    },
   ];
 
   if (isLoading) {
@@ -562,7 +646,7 @@ export default function ProfileForm() {
     );
   }
 
-  const renderPersonalInfoTab = () => (
+  const renderPersonalInfoSection = () => (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Salutation */}
@@ -723,24 +807,26 @@ export default function ProfileForm() {
           {fieldErrors.gender && <p className="mt-1 text-sm text-red-500">{fieldErrors.gender}</p>}
         </div>
 
-        {/* Phone Number with Country Code */}
-        <div className="">
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Phone Number *
-          </label>
-          <PhoneInput
-            value={formData.phone}
-            onChange={handleInputChange}
-            name="phone"
-            error={fieldErrors.phone}
-            selectedCountry={selectedPhoneCountry}
-            onCountryChange={handlePhoneCountryChange}
-            placeholder="Enter your phone number"
-          />
-        </div>
+        {/* Phone Number */}
+        <div>
+  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+    Phone Number *
+  </label>
+  {selectedPhoneCountry && (
+    <PhoneInput
+      name="phone"
+      value={formData.phone.replace(selectedPhoneCountry?.dial_code || '', '')}
+      onChange={handleInputChange}
+      error={fieldErrors.phone}
+      selectedCountry={selectedPhoneCountry}
+      onCountryChange={handlePhoneCountryChange}
+      placeholder="Enter your phone number"
+    />
+  )}
+</div>
 
         {/* Passport Number */}
-        <div className="col-span-2 md:col-span-1">
+        <div>
           <label htmlFor="passport_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
             Passport Number
           </label>
@@ -758,7 +844,7 @@ export default function ProfileForm() {
     </div>
   );
 
-  const renderAddressTab = () => (
+  const renderAddressSection = () => (
     <div className="space-y-5">
       {/* Address */}
       <div>
@@ -828,7 +914,6 @@ export default function ProfileForm() {
             className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none ${
               fieldErrors.state_code ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
             }`}
-            disabled={!selectedCountry}
           >
             <option value="">Select State</option>
             {states.map(state => (
@@ -852,7 +937,6 @@ export default function ProfileForm() {
             className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none ${
               fieldErrors.city_code ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
             }`}
-            disabled={!selectedState}
           >
             <option value="">Select City</option>
             {cities.map(city => (
@@ -915,7 +999,7 @@ export default function ProfileForm() {
     </div>
   );
 
-  const renderEmergencyContactTab = () => (
+  const renderEmergencyContactSection = () => (
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Emergency Contact Name */}
@@ -966,26 +1050,27 @@ export default function ProfileForm() {
           {fieldErrors.emergency_c_relation && <p className="mt-1 text-sm text-red-500">{fieldErrors.emergency_c_relation}</p>}
         </div>
 
-        {/* Emergency Contact Phone with Country Code */}
-        <div className="col-span-2 md:col-span-1">
-          <label htmlFor="emergency_c_phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Phone Number *
-          </label>
-          <PhoneInput
-            value={formData.emergency_c_phone}
-            onChange={handleInputChange}
-            name="emergency_c_phone"
-            error={fieldErrors.emergency_c_phone}
-            selectedCountry={selectedEmergencyPhoneCountry}
-            onCountryChange={handleEmergencyPhoneCountryChange}
-            placeholder="Enter emergency contact phone"
-          />
-        </div>
+       <div>
+  <label htmlFor="emergency_c_phone" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+    Phone Number *
+  </label>
+  {selectedEmergencyPhoneCountry && (
+    <PhoneInput
+      name="emergency_c_phone"
+      value={formData.emergency_c_phone.replace(selectedEmergencyPhoneCountry?.dial_code || '', '')}
+      onChange={handleInputChange}
+      error={fieldErrors.emergency_c_phone}
+      selectedCountry={selectedEmergencyPhoneCountry}
+      onCountryChange={handleEmergencyPhoneCountryChange}
+      placeholder="Enter emergency contact phone"
+    />
+  )}
+</div>
 
         {/* Emergency Contact Email */}
-        <div className="col-span-2 md:col-span-1">
+        <div>
           <label htmlFor="emergency_c_email" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
-            Email Address
+            Email Address *
           </label>
           <div className="relative">
             <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400">
@@ -1011,15 +1096,9 @@ export default function ProfileForm() {
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="px-5 py-4 sm:px-6 sm:py-5">
-        <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-          Student Common Application Form
-        </h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Complete your application form by filling out all the required information.
-        </p>
 
         {validationMessage && (
+          <div className="px-5 py-4 sm:px-6 sm:py-5">
           <p className={`mt-1 text-sm ${
             validationMessage.includes("successfully") 
               ? "text-green-500 dark:text-green-400" 
@@ -1027,30 +1106,28 @@ export default function ProfileForm() {
           }`}>
             {validationMessage}
           </p>
+          </div>
         )}
-      </div>
       
-      {/* Tab Navigation */}
-      <div className="border-t border-gray-100 dark:border-gray-800">
+      
+      {/* Main Tab Navigation */}
+      <div className="border-b border-gray-100 dark:border-gray-800">
         <div className="flex overflow-x-auto">
-          {tabs.map((tab) => {
+          {mainTabs.map((tab) => {
             const IconComponent = tab.icon;
-            const isComplete = isTabComplete(tab.id as Tab);
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as Tab)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
+                onClick={() => setActiveMainTab(tab.id as MainTab)}
+                className={`flex items-center flex-col flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeMainTab === tab.id
                     ? "border-brand-500 text-brand-600 dark:text-brand-400"
                     : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                 }`}
               >
-                <IconComponent size={16} />
-                {tab.label}
-                {isComplete && (
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                )}
+                <IconComponent size={20} className="mb-2"/>
+                {tab.label} {tab.id == "workexperience" || tab.id == "interests" ? <span className="text-[12px]">{`(Optional)`}</span> : <></>}
+                
               </button>
             );
           })}
@@ -1058,53 +1135,93 @@ export default function ProfileForm() {
       </div>
 
       <div className="p-5 sm:p-6">
-        <form onSubmit={handleSubmit}>
-          {/* Tab Content */}
-          <div className="mb-8">
-            {activeTab === "personal" && renderPersonalInfoTab()}
-            {activeTab === "address" && renderAddressTab()}
-            {activeTab === "emergency" && renderEmergencyContactTab()}
-          </div>
+        {/* Profile Tab Content */}
+        {activeMainTab === "profile" && (
+          <form onSubmit={handleSubmit}>
+            {/* Form Sections */}
+            <div className="space-y-6">
+              {formSections.map((section) => {
+                const IconComponent = section.icon;
+                const isExpanded = expandedSections[section.id];
+                
+                return (
+                  <div 
+                    key={section.id} 
+                    className={`rounded-xl border ${
+                      isExpanded 
+                        ? 'border-brand-200 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-900/10' 
+                        : 'border-gray-200 dark:border-gray-800'
+                    }`}
+                  >
+                    {/* Section Header */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.id)}
+                      className="flex w-full items-center justify-between p-5 text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                          section.completed 
+                            ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          <IconComponent size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
+                            {section.title}
+                          </h3>
+                          {section.description && (
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                              {section.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {section.completed && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 12 12">
+                              <path d="M10 3L4.5 8.5L2 6"/>
+                            </svg>
+                            Completed
+                          </span>
+                        )}
+                        <span className="text-gray-400 dark:text-gray-500">
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </span>
+                      </div>
+                    </button>
 
-          {/* Navigation and Submit Buttons */}
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex gap-3">
-              {activeTab !== "personal" && (
-                <button
-                  type="button"
-                  onClick={handlePreviousTab}
-                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  Previous
-                </button>
-              )}
-              {activeTab !== "emergency" && (
-                <button
-                  type="button"
-                  onClick={handleNextTab}
-                  className="flex items-center gap-2 rounded-lg border border-brand-500 bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600 disabled:bg-gray-300 disabled:border-gray-300 disabled:cursor-not-allowed"
-                  disabled={!isTabComplete(activeTab)}
-                >
-                  Next
-                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                    <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              )}
+                    {/* Section Content */}
+                    {isExpanded && (
+                      <div className="border-t border-gray-200 p-5 dark:border-gray-800">
+                        {section.id === "personal" && renderPersonalInfoSection()}
+                        {section.id === "address" && renderAddressSection()}
+                        {section.id === "emergency" && renderEmergencyContactSection()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
-              >
-                Cancel
-              </button>
-              {activeTab === "emergency" && (
+            {/* Submit Buttons */}
+            <div className="mt-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 sm:w-auto"
+                >
+                  Cancel
+                </button>
+              </div>
+              
+              <div className="flex gap-3">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isTabComplete("personal") || !isTabComplete("address") || !isTabComplete("emergency")}
+                  disabled={isSubmitting || !formSections.every(section => section.completed)}
                   className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed sm:w-auto"
                 >
                   {isSubmitting ? (
@@ -1117,15 +1234,26 @@ export default function ProfileForm() {
                     </>
                   ) : (
                     <>
-                      Save
+                      Save All Sections
                       <Plus size={18} />
                     </>
                   )}
                 </button>
-              )}
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        )}
+
+        {/* Test Scores Tab Content */}
+        {activeMainTab === "testscores" && <TestScores />}
+
+        {/* Academic Interests Tab Content */}
+        {/* {activeMainTab === "interests" && <AcademicInterests />} */}
+
+        {/* Work Experience Tab Content */}
+        {activeMainTab === "workexperience" && <WorkExperience />}
+
+        {activeMainTab === "academics" && <AcademicQualifications />}
       </div>
     </div>
   );
