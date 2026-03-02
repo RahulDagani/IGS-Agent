@@ -14,7 +14,9 @@ import {
   DollarSign,
   Percent,
   Calculator,
-  Globe
+  Globe,
+  Info,
+  AlertCircle
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,30 +33,51 @@ interface University {
   eligible_items: number;
 }
 
+// New interface for admin inputs
+interface AdminInput {
+  label: string;
+  value: number | null;
+  currency?: string;
+  required: boolean;
+  note?: string;
+}
+
+interface AdminInputs {
+  amount_received_in_default?: AdminInput;
+  bank_charges?: AdminInput;
+  gst_percentage?: AdminInput;
+  tds_percentage?: AdminInput;
+  [key: string]: AdminInput | undefined; // For any other dynamic inputs
+}
+
 interface Application {
   invoice_item_id: number;
   application_id: number;
   installment_no: number;
   commission_amount: number;
-  currency: string;
-  commissionable_tuition_fee: number;
+  commission_currency: string;
+  default_currency: string;
+  commissionable_tuition_fee?: number;
   student: string;
   course_name: string;
   study_level: string;
   intake_year: number;
-  gst_percentage: number;
-  gst_amount: number;
-  commission_after_gst: number;
+  gst_percentage?: number;
+  gst_amount?: number;
+  commission_after_gst?: number;
   agent_share_percentage: number;
-  agent_commission_amount: number;
-  conversion_currency: string;
-  exchange_rate: number;
-  shared_amount_in_inr: number;
-  tds_percentage: number;
-  tds_amount: number;
-  gross_commission_payable: number;
-  net_pay: number;
+  calculated_agent_share?: number | null;
+  conversion_currency?: string;
+  exchange_rate?: number;
+  shared_amount_in_inr?: number;
+  tds_percentage?: number;
+  tds_amount?: number;
+  gross_commission_payable?: number;
+  net_pay?: number;
   selected?: boolean;
+  // New admin inputs field
+  admin_inputs?: AdminInputs;
+  note?: string;
 }
 
 interface ApplicationsResponse {
@@ -63,18 +86,16 @@ interface ApplicationsResponse {
     items: Application[];
     summary: {
       total_items: number;
-      currency_summary: string[];
-      exchange_rates: Record<string, number>;
-      totals: {
-        total_commissionable_amount: number;
-        total_full_commission: number;
-        total_gst_amount: number;
-        total_commission_after_gst: number;
-        total_agent_amount_in_inr: number;
-        total_gross_payable: number;
-        total_tds_amount: number;
-        total_net_payable: number;
+      default_currency: string;
+      items: {
+        auto_calculate: number;
+        need_admin_amount: number;
       };
+      currencies_involved: string[];
+    };
+    instructions: {
+      auto_calculate: string;
+      manual_input: string;
     };
   };
 }
@@ -101,8 +122,15 @@ const AddCommissionNote = () => {
   const [selectedUniversity, setSelectedUniversity] = useState<University | null>(null);
   const [selectedApplicationIds, setSelectedApplicationIds] = useState<number[]>([]);
 
+  // Admin input values for selected applications
+  const [adminInputValues, setAdminInputValues] = useState<Record<number, Record<string, number | null>>>({});
+
   // Current step
   const [currentStep, setCurrentStep] = useState<Step>('agents');
+  const [summaryInstructions, setSummaryInstructions] = useState<{
+    auto_calculate: string;
+    manual_input: string;
+  } | null>(null);
 
   // Fetch agents on component mount
   useEffect(() => {
@@ -192,13 +220,16 @@ const AddCommissionNote = () => {
         throw new Error(`Failed to fetch applications: ${response.status}`);
       }
       
-      const data = await response.json();
+      const data: ApplicationsResponse = await response.json();
       
       if (data.status === "success") {
         setApplications(data.data.items || []);
+        setSummaryInstructions(data.data.instructions);
         setCurrentStep('applications');
+        // Initialize admin input values
+        initializeAdminInputs(data.data.items);
       } else {
-        throw new Error(data.message || "Failed to fetch applications");
+        throw new Error("Failed to fetch applications");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -207,17 +238,48 @@ const AddCommissionNote = () => {
     }
   };
 
+  // Initialize admin input values for all applications
+  const initializeAdminInputs = (apps: Application[]) => {
+    const initialValues: Record<number, Record<string, number | null>> = {};
+    apps.forEach(app => {
+      if (app.admin_inputs) {
+        initialValues[app.invoice_item_id] = {};
+        Object.entries(app.admin_inputs).forEach(([key, input]) => {
+          initialValues[app.invoice_item_id][key] = input?.value || null;
+        });
+      }
+    });
+    setAdminInputValues(initialValues);
+  };
+
+  // Handle admin input change
+  const handleAdminInputChange = (
+    invoiceItemId: number,
+    inputKey: string,
+    value: string
+  ) => {
+    setAdminInputValues(prev => ({
+      ...prev,
+      [invoiceItemId]: {
+        ...(prev[invoiceItemId] || {}),
+        [inputKey]: value === '' ? null : parseFloat(value)
+      }
+    }));
+  };
+
   const handleAgentSelect = (agent: Agent) => {
     setSelectedAgent(agent);
     setSelectedUniversity(null);
     setApplications([]);
     setSelectedApplicationIds([]);
+    setAdminInputValues({});
     fetchUniversities(agent.agent_id);
   };
 
   const handleUniversitySelect = (university: University) => {
     setSelectedUniversity(university);
     setSelectedApplicationIds([]);
+    setAdminInputValues({});
     if (selectedAgent) {
       fetchApplications(selectedAgent.agent_id, university.university_id);
     }
@@ -251,7 +313,29 @@ const AddCommissionNote = () => {
       setSelectedUniversity(null);
       setApplications([]);
       setSelectedApplicationIds([]);
+      setAdminInputValues({});
     }
+  };
+
+  // Validate admin inputs for selected applications
+  const validateAdminInputs = (): boolean => {
+    const selectedApps = applications.filter(app => 
+      selectedApplicationIds.includes(app.invoice_item_id)
+    );
+
+    for (const app of selectedApps) {
+      if (app.admin_inputs) {
+        const appInputs = adminInputValues[app.invoice_item_id] || {};
+        
+        for (const [key, input] of Object.entries(app.admin_inputs)) {
+          if (input?.required && (!appInputs[key] || appInputs[key] === null)) {
+            setError(`${input.label} is required for ${app.student}`);
+            return false;
+          }
+        }
+      }
+    }
+    return true;
   };
 
   const handleSubmit = async () => {
@@ -260,14 +344,27 @@ const AddCommissionNote = () => {
       return;
     }
 
+    // Validate required admin inputs
+    if (!validateAdminInputs()) {
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError(null);
 
+      // Prepare payload with admin inputs
+      const selectedAppsWithInputs = applications
+        .filter(app => selectedApplicationIds.includes(app.invoice_item_id))
+        .map(app => ({
+          invoice_item_id: app.invoice_item_id,
+          admin_inputs: adminInputValues[app.invoice_item_id] || {}
+        }));
+
       const payload = {
         agent_id: selectedAgent.agent_id,
         university_id: selectedUniversity.university_id,
-        invoice_item_ids: selectedApplicationIds
+        items: selectedAppsWithInputs
       };
 
       const response = await fetch(
@@ -281,10 +378,6 @@ const AddCommissionNote = () => {
           body: JSON.stringify(payload)
         }
       );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to create commission note: ${response.status}`);
-      }
       
       const data = await response.json();
       
@@ -303,20 +396,40 @@ const AddCommissionNote = () => {
     }
   };
 
+  // Check if an application requires admin inputs
+  const requiresAdminInputs = (application: Application): boolean => {
+    return application.admin_inputs !== undefined && 
+           Object.keys(application.admin_inputs || {}).length > 0;
+  };
+
+  // Check if admin inputs are filled for an application
+  const areAdminInputsFilled = (application: Application): boolean => {
+    if (!application.admin_inputs) return true;
+    
+    const appInputs = adminInputValues[application.invoice_item_id] || {};
+    
+    for (const [key, input] of Object.entries(application.admin_inputs)) {
+      if (input?.required && (!appInputs[key] || appInputs[key] === null)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   // Calculate totals from selected applications
   const selectedApplications = applications.filter(app => 
     selectedApplicationIds.includes(app.invoice_item_id)
   );
 
   const totals = {
-    totalFullCommission: selectedApplications.reduce((sum, app) => sum + app.commission_amount, 0),
-    totalGST: selectedApplications.reduce((sum, app) => sum + app.gst_amount, 0),
-    totalCommissionAfterGST: selectedApplications.reduce((sum, app) => sum + app.commission_after_gst, 0),
-    totalAgentCommission: selectedApplications.reduce((sum, app) => sum + app.agent_commission_amount, 0),
-    totalSharedInINR: selectedApplications.reduce((sum, app) => sum + app.shared_amount_in_inr, 0),
-    totalTDS: selectedApplications.reduce((sum, app) => sum + app.tds_amount, 0),
-    totalGrossPayable: selectedApplications.reduce((sum, app) => sum + app.gross_commission_payable, 0),
-    totalNetPay: selectedApplications.reduce((sum, app) => sum + app.net_pay, 0),
+    totalFullCommission: selectedApplications.reduce((sum, app) => sum + (app.commission_amount || 0), 0),
+    totalGST: selectedApplications.reduce((sum, app) => sum + (app.gst_amount || 0), 0),
+    totalCommissionAfterGST: selectedApplications.reduce((sum, app) => sum + (app.commission_after_gst || 0), 0),
+    totalAgentCommission: selectedApplications.reduce((sum, app) => sum + (app.commission_amount || 0), 0),
+    totalSharedInINR: selectedApplications.reduce((sum, app) => sum + (app.shared_amount_in_inr || 0), 0),
+    totalTDS: selectedApplications.reduce((sum, app) => sum + (app.tds_amount || 0), 0),
+    totalGrossPayable: selectedApplications.reduce((sum, app) => sum + (app.gross_commission_payable || 0), 0),
+    totalNetPay: selectedApplications.reduce((sum, app) => sum + (app.net_pay || 0), 0),
   };
 
   return (
@@ -553,6 +666,23 @@ const AddCommissionNote = () => {
       {/* Applications Table */}
       {!loading && currentStep === 'applications' && selectedAgent && selectedUniversity && (
         <div className="space-y-6">
+          {/* Instructions Banner */}
+          {summaryInstructions && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                <div>
+                  <p className="text-blue-800 dark:text-blue-300 font-medium">
+                    {summaryInstructions.auto_calculate}
+                  </p>
+                  <p className="text-blue-700 dark:text-blue-400 text-sm mt-1">
+                    {summaryInstructions.manual_input}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
@@ -589,26 +719,20 @@ const AddCommissionNote = () => {
                       Commission Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      GST
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Agent Share
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Conversion
+                      Admin Inputs
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      TDS
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Net Pay
+                      Status
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {applications.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                         No applications found
                       </td>
                     </tr>
@@ -616,12 +740,11 @@ const AddCommissionNote = () => {
                     applications.map((application) => (
                       <tr
                         key={application.invoice_item_id}
-                        className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${
+                        className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
                           selectedApplicationIds.includes(application.invoice_item_id)
                             ? 'bg-blue-50 dark:bg-blue-900/20'
                             : ''
                         }`}
-                        onClick={() => handleApplicationSelect(application.invoice_item_id)}
                       >
                         <td className="px-6 py-4">
                           <input
@@ -629,7 +752,6 @@ const AddCommissionNote = () => {
                             checked={selectedApplicationIds.includes(application.invoice_item_id)}
                             onChange={() => handleApplicationSelect(application.invoice_item_id)}
                             className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                            onClick={(e) => e.stopPropagation()}
                           />
                         </td>
                         <td className="px-6 py-4">
@@ -656,75 +778,100 @@ const AddCommissionNote = () => {
                             <div className="text-sm">
                               <span className="text-gray-500 dark:text-gray-400">Full: </span>
                               <span className="font-medium text-green-600 dark:text-green-400">
-                                {application.currency} {application.commission_amount.toFixed(2)}
+                                {application.commission_currency} {application.commission_amount?.toFixed(2)}
                               </span>
                             </div>
-                            <div className="text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">After GST: </span>
-                              <span className="font-medium text-indigo-600 dark:text-indigo-400">
-                                {application.currency} {application.commission_after_gst.toFixed(2)}
-                              </span>
-                            </div>
-                            {application.commissionable_tuition_fee > 0 && (
-                              <div className="text-xs text-gray-500">
-                                Tuition: {application.currency} {application.commissionable_tuition_fee.toFixed(2)}
+                            {application.agent_share_percentage && (
+                              <div className="text-sm">
+                                <span className="text-gray-500 dark:text-gray-400">Agent Share: </span>
+                                <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                                  {application.agent_share_percentage}%
+                                </span>
                               </div>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">{application.gst_percentage}%: </span>
-                              <span className="font-medium text-indigo-600 dark:text-indigo-400">
-                                {application.currency} {application.gst_amount.toFixed(2)}
+                          {application.calculated_agent_share ? (
+                            <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                              {application.commission_currency} {application.calculated_agent_share.toFixed(2)}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              To be calculated
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {application.admin_inputs && Object.keys(application.admin_inputs).length > 0 && (
+                            <div className="space-y-3 min-w-[200px]">
+                              {Object.entries(application.admin_inputs).map(([key, input]) => (
+                                input && (
+                                  <div key={key} className="space-y-1">
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                      {input.label}
+                                      {input.required && <span className="text-red-500 ml-1">*</span>}
+                                    </label>
+                                    <div className="relative">
+                                      {input.currency && (
+                                        <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+                                          {input.currency}
+                                        </span>
+                                      )}
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={adminInputValues[application.invoice_item_id]?.[key] || ''}
+                                        onChange={(e) => handleAdminInputChange(
+                                          application.invoice_item_id,
+                                          key,
+                                          e.target.value
+                                        )}
+                                        placeholder={input.currency || ''}
+                                        className={`w-full px-2 py-1 text-sm border rounded-md focus:ring-1 text-gray-500 dark:text-gray-400 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 ${
+                                          input.currency ? 'pl-8' : 'pl-2'
+                                        } ${
+                                          input.required && 
+                                          !adminInputValues[application.invoice_item_id]?.[key]
+                                            ? 'border-red-300 dark:border-red-700'
+                                            : 'border-gray-300 dark:border-gray-600'
+                                        }`}
+                                        disabled={!selectedApplicationIds.includes(application.invoice_item_id)}
+                                      />
+                                    </div>
+                                    {input.note && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {input.note}
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {requiresAdminInputs(application) && (
+                            <div className="flex items-center space-x-1">
+                              {areAdminInputsFilled(application) ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-yellow-500" />
+                              )}
+                              <span className={`text-xs ${
+                                areAdminInputsFilled(application)
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : 'text-yellow-600 dark:text-yellow-400'
+                              }`}>
+                                {areAdminInputsFilled(application) ? 'Ready' : 'Inputs Required'}
                               </span>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">{application.agent_share_percentage}%: </span>
-                              <span className="font-medium text-indigo-600 dark:text-indigo-400">
-                                {application.currency} {application.agent_commission_amount.toFixed(2)}
-                              </span>
+                          )}
+                          {application.note && (
+                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                              {application.note}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-sm flex items-center space-x-1">
-                              <Globe className="h-3 w-3 text-gray-400" />
-                              <span className="font-medium text-indigo-600 dark:text-indigo-400">{application.conversion_currency}</span>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Rate: 1 {application.currency} = {application.exchange_rate} {application.conversion_currency}
-                            </div>
-                            <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                              ₹{application.shared_amount_in_inr.toFixed(2)}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">{application.tds_percentage}%: </span>
-                              <span className="font-medium text-red-600 dark:text-red-400">
-                                ₹{application.tds_amount.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Gross: ₹{application.gross_commission_payable.toFixed(2)}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                              ₹{application.net_pay.toFixed(2)}
-                            </div>
-                          </div>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -741,6 +888,18 @@ const AddCommissionNote = () => {
                 Selected Applications Summary ({selectedApplicationIds.length} items)
               </h3>
               
+              {/* Check if any selected application requires inputs and show warning */}
+              {selectedApplications.some(app => 
+                requiresAdminInputs(app) && !areAdminInputsFilled(app)
+              ) && (
+                <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-center space-x-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    Some selected applications require admin inputs. Please fill all required fields.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                   <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
@@ -748,77 +907,37 @@ const AddCommissionNote = () => {
                     <span className="text-sm">Full Commission</span>
                   </div>
                   <div className="text-xl font-bold text-gray-900 dark:text-white">
-                    ${totals.totalFullCommission.toFixed(2)}
+                    {selectedApplications[0]?.commission_currency || '$'} {totals.totalFullCommission.toFixed(2)}
                   </div>
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                   <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
                     <Percent className="h-4 w-4" />
-                    <span className="text-sm">Total GST</span>
+                    <span className="text-sm">Agent Share</span>
                   </div>
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">
-                    ${totals.totalGST.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
-                    <Calculator className="h-4 w-4" />
-                    <span className="text-sm">After GST</span>
-                  </div>
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">
-                    ${totals.totalCommissionAfterGST.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
-                    <Users className="h-4 w-4" />
-                    <span className="text-sm">Agent Commission</span>
-                  </div>
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">
-                    ${totals.totalAgentCommission.toFixed(2)}
+                  <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {selectedApplications[0]?.commission_currency || '$'} {totals.totalAgentCommission.toFixed(2)}
                   </div>
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                   <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
                     <Globe className="h-4 w-4" />
-                    <span className="text-sm">INR Amount</span>
+                    <span className="text-sm">Default Currency</span>
                   </div>
                   <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                    ₹{totals.totalSharedInINR.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
-                    <Percent className="h-4 w-4" />
-                    <span className="text-sm">TDS Amount</span>
-                  </div>
-                  <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                    ₹{totals.totalTDS.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
-                    <Calculator className="h-4 w-4" />
-                    <span className="text-sm">Gross Payable</span>
-                  </div>
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">
-                    ₹{totals.totalGrossPayable.toFixed(2)}
+                    {selectedApplications[0]?.default_currency || 'INR'}
                   </div>
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border-2 border-green-200 dark:border-green-800">
                   <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Net Payable</span>
+                    <span className="text-sm">Items Selected</span>
                   </div>
                   <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                    ₹{totals.totalNetPay.toFixed(2)}
+                    {selectedApplicationIds.length}
                   </div>
                 </div>
               </div>
@@ -826,7 +945,9 @@ const AddCommissionNote = () => {
               <div className="flex justify-end">
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || selectedApplications.some(app => 
+                    requiresAdminInputs(app) && !areAdminInputsFilled(app)
+                  )}
                   className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {submitting ? (
