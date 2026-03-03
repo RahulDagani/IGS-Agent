@@ -34,15 +34,26 @@ interface CommissionNote {
   business_name: string;
 }
 
-// Updated interface for the new commission note detail structure
+// Update the CommissionNoteDetail interface to match the API response
 interface CommissionNoteDetail {
   commission_note: {
     id: number;
+    commission_note_number: string;
+    po_date: string;
+    status: string;
     university_name: string;
     university_country: string;
     agent_name: string;
     agent_business_name: string;
     agent_address: string;
+    agent_email: string;
+    agent_phone: string;
+    total_commissionable_amount: string;
+    total_received_in_default: string;
+    total_agent_commission: string;
+    total_gst_amount: string;
+    total_tds_amount: string;
+    total_net_payable_default: string;
   };
   items: Array<{
     id: number;
@@ -53,31 +64,21 @@ interface CommissionNoteDetail {
     course_name: string;
     study_level: string;
     intake_year: number;
-    invoice_currency: string;
-    note_currency: string | null;
-    commissionable_tuition_fee: number;
-    invoice_amount: number;
-    amount_received_in_default: number;
-    bank_charges: number;
-    agent_share_percentage: number;
-    agent_commission_default: number;
-    final_agent_payable: number;
-    net_pay: number;
-    // Optional fields that might come from API
-    gst_percentage?: number;
-    gst_amount?: number;
-    tds_percentage?: number;
-    tds_amount?: number;
+    commission_type: string;
+    commissionable_tuition_fee: string;
+    invoice_amount: string;
+    amount_received_in_default: string;
+    bank_charges: string;
+    agent_share_percentage: string;
+    agent_commission_default: string;
+    net_pay: string;
   }>;
   summary: {
     total_items: number;
     totals: {
-      total_agent_commission: number;
-      total_final_payable: number;
-      total_net_payable: number;
-      // Optional fields that might come from API
-      total_gst_amount?: number;
-      total_tds_amount?: number;
+      total_agent_commission: string;
+      total_final_payable: string;
+      total_net_payable: string;
     };
   };
 }
@@ -1315,279 +1316,237 @@ return (
         </div>
 
         {/* Right Panel - Details */}
-        <div className="lg:col-span-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/[0.05] p-6">
-          {detailLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : activeNoteDetail ? (
-            <div className="space-y-6">
-              {/* Header with Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    Commission Note #{activeNoteId}
-                  </h2>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">Agent:</span> {activeNoteDetail.commission_note?.agent_name || '-'}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">Business:</span> {activeNoteDetail.commission_note?.agent_business_name || '-'}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">University:</span> {activeNoteDetail.commission_note?.university_name || '-'} ({activeNoteDetail.commission_note?.university_country || '-'})
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">Address:</span> {activeNoteDetail.commission_note?.agent_address || '-'}
-                    </p>
-                  </div>
-                </div>
+<div className="lg:col-span-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/[0.05] p-6">
+  {detailLoading ? (
+    <div className="flex justify-center items-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+    </div>
+  ) : activeNoteDetail ? (
+    <div className="space-y-6">
+      {/* Header with Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {/* Commission Note  */}
+            #{activeNoteDetail.commission_note?.commission_note_number || activeNoteId} <span className={`text-xs px-3 py-1.5 rounded-full ${getStatusColor(activeNoteDetail.commission_note?.status || '')}`}>
+            {(activeNoteDetail.commission_note?.status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </span>
+          </h2>
+          <div className="mt-2 space-y-1">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Agent:</span> {activeNoteDetail.commission_note?.agent_name || '-'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Business:</span> {activeNoteDetail.commission_note?.agent_business_name || '-'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Email:</span> {activeNoteDetail.commission_note?.agent_email || '-'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Phone:</span> {activeNoteDetail.commission_note?.agent_phone || '-'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">University:</span> {activeNoteDetail.commission_note?.university_name || '-'} ({activeNoteDetail.commission_note?.university_country || '-'})
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Address:</span> {activeNoteDetail.commission_note?.agent_address || '-'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">PO Date:</span> {formatDate(activeNoteDetail.commission_note?.po_date) || '-'}
+            </p>
+          </div>
+        </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {/* Download Button */}
-                  <button
-                    onClick={handleDownloadPdf}
-                    disabled={downloadingPdf}
-                    className="inline-flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
-                  >
-                    <Download size={16} />
-                    {downloadingPdf ? "Downloading..." : "Download"}
-                  </button>
+        <div className="flex flex-wrap gap-2">
+          
+          
+          {/* Download Button */}
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="inline-flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+          >
+            <Download size={16} />
+            {downloadingPdf ? "Downloading..." : "Download"}
+          </button>
 
-                  {/* Send Mail Button */}
-                  <button
-                    onClick={handleSendEmail}
-                    disabled={sendingMail}
-                    className="inline-flex items-center gap-2 px-3 py-2 border border-green-600 text-green-600 dark:border-green-500 dark:text-green-400 rounded-lg text-sm hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
-                  >
-                    <Mail size={16} />
-                    {sendingMail ? "Sending..." : "Send Mail"}
-                  </button>
+          {/* Send Mail Button */}
+          <button
+            onClick={handleSendEmail}
+            disabled={sendingMail}
+            className="inline-flex items-center gap-2 px-3 py-2 border border-green-600 text-green-600 dark:border-green-500 dark:text-green-400 rounded-lg text-sm hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
+          >
+            <Mail size={16} />
+            {sendingMail ? "Sending..." : "Send Mail"}
+          </button>
 
-                  {notes.find(n => n.id === activeNoteId)?.status !== 'commission_payment_done' && (
-                    <button
-                      onClick={handleMarkAsPaid}
-                      disabled={markingAsPaid}
-                      className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      <CheckCircle size={16} />
-                      {markingAsPaid ? "Processing..." : "Mark Paid"}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Items Table - Scrollable */}
-              {activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                    Commission Items ({activeNoteDetail.items.length})
-                  </h3>
-                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">App ID</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inst</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Currency</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice Amt</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Received</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank Charges</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Agent Share</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Agent Commission</th>
-                          
-                          {/* Optional GST column */}
-                          {activeNoteDetail.items.some(item => item.gst_percentage !== undefined) && (
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST</th>
-                          )}
-                          
-                          {/* Optional GST Amount column */}
-                          {activeNoteDetail.items.some(item => item.gst_amount !== undefined) && (
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST Amt</th>
-                          )}
-                          
-                          {/* Optional TDS column */}
-                          {activeNoteDetail.items.some(item => item.tds_percentage !== undefined) && (
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS</th>
-                          )}
-                          
-                          {/* Optional TDS Amount column */}
-                          {activeNoteDetail.items.some(item => item.tds_amount !== undefined) && (
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS Amt</th>
-                          )}
-                          
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Final Payable</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Pay</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                        {activeNoteDetail.items.map((item, index) => (
-                          <tr key={item.id || item.invoice_item_id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.student || '-'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 max-w-[200px] truncate" title={`${item.course_name || ''} (${item.study_level || ''}, ${item.intake_year || ''})`}>
-                              {item.course_name || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.application_id || '-'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.installment_no || '-'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.invoice_currency || '-'}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{formatCurrency(item.invoice_amount, item.invoice_currency)}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{formatCurrency(item.amount_received_in_default, item.invoice_currency)}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{formatCurrency(item.bank_charges, item.invoice_currency)}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.agent_share_percentage || 0}%</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{formatCurrency(item.agent_commission_default, item.invoice_currency)}</td>
-                            
-                            {/* Optional GST column */}
-                            {activeNoteDetail.items.some(i => i.gst_percentage !== undefined) && (
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                {item.gst_percentage !== undefined ? `${item.gst_percentage}%` : '-'}
-                              </td>
-                            )}
-                            
-                            {/* Optional GST Amount column */}
-                            {activeNoteDetail.items.some(i => i.gst_amount !== undefined) && (
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                {item.gst_amount !== undefined ? formatCurrency(item.gst_amount, item.invoice_currency) : '-'}
-                              </td>
-                            )}
-                            
-                            {/* Optional TDS column */}
-                            {activeNoteDetail.items.some(i => i.tds_percentage !== undefined) && (
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                {item.tds_percentage !== undefined ? `${item.tds_percentage}%` : '-'}
-                              </td>
-                            )}
-                            
-                            {/* Optional TDS Amount column */}
-                            {activeNoteDetail.items.some(i => i.tds_amount !== undefined) && (
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                {item.tds_amount !== undefined ? formatCurrency(item.tds_amount, item.invoice_currency) : '-'}
-                              </td>
-                            )}
-                            
-                            <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
-                              {formatCurrency(item.final_agent_payable, item.invoice_currency)}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
-                              {formatCurrency(item.net_pay, item.invoice_currency)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Summary Totals */}
-              {activeNoteDetail.summary?.totals && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Total Items</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {activeNoteDetail.summary.total_items || 0}
-                    </p>
-                  </div>
-                  
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Total Agent Commission</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {formatINR(activeNoteDetail.summary.totals.total_agent_commission)}
-                    </p>
-                  </div>
-
-                  {/* Optional GST Total */}
-                  {activeNoteDetail.summary.totals.total_gst_amount !== undefined && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Total GST</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {formatINR(activeNoteDetail.summary.totals.total_gst_amount)}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Optional TDS Total */}
-                  {activeNoteDetail.summary.totals.total_tds_amount !== undefined && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Total TDS</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {formatINR(activeNoteDetail.summary.totals.total_tds_amount)}
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Total Final Payable</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {formatINR(activeNoteDetail.summary.totals.total_final_payable)}
-                    </p>
-                  </div>
-                  
-                  <div className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg col-span-2 sm:col-span-1">
-                    <p className="text-xs text-green-600 dark:text-green-400">Total Net Payable</p>
-                    <p className="text-lg font-semibold text-green-700 dark:text-green-300">
-                      {formatINR(activeNoteDetail.summary.totals.total_net_payable)}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Comments Section */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Comments</h3>
-
-                <div className="flex gap-2">
-                  <input
-                    placeholder="Type your comment... (Press Enter to submit)"
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={handleCommentKeyDown}
-                    disabled={postingComment}
-                  />
-                  <button
-                    onClick={handleCommentSubmit}
-                    disabled={postingComment || !commentText.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-                  >
-                    {postingComment ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        <span className="hidden sm:inline">Send</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
-                  <div className="mt-4 space-y-3 max-h-64 overflow-y-auto">
-                    {activeNoteDetail.comments.map((comment) => (
-                      <div key={comment.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{comment.comment}</p>
-                        <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span>{comment.created_by_name || `User ${comment.created_by}`}</span>
-                          <span>{formatDateTime(comment.created_at)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500 dark:text-gray-400 mt-6 py-4">
-                    No comments yet
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-              <p>Select a commission note to view details</p>
-            </div>
+          {activeNoteDetail.commission_note?.status !== 'commission_payment_done' && (
+            <button
+              onClick={handleMarkAsPaid}
+              disabled={markingAsPaid}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <CheckCircle size={16} />
+              {markingAsPaid ? "Processing..." : "Mark Paid"}
+            </button>
           )}
         </div>
+      </div>
+
+      
+
+      {/* Items Table */}
+      {activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
+            Commission Items ({activeNoteDetail.summary?.total_items || activeNoteDetail.items.length})
+          </h3>
+          <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">App ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inst</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice Amt</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Received</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank Charges</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Agent Share</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Agent Commission</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Pay</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                {activeNoteDetail.items.map((item, index) => (
+                  <tr key={item.id || item.invoice_item_id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.student || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 max-w-[200px] truncate" title={`${item.course_name || ''} (${item.study_level || ''}, ${item.intake_year || ''})`}>
+                      {item.course_name || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.application_id || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.installment_no || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.invoice_amount || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.amount_received_in_default || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.bank_charges || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.agent_share_percentage || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.agent_commission_default || '-'}</td>
+                    
+                    <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
+                      {item.net_pay || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Total Commissionable</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {activeNoteDetail.commission_note?.total_commissionable_amount || '-'}
+          </p>
+        </div>
+        
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Total Received</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {activeNoteDetail.commission_note?.total_received_in_default || '-'}
+          </p>
+        </div>
+        
+        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Agent Commission</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {activeNoteDetail.commission_note?.total_agent_commission || '-'}
+          </p>
+        </div>
+        
+        {activeNoteDetail.commission_note?.total_gst_amount !== '0.00 USD' && (
+          <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <p className="text-xs text-gray-500 dark:text-gray-400">GST Amount</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {activeNoteDetail.commission_note?.total_gst_amount || '-'}
+            </p>
+          </div>
+        )}
+        
+        {activeNoteDetail.commission_note?.total_tds_amount !== '0.00 USD' && (
+          <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <p className="text-xs text-gray-500 dark:text-gray-400">TDS Amount</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {activeNoteDetail.commission_note?.total_tds_amount || '-'}
+            </p>
+          </div>
+        )}
+        
+        <div className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
+          <p className="text-xs text-green-600 dark:text-green-400">Net Payable</p>
+          <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+            {activeNoteDetail.commission_note?.total_net_payable_default || '-'}
+          </p>
+        </div>
+      </div>
+
+
+      {/* Comments Section - Keep as is */}
+      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+        <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Comments</h3>
+
+        <div className="flex gap-2">
+          <input
+            placeholder="Type your comment... (Press Enter to submit)"
+            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={handleCommentKeyDown}
+            disabled={postingComment}
+          />
+          <button
+            onClick={handleCommentSubmit}
+            disabled={postingComment || !commentText.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {postingComment ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+            ) : (
+              <>
+                <Send size={16} />
+                <span className="hidden sm:inline">Send</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
+          <div className="mt-4 space-y-3 max-h-64 overflow-y-auto">
+            {activeNoteDetail.comments.map((comment) => (
+              <div key={comment.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-700 dark:text-gray-300">{comment.comment}</p>
+                <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>{comment.created_by_name || `User ${comment.created_by}`}</span>
+                  <span>{formatDateTime(comment.created_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-gray-500 dark:text-gray-400 mt-6 py-4">
+            No comments yet
+          </p>
+        )}
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+      <p>Select a commission note to view details</p>
+    </div>
+  )}
+</div>
       </div>
 
       {/* Add animation styles */}

@@ -903,13 +903,12 @@ const handleSubmit = async () => {
           </div>
 
           {/* Summary and Submit */}
-          {selectedApplicationIds.length > 0 && (
+          {/* {selectedApplicationIds.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Selected Applications Summary ({selectedApplicationIds.length} items)
               </h3>
               
-              {/* Check if any selected application requires inputs and show warning */}
               {selectedApplications.some(app => 
                 requiresAdminInputs(app) && !areAdminInputsFilled(app)
               ) && (
@@ -985,7 +984,7 @@ const handleSubmit = async () => {
                 </button>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       )}
     </div>
