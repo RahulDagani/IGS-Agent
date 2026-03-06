@@ -13,7 +13,6 @@ import {
   ArrowLeft,
   DollarSign,
   Percent,
-  Calculator,
   Globe,
   Info,
   AlertCircle
@@ -33,51 +32,40 @@ interface University {
   eligible_items: number;
 }
 
-// New interface for admin inputs
-interface AdminInput {
+// New interface for admin input field metadata
+interface AdminInputField {
   label: string;
+  name: string;  // Note: there's a typo in API: "nane" vs "name"
   value: number | null;
   currency?: string;
   required: boolean;
-  note?: string;
 }
 
+// Admin inputs is now an object with dynamic keys
 interface AdminInputs {
-  amount_received_in_default?: AdminInput;
-  bank_charges?: AdminInput;
-  gst_percentage?: AdminInput;
-  tds_percentage?: AdminInput;
-  [key: string]: AdminInput | undefined; // For any other dynamic inputs
+  [key: string]: AdminInputField;
 }
 
 interface Application {
+  s_no: number;
   invoice_item_id: number;
   application_id: number;
-  installment_no: number;
-  commission_amount: number;
-  commission_currency: string;
-  default_currency: string;
-  commissionable_tuition_fee?: number;
-  student: string;
-  course_name: string;
-  study_level: string;
+  student_name: string;
   intake_year: number;
-  gst_percentage?: number;
-  gst_amount?: number;
-  commission_after_gst?: number;
-  agent_share_percentage: number;
-  calculated_agent_share?: number | null;
-  conversion_currency?: string;
-  exchange_rate?: number;
-  shared_amount_in_inr?: number;
-  tds_percentage?: number;
-  tds_amount?: number;
-  gross_commission_payable?: number;
-  net_pay?: number;
-  selected?: boolean;
-  // New admin inputs field
-  admin_inputs?: AdminInputs;
-  note?: string;
+  course_level: string;
+  commissionable_tuition_fee: {
+    value: number | null;
+    currency: string;
+  };
+  commission_amount: {
+    value: number;
+    currency: string;
+  };
+  partner_share_percentage: number;
+  pay_status: string;
+  invoice_currency: string;
+  default_currency: string;
+  admin_inputs: AdminInputs;
 }
 
 interface ApplicationsResponse {
@@ -87,15 +75,13 @@ interface ApplicationsResponse {
     summary: {
       total_items: number;
       default_currency: string;
-      items: {
-        auto_calculate: number;
-        need_admin_amount: number;
-      };
-      currencies_involved: string[];
+      forex_cases: number;
+      same_currency_cases: number;
     };
     instructions: {
-      auto_calculate: string;
-      manual_input: string;
+      note: string;
+      forex_case: string;
+      inr_case: string;
     };
   };
 }
@@ -122,14 +108,15 @@ const AddCommissionNote = () => {
   const [selectedUniversity, setSelectedUniversity] = useState<University | null>(null);
   const [selectedApplicationIds, setSelectedApplicationIds] = useState<number[]>([]);
 
-  // Admin input values for selected applications
+  // Admin input values for selected applications - store by field name
   const [adminInputValues, setAdminInputValues] = useState<Record<number, Record<string, number | null>>>({});
 
   // Current step
   const [currentStep, setCurrentStep] = useState<Step>('agents');
   const [summaryInstructions, setSummaryInstructions] = useState<{
-    auto_calculate: string;
-    manual_input: string;
+    note: string;
+    forex_case: string;
+    inr_case: string;
   } | null>(null);
 
   // Fetch agents on component mount
@@ -244,8 +231,10 @@ const AddCommissionNote = () => {
     apps.forEach(app => {
       if (app.admin_inputs) {
         initialValues[app.invoice_item_id] = {};
-        Object.entries(app.admin_inputs).forEach(([key, input]) => {
-          initialValues[app.invoice_item_id][key] = input?.value || null;
+        Object.entries(app.admin_inputs).forEach(([key, field]) => {
+          // Use the correct field name from the API (handle typo if needed)
+          const fieldName = field.name || key;
+          initialValues[app.invoice_item_id][fieldName] = field.value;
         });
       }
     });
@@ -255,14 +244,14 @@ const AddCommissionNote = () => {
   // Handle admin input change
   const handleAdminInputChange = (
     invoiceItemId: number,
-    inputKey: string,
+    fieldName: string,
     value: string
   ) => {
     setAdminInputValues(prev => ({
       ...prev,
       [invoiceItemId]: {
         ...(prev[invoiceItemId] || {}),
-        [inputKey]: value === '' ? null : parseFloat(value)
+        [fieldName]: value === '' ? null : parseFloat(value)
       }
     }));
   };
@@ -327,9 +316,10 @@ const AddCommissionNote = () => {
       if (app.admin_inputs) {
         const appInputs = adminInputValues[app.invoice_item_id] || {};
         
-        for (const [key, input] of Object.entries(app.admin_inputs)) {
-          if (input?.required && (!appInputs[key] || appInputs[key] === null)) {
-            setError(`${input.label} is required for ${app.student}`);
+        for (const [key, field] of Object.entries(app.admin_inputs)) {
+          const fieldName = field.name || key;
+          if (field.required && (!appInputs[fieldName] || appInputs[fieldName] === null)) {
+            setError(`${field.label} is required for ${app.student_name}`);
             return false;
           }
         }
@@ -338,89 +328,86 @@ const AddCommissionNote = () => {
     return true;
   };
 
-const handleSubmit = async () => {
-  if (!selectedAgent || !selectedUniversity || selectedApplicationIds.length === 0) {
-    setError("Please select agent, university, and at least one application");
-    return;
-  }
-
-  // Validate required admin inputs
-  if (!validateAdminInputs()) {
-    return;
-  }
-
-  try {
-    setSubmitting(true);
-    setError(null);
-
-    // Build items_data array for all selected applications
-    const itemsData = applications
-      .filter(app => selectedApplicationIds.includes(app.invoice_item_id))
-      .map(app => {
-        const adminInputs = adminInputValues[app.invoice_item_id] || {};
-        
-        // Build item object with only the fields that have values
-        const item: any = {
-          invoice_item_id: app.invoice_item_id
-        };
-        
-        // Add fields only if they have values
-        if (adminInputs.amount_received_in_default !== undefined && adminInputs.amount_received_in_default !== null) {
-          item.amount_received_in_default = adminInputs.amount_received_in_default;
-        }
-        if (adminInputs.bank_charges !== undefined && adminInputs.bank_charges !== null) {
-          item.bank_charges = adminInputs.bank_charges;
-        }
-        if (adminInputs.gst_percentage !== undefined && adminInputs.gst_percentage !== null) {
-          item.gst_percentage = adminInputs.gst_percentage;
-        }
-        if (adminInputs.tds_percentage !== undefined && adminInputs.tds_percentage !== null) {
-          item.tds_percentage = adminInputs.tds_percentage;
-        }
-        
-        return item;
-      });
-
-    // Create single payload object with agent_id, university_id, and items_data array
-    const payload = {
-      agent_id: selectedAgent.agent_id,
-      university_id: selectedUniversity.university_id,
-      items_data: itemsData
-    };
-
-    const response = await fetch(
-      `${BASE_URL}/tenant/commission-note`,
-      {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      }
-    );
-    
-    const data = await response.json();
-    
-    if (data.status === "success") {
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/admin/partners/accounts/commissionnote');
-      }, 2000);
-    } else {
-      throw new Error(data.message || "Failed to create commission note");
+  const handleSubmit = async () => {
+    if (!selectedAgent || !selectedUniversity || selectedApplicationIds.length === 0) {
+      setError("Please select agent, university, and at least one application");
+      return;
     }
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "An error occurred");
-  } finally {
-    setSubmitting(false);
-  }
-};
+
+    // Validate required admin inputs
+    if (!validateAdminInputs()) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      // Build items_data array for all selected applications
+      const itemsData = applications
+        .filter(app => selectedApplicationIds.includes(app.invoice_item_id))
+        .map(app => {
+          const adminInputs = adminInputValues[app.invoice_item_id] || {};
+          
+          // Build item object with invoice_item_id
+          const item: any = {
+            invoice_item_id: app.invoice_item_id
+          };
+          
+          // Add admin input fields using their correct field names
+          if (app.admin_inputs) {
+            Object.entries(app.admin_inputs).forEach(([key, field]) => {
+              const fieldName = field.name || key;
+              const value = adminInputs[fieldName];
+              if (value !== undefined && value !== null) {
+                item[fieldName] = value;
+              }
+            });
+          }
+          
+          return item;
+        });
+
+      // Create single payload object with agent_id, university_id, and items_data array
+      const payload = {
+        agent_id: selectedAgent.agent_id,
+        university_id: selectedUniversity.university_id,
+        items_data: itemsData
+      };
+
+      const response = await fetch(
+        `${BASE_URL}/tenant/commission-note`,
+        {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push('/admin/partners/accounts/commissionnote');
+        }, 2000);
+      } else {
+        throw new Error(data.message || "Failed to create commission note");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Check if an application requires admin inputs
   const requiresAdminInputs = (application: Application): boolean => {
     return application.admin_inputs !== undefined && 
-           Object.keys(application.admin_inputs || {}).length > 0;
+           Object.keys(application.admin_inputs).length > 0;
   };
 
   // Check if admin inputs are filled for an application
@@ -429,8 +416,9 @@ const handleSubmit = async () => {
     
     const appInputs = adminInputValues[application.invoice_item_id] || {};
     
-    for (const [key, input] of Object.entries(application.admin_inputs)) {
-      if (input?.required && (!appInputs[key] || appInputs[key] === null)) {
+    for (const [key, field] of Object.entries(application.admin_inputs)) {
+      const fieldName = field.name || key;
+      if (field.required && (!appInputs[fieldName] || appInputs[fieldName] === null)) {
         return false;
       }
     }
@@ -443,14 +431,8 @@ const handleSubmit = async () => {
   );
 
   const totals = {
-    totalFullCommission: selectedApplications.reduce((sum, app) => sum + (app.commission_amount || 0), 0),
-    totalGST: selectedApplications.reduce((sum, app) => sum + (app.gst_amount || 0), 0),
-    totalCommissionAfterGST: selectedApplications.reduce((sum, app) => sum + (app.commission_after_gst || 0), 0),
-    totalAgentCommission: selectedApplications.reduce((sum, app) => sum + (app.commission_amount || 0), 0),
-    totalSharedInINR: selectedApplications.reduce((sum, app) => sum + (app.shared_amount_in_inr || 0), 0),
-    totalTDS: selectedApplications.reduce((sum, app) => sum + (app.tds_amount || 0), 0),
-    totalGrossPayable: selectedApplications.reduce((sum, app) => sum + (app.gross_commission_payable || 0), 0),
-    totalNetPay: selectedApplications.reduce((sum, app) => sum + (app.net_pay || 0), 0),
+    totalCommission: selectedApplications.reduce((sum, app) => sum + (app.commission_amount?.value || 0), 0),
+    totalItems: selectedApplications.length
   };
 
   return (
@@ -694,10 +676,13 @@ const handleSubmit = async () => {
                 <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div>
                   <p className="text-blue-800 dark:text-blue-300 font-medium">
-                    {summaryInstructions.auto_calculate}
+                    {summaryInstructions.note}
                   </p>
                   <p className="text-blue-700 dark:text-blue-400 text-sm mt-1">
-                    {summaryInstructions.manual_input}
+                    {summaryInstructions.forex_case}
+                  </p>
+                  <p className="text-blue-700 dark:text-blue-400 text-sm mt-1">
+                    {summaryInstructions.inr_case}
                   </p>
                 </div>
               </div>
@@ -734,13 +719,16 @@ const handleSubmit = async () => {
                       Student & Course
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Installment
+                      S.No
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Commission Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Agent Share
+                      Partner Share
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Pay Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Admin Inputs
@@ -753,7 +741,7 @@ const handleSubmit = async () => {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {applications.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={8} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                         No applications found
                       </td>
                     </tr>
@@ -777,97 +765,89 @@ const handleSubmit = async () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {application.student}
+                            {application.student_name}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             App ID: {application.application_id}
                           </div>
-                          <div className="text-sm text-gray-900 dark:text-white mt-1">
-                            {application.course_name}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {application.study_level} - {application.intake_year}
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {application.course_level} - {application.intake_year}
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full">
-                            #{application.installment_no}
+                            #{application.s_no}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="space-y-1">
                             <div className="text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">Full: </span>
+                              <span className="text-gray-500 dark:text-gray-400">Commission: </span>
                               <span className="font-medium text-green-600 dark:text-green-400">
-                                {application.commission_currency} {application.commission_amount?.toFixed(2)}
+                                {application.commission_amount.currency} {application.commission_amount.value?.toFixed(2)}
                               </span>
                             </div>
-                            {application.agent_share_percentage && (
+                            {application.commissionable_tuition_fee.value && (
                               <div className="text-sm">
-                                <span className="text-gray-500 dark:text-gray-400">Agent Share: </span>
-                                <span className="font-medium text-indigo-600 dark:text-indigo-400">
-                                  {application.agent_share_percentage}%
+                                <span className="text-gray-500 dark:text-gray-400">Tuition Fee: </span>
+                                <span className="font-medium">
+                                  {application.commissionable_tuition_fee.currency} {application.commissionable_tuition_fee.value}
                                 </span>
                               </div>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          {application.calculated_agent_share ? (
-                            <div className="text-sm font-medium text-green-600 dark:text-green-400">
-                              {application.commission_currency} {application.calculated_agent_share.toFixed(2)}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              To be calculated
-                            </span>
-                          )}
+                          <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                            {application.partner_share_percentage}%
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+                            {application.pay_status}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           {application.admin_inputs && Object.keys(application.admin_inputs).length > 0 && (
                             <div className="space-y-3 min-w-[200px]">
-                              {Object.entries(application.admin_inputs).map(([key, input]) => (
-                                input && (
+                              {Object.entries(application.admin_inputs).map(([key, field]) => {
+                                const fieldName = field.name || key;
+                                return (
                                   <div key={key} className="space-y-1">
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                                      {input.label}
-                                      {input.required && <span className="text-red-500 ml-1">*</span>}
+                                      {field.label}
+                                      {field.required && <span className="text-red-500 ml-1">*</span>}
                                     </label>
                                     <div className="relative">
-                                      {input.currency && (
+                                      {field.currency && (
                                         <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
-                                          {input.currency}
+                                          {field.currency}
                                         </span>
                                       )}
                                       <input
                                         type="number"
                                         step="0.01"
-                                        value={adminInputValues[application.invoice_item_id]?.[key] || ''}
+                                        value={adminInputValues[application.invoice_item_id]?.[fieldName] || ''}
                                         onChange={(e) => handleAdminInputChange(
                                           application.invoice_item_id,
-                                          key,
+                                          fieldName,
                                           e.target.value
                                         )}
-                                        placeholder={input.currency || ''}
-                                        className={`w-full px-2 py-1 text-sm border rounded-md focus:ring-1 text-gray-500 dark:text-gray-400 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 ${
-                                          input.currency ? 'pl-8' : 'pl-2'
+                                        placeholder={field.currency || 'Enter value'}
+                                        className={`w-full px-2 py-1 text-sm border rounded-md focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 ${
+                                          field.currency ? 'pl-8' : 'pl-2'
                                         } ${
-                                          input.required && 
-                                          !adminInputValues[application.invoice_item_id]?.[key]
+                                          field.required && 
+                                          !adminInputValues[application.invoice_item_id]?.[fieldName]
                                             ? 'border-red-300 dark:border-red-700'
                                             : 'border-gray-300 dark:border-gray-600'
                                         }`}
                                         disabled={!selectedApplicationIds.includes(application.invoice_item_id)}
                                       />
                                     </div>
-                                    {input.note && (
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {input.note}
-                                      </p>
-                                    )}
                                   </div>
-                                )
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </td>
@@ -888,11 +868,6 @@ const handleSubmit = async () => {
                               </span>
                             </div>
                           )}
-                          {application.note && (
-                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
-                              {application.note}
-                            </div>
-                          )}
                         </td>
                       </tr>
                     ))
@@ -903,7 +878,7 @@ const handleSubmit = async () => {
           </div>
 
           {/* Summary and Submit */}
-          {/* {selectedApplicationIds.length > 0 && (
+          {selectedApplicationIds.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Selected Applications Summary ({selectedApplicationIds.length} items)
@@ -920,34 +895,24 @@ const handleSubmit = async () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                   <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
                     <DollarSign className="h-4 w-4" />
-                    <span className="text-sm">Full Commission</span>
+                    <span className="text-sm">Total Commission</span>
                   </div>
                   <div className="text-xl font-bold text-gray-900 dark:text-white">
-                    {selectedApplications[0]?.commission_currency || '$'} {totals.totalFullCommission.toFixed(2)}
+                    {selectedApplications[0]?.commission_amount.currency} {totals.totalCommission.toFixed(2)}
                   </div>
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                   <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
                     <Percent className="h-4 w-4" />
-                    <span className="text-sm">Agent Share</span>
-                  </div>
-                  <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {selectedApplications[0]?.commission_currency || '$'} {totals.totalAgentCommission.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 mb-1">
-                    <Globe className="h-4 w-4" />
                     <span className="text-sm">Default Currency</span>
                   </div>
                   <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {selectedApplications[0]?.default_currency || 'INR'}
+                    {selectedApplications[0]?.default_currency}
                   </div>
                 </div>
 
@@ -984,7 +949,7 @@ const handleSubmit = async () => {
                 </button>
               </div>
             </div>
-          )} */}
+          )}
         </div>
       )}
     </div>
