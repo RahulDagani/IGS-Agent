@@ -1,10 +1,10 @@
-"use client"
+"use client";
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Select from "react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ChevronLeft, ChevronRight, Send, Search, Download, CheckCircle, X, Mail, Upload, FileText, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send, Search, Download, CheckCircle, X, Mail, Upload, FileText, AlertCircle, Eye } from "lucide-react";
 import Link from "next/link";
 
 interface CommissionNote {
@@ -89,23 +89,10 @@ type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
   dateRange: [Date | null, Date | null];
-  universities: string[];
   status: string[];
   commissionNoteNumber: string;
   studentSearch: string;
   acknowledgementNo: string;
-  agentId: string | null;
-}
-
-interface Agent {
-  agent_id: number;
-  name: string | null;
-  email: string;
-}
-
-interface University {
-  university_id: number;
-  university_name: string;
 }
 
 interface Pagination {
@@ -115,193 +102,240 @@ interface Pagination {
   pages: number;
 }
 
-// Mark as Paid Modal Props
-interface MarkAsPaidModalProps {
+interface PDFModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (file: File) => Promise<void>;
-  noteId: number | null;
-  isSubmitting: boolean;
+  noteId: number;
+  noteNumber: string;
+  onConfirm: () => void;
+  onSendEmail: () => void;
+  isSendingMail: boolean;
 }
 
-const MarkAsPaidModal: React.FC<MarkAsPaidModalProps> = ({ isOpen, onClose, onSubmit, noteId, isSubmitting }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+// PDF Modal Component
+const PDFViewModal: React.FC<PDFModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  noteId, 
+  noteNumber,
+  onConfirm,
+  onSendEmail,
+  isSendingMail
+}) => {
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const { token } = useAuth();
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE || "https://api.applystore.org";
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+  // Fetch PDF with authentication
+  const fetchPDF = useCallback(async () => {
+    if (!noteId || !token) return;
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      // Check if file is PDF or image
-      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-        setSelectedFile(file);
-      } else {
-        alert('Please upload a PDF or image file');
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(
+        `${BASE_URL}/agent/commission-note/pdf/view/${noteId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please log in again.');
+        } else if (response.status === 404) {
+          throw new Error('PDF not found.');
+        } else {
+          throw new Error(`Failed to load PDF: ${response.status}`);
+        }
       }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setPdfUrl(url);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred while loading the PDF");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [noteId, token, BASE_URL]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      // Check if file is PDF or image
-      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-        setSelectedFile(file);
-      } else {
-        alert('Please upload a PDF or image file');
+  useEffect(() => {
+    if (isOpen && noteId) {
+      fetchPDF();
+      setIsConfirmed(false);
+    }
+    
+    // Cleanup function to revoke blob URL when component unmounts or modal closes
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(null);
       }
+    };
+  }, [isOpen, noteId, fetchPDF]);
+
+  const handleIframeLoad = () => {
+    setLoading(false);
+  };
+
+  const handleIframeError = () => {
+    setLoading(false);
+    setError("Failed to load PDF. Please try again.");
+  };
+
+  const handleConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsConfirmed(e.target.checked);
+  };
+
+  const handleSendEmail = () => {
+    if (isConfirmed) {
+      onSendEmail();
     }
   };
 
-  const handleSubmit = async () => {
-    if (selectedFile) {
-      await onSubmit(selectedFile);
+  const handleClose = () => {
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+      setPdfUrl(null);
     }
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-999999 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full animate-fade-in-up">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Upload className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
+    <div className="fixed inset-0 z-999999 overflow-y-auto">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+        onClick={handleClose}
+      />
+
+      {/* Modal */}
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative w-full max-w-6xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl transform transition-all">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-white/[0.05]">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Mark as Paid
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Commission Note: {noteNumber}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Upload payment proof for Commission Note #{noteId}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Review the commission note before sending
               </p>
             </div>
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Content */}
-        <div className="p-6">
-          <div
-            className={`relative border-2 border-dashed rounded-xl p-8 transition-all ${
-              dragActive
-                ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                : selectedFile
-                ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10'
-                : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.gif"
-              onChange={handleFileChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              disabled={isSubmitting}
-            />
+          {/* PDF Viewer */}
+          <div className="p-6">
+            <div className="bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden" style={{ height: "70vh" }}>
+              {loading && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading PDF...</p>
+                  </div>
+                </div>
+              )}
+              
+              {error && !loading && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center max-w-md px-6">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+                    <p className="mt-4 text-red-600 dark:text-red-400 font-medium">Error Loading PDF</p>
+                    <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">{error}</p>
+                    <div className="mt-6 flex gap-3 justify-center">
+                      <button
+                        onClick={fetchPDF}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Try Again
+                      </button>
+                      <button
+                        onClick={handleClose}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-            <div className="text-center">
-              {selectedFile ? (
-                <>
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-                    <FileText className="w-8 h-8 text-green-600 dark:text-green-400" />
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    {(selectedFile.size / 1024).toFixed(2)} KB
-                  </p>
-                  <button
-                    onClick={handleRemoveFile}
-                    className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
-                  >
-                    Remove file
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
-                    <Upload className="w-8 h-8 text-gray-500 dark:text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    <span className="font-semibold text-green-600 dark:text-green-400">Click to upload</span> or drag and drop
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                    PDF, PNG, JPG, GIF (Max 10MB)
-                  </p>
-                </>
+              {pdfUrl && !error && (
+                <iframe
+                  ref={iframeRef}
+                  src={pdfUrl}
+                  className="w-full h-full border-0"
+                  onLoad={handleIframeLoad}
+                  onError={handleIframeError}
+                  title={`Commission Note ${noteNumber}`}
+                />
               )}
             </div>
           </div>
 
-          {/* Info Message */}
-          <div className="mt-4 flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              Please upload a clear copy of the payment proof. This will be used to verify the payment and mark the commission as paid.
-            </p>
-          </div>
-        </div>
+          {/* Footer with confirmation and actions */}
+          <div className="border-t border-gray-200 dark:border-white/[0.05] p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* Confirmation Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isConfirmed}
+                  onChange={handleConfirmChange}
+                  disabled={!!error}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  I confirm that the commission note has been reviewed and is correct.
+                </span>
+              </label>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!selectedFile || isSubmitting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle size={16} />
-                <span>Confirm Payment</span>
-              </>
-            )}
-          </button>
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={!isConfirmed || isSendingMail || !!error}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSendingMail ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail size={16} />
+                      <span>Send Email</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -318,8 +352,6 @@ export default function PaymentsTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [universities, setUniversities] = useState<University[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -331,17 +363,22 @@ export default function PaymentsTable() {
   const [commentText, setCommentText] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [sendingMail, setSendingMail] = useState(false);
-  const [markingAsPaid, setMarkingAsPaid] = useState(false);
   
-  // Mark as paid modal state
-  const [isMarkAsPaidModalOpen, setIsMarkAsPaidModalOpen] = useState(false);
-  
+  // PDF Modal state
+  const [pdfModal, setPdfModal] = useState<{
+    isOpen: boolean;
+    noteId: number | null;
+    noteNumber: string;
+  }>({
+    isOpen: false,
+    noteId: null,
+    noteNumber: ''
+  });
+
   // Add ref to track initial mount and prevent unnecessary fetches
   const isInitialMount = useRef(true);
   const prevLimitRef = useRef(pagination.limit);
-
 
   const [dialog, setDialog] = useState<{
     isOpen: boolean;
@@ -353,16 +390,13 @@ export default function PaymentsTable() {
     message: ''
   });
 
-  
   // Filter states
   const [filters, setFilters] = useState<FilterOptions>({
     dateRange: [null, null],
-    universities: [],
     status: [],
     commissionNoteNumber: "",
     studentSearch: "",
     acknowledgementNo: "",
-    agentId: null,
   });
 
   const [appliedFilters, setAppliedFilters] = useState<FilterOptions>(filters);
@@ -370,65 +404,6 @@ export default function PaymentsTable() {
 
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE || "https://api.applystore.org";
-
-  // Fetch agents
-  const fetchAgents = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/agents`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch agents: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setAgents(data.data || []);
-      } else {
-        throw new Error(data.message || "Failed to fetch agents");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    }
-  }, [BASE_URL, token]);
-
-  // Fetch universities based on selected agent
-  const fetchUniversities = useCallback(async (agentId: string) => {
-    try {
-      const response = await fetch(
-        `${BASE_URL}/tenant/agent/commissionnote/universities?agent_id=${agentId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch universities: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.status === "success") {
-        setUniversities(data.data || []);
-      } else {
-        throw new Error(data.message || "Failed to fetch universities");
-      }
-    } catch (err) {
-      console.error(err);
-      setUniversities([]);
-    }
-  }, [BASE_URL, token]);
 
   // Fetch commission notes using the new endpoint
   const fetchCommissionNotes = useCallback(async (page = 1, filterOptions = appliedFilters) => {
@@ -445,10 +420,7 @@ export default function PaymentsTable() {
       } else if (active === "paid") {
         params.append('status', 'commission_payment_done');
       }
-      
-      if (filterOptions.agentId) {
-        params.append('agent_id', filterOptions.agentId);
-      }
+    
       
       if (filterOptions.commissionNoteNumber) {
         params.append('commission_note_number', filterOptions.commissionNoteNumber);
@@ -458,9 +430,6 @@ export default function PaymentsTable() {
         filterOptions.status.forEach(status => params.append('status', status));
       }
       
-      if (filterOptions.universities.length > 0) {
-        filterOptions.universities.forEach(univId => params.append('university_id', univId));
-      }
       
       if (filterOptions.dateRange[0]) {
         params.append('start_date', filterOptions.dateRange[0].toISOString().split('T')[0]);
@@ -482,7 +451,7 @@ export default function PaymentsTable() {
       params.append('limit', pagination.limit.toString());
       
       const response = await fetch(
-        `${BASE_URL}/tenant/commission-notes?${params.toString()}`,
+        `${BASE_URL}/agent/commission-notes?${params.toString()}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -526,7 +495,7 @@ export default function PaymentsTable() {
   const fetchComments = useCallback(async (noteId: number) => {
     try {
       const response = await fetch(
-        `${BASE_URL}/tenant/agent-commission-notes/${noteId}/comments`,
+        `${BASE_URL}/agent/agent-commission-notes/${noteId}/comments`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -566,7 +535,7 @@ export default function PaymentsTable() {
       setDetailLoading(true);
       
       const response = await fetch(
-        `${BASE_URL}/tenant/commission-note/${noteId}`,
+        `${BASE_URL}/agent/commission-note/${noteId}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -603,7 +572,7 @@ export default function PaymentsTable() {
       setSendingMail(true);
       
       const response = await fetch(
-        `${BASE_URL}/tenant/commission-note/${noteId}/send`,
+        `${BASE_URL}/agent/commission-note/${noteId}/send`,
         {
           method: 'POST',
           headers: {
@@ -616,6 +585,9 @@ export default function PaymentsTable() {
       const data = await response.json();
       
       if (data.status === "success") {
+        // Close the PDF modal
+        setPdfModal({ isOpen: false, noteId: null, noteNumber: '' });
+        
         // Show success dialog
         setDialog({
           isOpen: true,
@@ -644,66 +616,21 @@ export default function PaymentsTable() {
     }
   }, [BASE_URL, token, fetchCommissionNotes, pagination.page]);
 
-  // Mark commission note as paid with file upload
-  const markAsPaid = useCallback(async (file: File) => {
-    if (!activeNoteId) return;
-    
-    try {
-      setMarkingAsPaid(true);
-      
-      const formData = new FormData();
-      formData.append('payment_proof', file);
-      formData.append('commission_note_id', activeNoteId.toString());
-      
-      const response = await fetch(
-        `${BASE_URL}/tenant/commission-note/mark-paid`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        }
-      );
-      
-      const data = await response.json();
-      
-      if (data.status === "success") {
-        // Close the modal
-        setIsMarkAsPaidModalOpen(false);
-        
-        // Show success dialog
-        setDialog({
-          isOpen: true,
-          type: 'success',
-          message: data.message || "Commission marked as paid successfully!"
-        });
-        
-        // Refresh the notes list
-        fetchCommissionNotes(pagination.page);
-        
-        // If the current note is the one that was marked as paid, refresh its details
-        if (activeNoteId) {
-          fetchCommissionNoteDetail(activeNoteId);
-        }
-      } else {
-        // Show error dialog
-        setDialog({
-          isOpen: true,
-          type: 'error',
-          message: data.message || "Failed to mark as paid"
-        });
-      }
-    } catch (err) {
-      setDialog({
-        isOpen: true,
-        type: 'error',
-        message: err instanceof Error ? err.message : "An error occurred while marking as paid"
-      });
-    } finally {
-      setMarkingAsPaid(false);
+  // Handle send email from modal
+  const handleSendEmailFromModal = useCallback(() => {
+    if (pdfModal.noteId) {
+      sendEmail(pdfModal.noteId);
     }
-  }, [BASE_URL, token, activeNoteId, fetchCommissionNotes, fetchCommissionNoteDetail, pagination.page]);
+  }, [pdfModal.noteId, sendEmail]);
+
+  // Handle raise invoice button click
+  const handleRaiseInvoice = useCallback((noteId: number, noteNumber: string) => {
+    setPdfModal({
+      isOpen: true,
+      noteId: noteId,
+      noteNumber: noteNumber
+    });
+  }, []);
 
   const closeDialog = () => {
     setDialog(prev => ({ ...prev, isOpen: false }));
@@ -760,51 +687,6 @@ export default function PaymentsTable() {
     );
   };
 
-  const downloadInvoice = useCallback(async (noteId: number) => {
-  if (!noteId) return;
-  
-  try {
-    setDownloadingInvoice(true);
-    
-    const response = await fetch(
-      `${BASE_URL}/tenant/commission-note/invoice/pdf/${noteId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Failed to download invoice PDF: ${response.status}`);
-    }
-    
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `commission-invoice-${noteId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "An error occurred while downloading invoice PDF");
-  } finally {
-    setDownloadingInvoice(false);
-  }
-}, [BASE_URL, token]);
-
-// Add this new handler function (around line 540)
-const handleDownloadInvoice = () => {
-  if (activeNoteId) {
-    downloadInvoice(activeNoteId);
-  }
-};
-
   // Download PDF function
   const downloadPdf = useCallback(async (noteId: number) => {
     if (!noteId) return;
@@ -813,7 +695,7 @@ const handleDownloadInvoice = () => {
       setDownloadingPdf(true);
       
       const response = await fetch(
-        `${BASE_URL}/tenant/commission-note/${noteId}/pdf`,
+        `${BASE_URL}/agent/commission-note/${noteId}/pdf`,
         {
           method: 'GET',
           headers: {
@@ -852,7 +734,7 @@ const handleDownloadInvoice = () => {
       setPostingComment(true);
       
       const response = await fetch(
-        `${BASE_URL}/tenant/agent-commission-notes/${noteId}/comments`,
+        `${BASE_URL}/agent/agent-commission-notes/${noteId}/comments`,
         {
           method: 'POST',
           headers: {
@@ -899,15 +781,6 @@ const handleDownloadInvoice = () => {
         [filterType]: value
       };
       
-      if (filterType === 'agentId') {
-        if (value) {
-          fetchUniversities(value);
-          newFilters.universities = [];
-        } else {
-          setUniversities([]);
-        }
-      }
-      
       return newFilters;
     });
   };
@@ -923,18 +796,15 @@ const handleDownloadInvoice = () => {
   const handleClearFilters = () => {
     const clearedFilters: FilterOptions = {
       dateRange: [null, null],
-      universities: [],
       status: [],
       commissionNoteNumber: "",
       studentSearch: "",
       acknowledgementNo: "",
-      agentId: null,
     };
     
     setFilters(clearedFilters);
     setAppliedFilters(clearedFilters);
     setDatePickerKey(prev => prev + 1);
-    setUniversities([]);
     fetchCommissionNotes(1, clearedFilters);
   };
 
@@ -990,13 +860,6 @@ const handleDownloadInvoice = () => {
       if (window.confirm("Are you sure you want to send this commission note via email?")) {
         sendEmail(activeNoteId);
       }
-    }
-  };
-
-  // Handle mark as paid - open modal instead of confirm
-  const handleMarkAsPaid = () => {
-    if (activeNoteId) {
-      setIsMarkAsPaidModalOpen(true);
     }
   };
 
@@ -1074,14 +937,13 @@ const handleDownloadInvoice = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
-      await fetchAgents();
       await fetchCommissionNotes();
       setLoading(false);
       isInitialMount.current = false;
     };
     
     fetchInitialData();
-  }, [fetchAgents, fetchCommissionNotes]);
+  }, [fetchCommissionNotes]);
 
   // Fetch detail when active note changes
   useEffect(() => {
@@ -1212,18 +1074,20 @@ const handleDownloadInvoice = () => {
     );
   }
 
-return (
+  return (
     <>
       {/* Status Dialog */}
       <StatusDialog />
 
-      {/* Mark as Paid Modal */}
-      <MarkAsPaidModal
-        isOpen={isMarkAsPaidModalOpen}
-        onClose={() => setIsMarkAsPaidModalOpen(false)}
-        onSubmit={markAsPaid}
-        noteId={activeNoteId}
-        isSubmitting={markingAsPaid}
+      {/* PDF Modal */}
+      <PDFViewModal
+        isOpen={pdfModal.isOpen}
+        onClose={() => setPdfModal({ isOpen: false, noteId: null, noteNumber: '' })}
+        noteId={pdfModal.noteId || 0}
+        noteNumber={pdfModal.noteNumber}
+        onConfirm={() => {}}
+        onSendEmail={handleSendEmailFromModal}
+        isSendingMail={sendingMail}
       />
 
       {/* Header */}
@@ -1236,13 +1100,6 @@ return (
             Manage and track all your commission notes
           </p>
         </div>
-
-        <Link
-          href="/admin/partners/accounts/commissionnote/add"
-          className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium dark:bg-blue-700 dark:hover:bg-blue-600"
-        >
-          <span>Create Commission Note</span>
-        </Link>
       </div>
 
       {/* Main Content */}
@@ -1348,276 +1205,264 @@ return (
         </div>
 
         {/* Right Panel - Details */}
-<div className="lg:col-span-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/[0.05] p-6">
-  {detailLoading ? (
-    <div className="flex justify-center items-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>
-  ) : activeNoteDetail ? (
-    <div className="space-y-6">
-      {/* Header with Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Commission Note #{activeNoteDetail.commission_note?.note_number || activeNoteId} 
-            <span className={`ml-2 text-xs px-3 py-1.5 rounded-full ${getStatusColor(activeNoteDetail.commission_note?.status || '')}`}>
-              {(activeNoteDetail.commission_note?.status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </span>
-          </h2>
-          <div className="mt-2 space-y-1">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Date:</span> {formatDate(activeNoteDetail.commission_note?.date) || '-'}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Agent Business:</span> {activeNoteDetail.commission_note?.agent_business || '-'}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">University:</span> {activeNoteDetail.commission_note?.university || '-'}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Currency:</span> {activeNoteDetail.commission_note?.currency || '-'}
-            </p>
-          </div>
-        </div>
+        <div className="lg:col-span-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-white/[0.05] p-6">
+          {detailLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : activeNoteDetail ? (
+            <div className="space-y-6">
+              {/* Header with Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Commission Note #{activeNoteDetail.commission_note?.note_number || activeNoteId} 
+                    <span className={`ml-2 text-xs px-3 py-1.5 rounded-full ${getStatusColor(activeNoteDetail.commission_note?.status || '')}`}>
+                      {(activeNoteDetail.commission_note?.status || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </span>
+                  </h2>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Date:</span> {formatDate(activeNoteDetail.commission_note?.date) || '-'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Agent Business:</span> {activeNoteDetail.commission_note?.agent_business || '-'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">University:</span> {activeNoteDetail.commission_note?.university || '-'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Currency:</span> {activeNoteDetail.commission_note?.currency || '-'}
+                    </p>
+                  </div>
+                </div>
 
-        <div className="flex flex-wrap gap-2">
-          {/* Download Commission Note Button */}
-  <button
-    onClick={handleDownloadPdf}
-    disabled={downloadingPdf}
-    className="inline-flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
-    title="Download Commission Note PDF"
-  >
-    <Download size={16} />
-    {downloadingPdf ? "Downloading..." : "Download Note"}
-  </button>
+                <div className="flex flex-wrap gap-2">
+                  {/* Raise Invoice Button */}
+                  <button
+                    onClick={() => handleRaiseInvoice(
+                      activeNoteDetail.commission_note?.id || 0, 
+                      activeNoteDetail.commission_note?.note_number || ''
+                    )}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <FileText size={16} />
+                    Raise Invoice
+                  </button>
 
-  {/* Download Invoice Button - New */}
-  <button
-    onClick={handleDownloadInvoice}
-    disabled={downloadingInvoice}
-    className="inline-flex items-center gap-2 px-3 py-2 border border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-400 rounded-lg text-sm hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50"
-    title="Download Invoice PDF"
-  >
-    <FileText size={16} />
-    {downloadingInvoice ? "Downloading..." : "Download Invoice"}
-  </button>
+                  {/* Download Button */}
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf}
+                    className="inline-flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                  >
+                    <Download size={16} />
+                    {downloadingPdf ? "Downloading..." : "Download"}
+                  </button>
 
-
-          {/* Send Mail Button */}
-          <button
-            onClick={handleSendEmail}
-            disabled={sendingMail}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-green-600 text-green-600 dark:border-green-500 dark:text-green-400 rounded-lg text-sm hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
-          >
-            <Mail size={16} />
-            {sendingMail ? "Sending..." : "Send Mail"}
-          </button>
-
-          {activeNoteDetail.commission_note?.status !== 'commission_payment_done' && (
-            <button
-              onClick={handleMarkAsPaid}
-              disabled={markingAsPaid}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              <CheckCircle size={16} />
-              {markingAsPaid ? "Processing..." : "Mark Paid"}
-            </button>
-          )}
-        </div>
-      </div>
-
-{/* Items Table */}
-{activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
-  <div>
-    <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
-      Commission Items ({activeNoteDetail.items.length})
-    </h3>
-    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-800">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Intake</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inst</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Fee</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Amt</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank Charges</th>
-            
-            {/* Conditionally show commission_amt_after_bank_charges and exchange_rate */}
-            {activeNoteDetail.items.some(item => item.exchange_rate) && (
-              <>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">After Bank</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ex. Rate</th>
-              </>
-            )}
-            
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Comm.</th>
-            
-            {/* Conditionally show partner_share_percentage and partner_share_amt */}
-            {activeNoteDetail.items.some(item => item.partner_share_percentage) && (
-              <>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Share</th>
-                
-              </>
-            )}
-
-            {activeNoteDetail.items.some(item => item.partner_share_amt) && (
-              <>
-                
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Amt</th>
-              </>
-            )}
-            
-            {/* Conditionally show GST columns */}
-            {activeNoteDetail.items.some(item => item.gst_percentage) && (
-              <>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST Amt</th>
-              </>
-            )}
-            
-            {/* TDS columns (always show if GST exists) */}
-            {activeNoteDetail.items.some(item => item.gst_percentage) && (
-              <>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS Amt</th>
-              </>
-            )}
-            
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Pay</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-          {activeNoteDetail.items.map((item, index) => (
-            <tr key={item.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.student || '-'}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.course || '-'}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.intake || '-'}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.installment || '-'}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commissionable_tuition_fee || '-'}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amount_invoice_currency || '-'}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.bank_charges || '-'}</td>
-              
-              {/* Conditionally show commission_amt_after_bank_charges and exchange_rate */}
-              {activeNoteDetail.items.some(item => item.exchange_rate) && (
-                <>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amt_after_bank_charges || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.exchange_rate || '-'}</td>
-                </>
-              )}
-              
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.net_commission_amt || '-'}</td>
-              
-              {/* Conditionally show partner_share_percentage and partner_share_amt */}
-              {activeNoteDetail.items.some(item => item.partner_share_percentage) && (
-                <>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_percentage || '-'}</td>
-             
-                </>
-              )}
-
-              {activeNoteDetail.items.some(item => item.partner_share_amt) && (
-                <>
-                 
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_amt || '-'}</td>
-                </>
-              )}
-              
-              {/* Conditionally show GST columns */}
-              {activeNoteDetail.items.some(item => item.gst_percentage) && (
-                <>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_amount || '-'}</td>
-                </>
-              )}
-              
-              {/* TDS columns (always show if GST exists) */}
-              {activeNoteDetail.items.some(item => item.gst_percentage) && (
-                <>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_amount || '-'}</td>
-                </>
-              )}
-              
-              <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
-                {item.net_pay || '-'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-
-      {/* Summary */}
-      {activeNoteDetail.summary && (
-        <div className="flex justify-end">
-          <div className="w-full sm:w-64 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
-            <p className="text-xs text-green-600 dark:text-green-400">Total Net Payable</p>
-            <p className="text-lg font-semibold text-green-700 dark:text-green-300">
-              {activeNoteDetail.summary.total_net_payable || '-'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Comments Section - Keep as is */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Comments</h3>
-
-        <div className="flex gap-2">
-          <input
-            placeholder="Type your comment... (Press Enter to submit)"
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={handleCommentKeyDown}
-            disabled={postingComment}
-          />
-          <button
-            onClick={handleCommentSubmit}
-            disabled={postingComment || !commentText.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-          >
-            {postingComment ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-            ) : (
-              <>
-                <Send size={16} />
-                <span className="hidden sm:inline">Send</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
-          <div className="mt-4 space-y-3 max-h-64 overflow-y-auto">
-            {activeNoteDetail.comments.map((comment) => (
-              <div key={comment.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-700 dark:text-gray-300">{comment.comment}</p>
-                <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span>{comment.created_by_name || `User ${comment.created_by}`}</span>
-                  <span>{formatDateTime(comment.created_at)}</span>
+                  {/* Send Mail Button */}
+                  {/* <button
+                    onClick={handleSendEmail}
+                    disabled={sendingMail}
+                    className="inline-flex items-center gap-2 px-3 py-2 border border-green-600 text-green-600 dark:border-green-500 dark:text-green-400 rounded-lg text-sm hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
+                  >
+                    <Mail size={16} />
+                    {sendingMail ? "Sending..." : "Send Mail"}
+                  </button> */}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-gray-500 dark:text-gray-400 mt-6 py-4">
-            No comments yet
-          </p>
-        )}
-      </div>
-    </div>
-  ) : (
-    <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-      <p>Select a commission note to view details</p>
-    </div>
-  )}
-</div>
+
+              {/* Items Table */}
+              {activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
+                    Commission Items ({activeNoteDetail.items.length})
+                  </h3>
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Intake</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inst</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Fee</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Amt</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank Charges</th>
+                          
+                          {/* Conditionally show commission_amt_after_bank_charges and exchange_rate */}
+                          {activeNoteDetail.items.some(item => item.exchange_rate) && (
+                            <>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">After Bank</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ex. Rate</th>
+                            </>
+                          )}
+                          
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Comm.</th>
+                          
+                          {/* Conditionally show partner_share_percentage and partner_share_amt */}
+                          {activeNoteDetail.items.some(item => item.partner_share_percentage) && (
+                            <>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Share</th>
+                              
+                            </>
+                          )}
+
+                          {activeNoteDetail.items.some(item => item.partner_share_amt) && (
+                            <>
+                              
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Amt</th>
+                            </>
+                          )}
+                          
+                          {/* Conditionally show GST columns */}
+                          {activeNoteDetail.items.some(item => item.gst_percentage) && (
+                            <>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST Amt</th>
+                            </>
+                          )}
+                          
+                          {/* TDS columns (always show if GST exists) */}
+                          {activeNoteDetail.items.some(item => item.gst_percentage) && (
+                            <>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS Amt</th>
+                            </>
+                          )}
+                          
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Pay</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                        {activeNoteDetail.items.map((item, index) => (
+                          <tr key={item.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.student || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.course || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.intake || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.installment || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commissionable_tuition_fee || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amount_invoice_currency || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.bank_charges || '-'}</td>
+                            
+                            {/* Conditionally show commission_amt_after_bank_charges and exchange_rate */}
+                            {activeNoteDetail.items.some(item => item.exchange_rate) && (
+                              <>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amt_after_bank_charges || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.exchange_rate || '-'}</td>
+                              </>
+                            )}
+                            
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.net_commission_amt || '-'}</td>
+                            
+                            {/* Conditionally show partner_share_percentage and partner_share_amt */}
+                            {activeNoteDetail.items.some(item => item.partner_share_percentage) && (
+                              <>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_percentage || '-'}</td>
+                          
+                              </>
+                            )}
+
+                            {activeNoteDetail.items.some(item => item.partner_share_amt) && (
+                              <>
+                                
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_amt || '-'}</td>
+                              </>
+                            )}
+                            
+                            {/* Conditionally show GST columns */}
+                            {activeNoteDetail.items.some(item => item.gst_percentage) && (
+                              <>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_amount || '-'}</td>
+                              </>
+                            )}
+                            
+                            {/* TDS columns (always show if GST exists) */}
+                            {activeNoteDetail.items.some(item => item.gst_percentage) && (
+                              <>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_amount || '-'}</td>
+                              </>
+                            )}
+                            
+                            <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
+                              {item.net_pay || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Summary */}
+              {activeNoteDetail.summary && (
+                <div className="flex justify-end">
+                  <div className="w-full sm:w-64 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                    <p className="text-xs text-green-600 dark:text-green-400">Total Net Payable</p>
+                    <p className="text-lg font-semibold text-green-700 dark:text-green-300">
+                      {activeNoteDetail.summary.total_net_payable || '-'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Comments Section */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Comments</h3>
+
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Type your comment... (Press Enter to submit)"
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={handleCommentKeyDown}
+                    disabled={postingComment}
+                  />
+                  <button
+                    onClick={handleCommentSubmit}
+                    disabled={postingComment || !commentText.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {postingComment ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    ) : (
+                      <>
+                        <Send size={16} />
+                        <span className="hidden sm:inline">Send</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
+                  <div className="mt-4 space-y-3 max-h-64 overflow-y-auto">
+                    {activeNoteDetail.comments.map((comment) => (
+                      <div key={comment.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{comment.comment}</p>
+                        <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span>{comment.created_by_name || `User ${comment.created_by}`}</span>
+                          <span>{formatDateTime(comment.created_at)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 mt-6 py-4">
+                    No comments yet
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+              <p>Select a commission note to view details</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add animation styles */}
