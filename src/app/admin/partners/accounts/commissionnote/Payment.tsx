@@ -1368,64 +1368,130 @@ return (
         </div>
       </div>
 
-      {/* Items Table */}
-      {activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
-        <div>
-          <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
-            Commission Items ({activeNoteDetail.items.length})
-          </h3>
-          <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Intake</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inst</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Fee</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Amt</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank Charges</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">After Bank</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ex. Rate</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Comm.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Share</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Amt</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST Amt</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS Amt</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Pay</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                {activeNoteDetail.items.map((item, index) => (
-                  <tr key={item.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.student || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.course || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.intake || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.installment || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commissionable_tuition_fee || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amount_invoice_currency || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.bank_charges || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amt_after_bank_charges || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.exchange_rate || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.net_commission_amt || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_percentage || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_amt || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_amount || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_amount || '-'}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
-                      {item.net_pay || '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+{/* Items Table */}
+{activeNoteDetail.items && activeNoteDetail.items.length > 0 && (
+  <div>
+    <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
+      Commission Items ({activeNoteDetail.items.length})
+    </h3>
+    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Course</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Intake</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inst</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Fee</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comm. Amt</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank Charges</th>
+            
+            {/* Conditionally show commission_amt_after_bank_charges and exchange_rate */}
+            {activeNoteDetail.items.some(item => item.exchange_rate) && (
+              <>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">After Bank</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ex. Rate</th>
+              </>
+            )}
+            
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Comm.</th>
+            
+            {/* Conditionally show partner_share_percentage and partner_share_amt */}
+            {activeNoteDetail.items.some(item => item.partner_share_percentage) && (
+              <>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Share</th>
+                
+              </>
+            )}
+
+            {activeNoteDetail.items.some(item => item.partner_share_amt) && (
+              <>
+                
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Partner Amt</th>
+              </>
+            )}
+            
+            {/* Conditionally show GST columns */}
+            {activeNoteDetail.items.some(item => item.gst_percentage) && (
+              <>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GST Amt</th>
+              </>
+            )}
+            
+            {/* TDS columns (always show if GST exists) */}
+            {activeNoteDetail.items.some(item => item.gst_percentage) && (
+              <>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TDS Amt</th>
+              </>
+            )}
+            
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Net Pay</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+          {activeNoteDetail.items.map((item, index) => (
+            <tr key={item.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.student || '-'}</td>
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.course || '-'}</td>
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.intake || '-'}</td>
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.installment || '-'}</td>
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commissionable_tuition_fee || '-'}</td>
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amount_invoice_currency || '-'}</td>
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.bank_charges || '-'}</td>
+              
+              {/* Conditionally show commission_amt_after_bank_charges and exchange_rate */}
+              {activeNoteDetail.items.some(item => item.exchange_rate) && (
+                <>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.commission_amt_after_bank_charges || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.exchange_rate || '-'}</td>
+                </>
+              )}
+              
+              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.net_commission_amt || '-'}</td>
+              
+              {/* Conditionally show partner_share_percentage and partner_share_amt */}
+              {activeNoteDetail.items.some(item => item.partner_share_percentage) && (
+                <>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_percentage || '-'}</td>
+             
+                </>
+              )}
+
+              {activeNoteDetail.items.some(item => item.partner_share_amt) && (
+                <>
+                 
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.partner_share_amt || '-'}</td>
+                </>
+              )}
+              
+              {/* Conditionally show GST columns */}
+              {activeNoteDetail.items.some(item => item.gst_percentage) && (
+                <>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_percentage || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.gst_amount || '-'}</td>
+                </>
+              )}
+              
+              {/* TDS columns (always show if GST exists) */}
+              {activeNoteDetail.items.some(item => item.gst_percentage) && (
+                <>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_percentage || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{item.tds_amount || '-'}</td>
+                </>
+              )}
+              
+              <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
+                {item.net_pay || '-'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
       {/* Summary */}
       {activeNoteDetail.summary && (
