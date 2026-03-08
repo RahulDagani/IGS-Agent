@@ -52,6 +52,7 @@ interface Application {
   application_id: number;
   student_name: string;
   intake_year: number;
+  course_name: string;
   course_level: string;
   commissionable_tuition_fee: {
     value: number | null;
@@ -770,8 +771,8 @@ const AddCommissionNote = () => {
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             App ID: {application.application_id}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {application.course_level} - {application.intake_year}
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Course: {application.course_name} - {application.course_level} - {application.intake_year}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -787,14 +788,14 @@ const AddCommissionNote = () => {
                                 {application.commission_amount.currency} {application.commission_amount.value?.toFixed(2)}
                               </span>
                             </div>
-                            {application.commissionable_tuition_fee.value && (
+                            {application.commissionable_tuition_fee.value ? (
                               <div className="text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">Tuition Fee: </span>
                                 <span className="font-medium">
                                   {application.commissionable_tuition_fee.currency} {application.commissionable_tuition_fee.value}
                                 </span>
                               </div>
-                            )}
+                            ): ""}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -827,7 +828,7 @@ const AddCommissionNote = () => {
                                       <input
                                         type="number"
                                         step="0.01"
-                                        value={adminInputValues[application.invoice_item_id]?.[fieldName] || ''}
+                                        value={adminInputValues[application.invoice_item_id]?.[fieldName] ?? ''}
                                         onChange={(e) => handleAdminInputChange(
                                           application.invoice_item_id,
                                           fieldName,
@@ -835,7 +836,7 @@ const AddCommissionNote = () => {
                                         )}
                                         placeholder={'Enter value'}
                                         className={`w-full px-2 py-1 text-sm  text-black dark:text-white border rounded-md focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 ${
-                                          field.currency ? 'pl-8' : 'pl-2'
+                                          field.currency ? 'pl-9' : 'pl-2'
                                         } ${
                                           field.required && 
                                           !adminInputValues[application.invoice_item_id]?.[fieldName]
