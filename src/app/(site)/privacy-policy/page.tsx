@@ -16,7 +16,7 @@ export default function PrivacyPolicyPage() {
         <section className="w-full bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-b-3xl">
           {/* Privacy Policy Heading */}
           <h1 className="text-center text-6xl lg:text-[90px] font-serif font-bold py-20">
-            Privacy Policy
+            Privacy Policy 
           </h1>
         </section>
 
