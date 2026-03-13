@@ -1,21 +1,26 @@
 "use client";
 
 import { useSidebar } from "@/context/SidebarContext";
-import AppHeader from "./layout/AppHeader";
-import AppSidebar from "./layout/AppSidebar";
+import AppHeader from "@/app/partner/AppHeader";
+import AppSidebar from "@/app/partner/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import React from "react";
+
+
 import RoleGuard from "@/components/RoleGuard";
+import { usePathname } from "next/navigation";
 
-
-// Define the props interface for the layout
-interface AdminLayoutProps {
+interface PartnerLayoutProps {
   children: React.ReactNode;
 }
 
+function PartnerLayout({ children }: PartnerLayoutProps) {
+  const pathname = usePathname();
 
-function AdminLayout({ children }: AdminLayoutProps) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+
+  const isPartnerRoute = pathname?.startsWith('/partner') || pathname === '/';
+
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
@@ -24,9 +29,13 @@ function AdminLayout({ children }: AdminLayoutProps) {
     ? "lg:ml-[290px]"
     : "lg:ml-[90px]";
 
+  // If it's not a student route (and not root), render children normally
+  if (!isPartnerRoute) {
+    return <>{children}</>;
+  }
+
   return (
-        <RoleGuard allowedRoles={["admin"]}>
-    
+    <RoleGuard allowedRoles={["agent","counsellor"]}>
     <div className="min-h-screen xl:flex">
       {/* Sidebar and Backdrop */}
       <AppSidebar />
@@ -41,9 +50,10 @@ function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
       </div>
     </div>
-        </RoleGuard>
-    
+    </RoleGuard>
   );
 }
 
-export default AdminLayout;
+
+export default PartnerLayout;
+// export default PartnerLayout;

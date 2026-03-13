@@ -23,14 +23,7 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
     
     if (!isAuthenticated) {
 
-      let signinRoute = "/signin"; // default
-      
-      if (pathname?.startsWith("/student")) {
-        signinRoute = "/signin/student";
-      } else if (pathname?.startsWith("/partner")) {
-        signinRoute = "/signin/agent";
-      }
-
+      let signinRoute = "/signin/agent"; // default
 
       const returnUrl = encodeURIComponent(pathname || "/");
       router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
@@ -45,15 +38,7 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
         router.replace(`/admin/partners/agents`);
         return;
       }else{
-          let signinRoute = "/signin";
-        if (pathname?.startsWith("/student")) {
-          signinRoute = "/signin/student";
-        } else if (pathname?.startsWith("/partner")) {
-          signinRoute = "/signin/agent";
-        }else if(pathname?.startsWith("/admin")){
-          signinRoute = "/signin"
-        }
-
+        let signinRoute = "/signin/agent";
         const returnUrl = encodeURIComponent(pathname || "/");
         router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
       }
