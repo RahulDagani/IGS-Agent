@@ -4,9 +4,9 @@ import { useState } from "react";
 import { LogIn, ChevronLeftIcon, Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams  } from "next/navigation";
 import Link from "next/link";
-
 import { Suspense } from 'react';
 import { useAuth } from "@/context/AuthContext";
+import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 interface FormData {
   email: string;
@@ -93,7 +93,7 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 function AgentLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/partner';
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
   
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -197,12 +197,19 @@ function AgentLoginContent() {
     }
   };
 
+  const handleGoogleSuccess = () => {
+    // Optional: Add any post-login success handling
+    console.log("Google login successful for partner");
+  };
+
+  const handleGoogleError = (error: string) => {
+    setErrors({ submit: error });
+  };
+
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       {/* Left Side - Form Content */}
       <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
-        
-
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
           <div>
             <div className="mb-5 sm:mb-8">
@@ -212,6 +219,32 @@ function AgentLoginContent() {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Enter your email and password to access your partner portal
               </p>
+            </div>
+
+            {/* Google Login Button */}
+            <div className="mb-6">
+              <GoogleLoginButton 
+    onSuccess={() => {
+      // Optional: Add any post-login success handling
+      console.log("Google login successful");
+    }}
+    onError={(error) => {
+      setErrors({ submit: error });
+    }}
+    role="agent" // Specify role
+  />
+            </div>
+
+            {/* Divider */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">
+                  Or continue with email
+                </span>
+              </div>
             </div>
 
             {/* Agent Login Form */}
@@ -297,8 +330,6 @@ function AgentLoginContent() {
               </div>
             </form>
 
-          
-
             <div className="mt-3">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
                 Need an partner account? {""}
@@ -332,4 +363,3 @@ export default function AgentLoginPage() {
     </Suspense>
   );
 }
-

@@ -20,6 +20,7 @@ interface User {
   role_key: string;
   panel_type: string;
   email_verified?: number;
+  phone_number: string;
 }
 
 interface AuthContextType {
