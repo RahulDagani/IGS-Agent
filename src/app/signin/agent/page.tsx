@@ -5,7 +5,7 @@ import { LogIn, ChevronLeftIcon, Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams  } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from 'react';
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext"; 
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 interface FormData {
