@@ -48,6 +48,13 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
       // router.replace("/unauthorized");
     }
 
+
+    if(user && !user.phone_number){
+      let signinRoute = "/signin/phone";
+        const returnUrl = encodeURIComponent(pathname || "/");
+        router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
+    }
+
     
 
     

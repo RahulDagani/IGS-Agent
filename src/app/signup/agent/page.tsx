@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import countries from "country-list-with-dial-code-and-flag";
+import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 
 // Types for country data
@@ -329,10 +330,10 @@ export default function AgentRegistrationPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const allCountries = countries.getAll() as Country[];
-const defaultCountry = allCountries.find(c => c.code === "US") || allCountries[0];
+  const allCountries = countries.getAll() as Country[];
+  const defaultCountry = allCountries.find(c => c.code === "US") || allCountries[0];
 
-const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -355,9 +356,6 @@ const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
   const [verificationSuccessful, setVerificationSuccessful] = useState(false);
   const [alert, setAlert] = useState<{type: 'success' | 'error' | 'info'; message: string} | null>(null);
   const [showAlert, setShowAlert] = useState(false);
-
-
-
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -401,16 +399,16 @@ const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
       newErrors.name = "Name must be at least 2 characters";
     }
 
-   // Phone validation
-if (!formData.phoneNumber.trim()) {
-  newErrors.phoneNumber = "Phone number is required";
-} else {
-  // Remove any non-digit characters for validation
-  const phoneDigits = formData.phoneNumber.replace(/\D/g, '');
-  if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-    newErrors.phoneNumber = "Please enter a valid phone number";
-  }
-}
+    // Phone validation
+    if (!formData.phoneNumber.trim()) {
+      newErrors.phoneNumber = "Phone number is required";
+    } else {
+      // Remove any non-digit characters for validation
+      const phoneDigits = formData.phoneNumber.replace(/\D/g, '');
+      if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+        newErrors.phoneNumber = "Please enter a valid phone number";
+      }
+    }
 
     // Email validation
     if (!formData.email.trim()) {
@@ -587,8 +585,8 @@ if (!formData.phoneNumber.trim()) {
   };
 
   const handleCountryChange = (country: Country) => {
-  setSelectedCountry(country);
-};
+    setSelectedCountry(country);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -601,18 +599,17 @@ if (!formData.phoneNumber.trim()) {
         setErrors(prev => ({ ...prev, otp: undefined }));
       }
     } else if (name === "phoneNumber") {
-    // Allow only digits, spaces, and basic phone number characters
-    const phoneValue = value.replace(/[^\d\s\-\(\)\+]/g, '');
-    setFormData(prev => ({
-      ...prev,
-      [name]: phoneValue,
-    }));
-    
-    if (errors.phoneNumber) {
-      setErrors(prev => ({ ...prev, phoneNumber: undefined }));
-    }
-  }
-  else {
+      // Allow only digits, spaces, and basic phone number characters
+      const phoneValue = value.replace(/[^\d\s\-\(\)\+]/g, '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: phoneValue,
+      }));
+      
+      if (errors.phoneNumber) {
+        setErrors(prev => ({ ...prev, phoneNumber: undefined }));
+      }
+    } else {
       setFormData(prev => ({
         ...prev,
         [name]: value,
@@ -631,6 +628,17 @@ if (!formData.phoneNumber.trim()) {
         setErrors(prev => ({ ...prev, confirmPassword: undefined }));
       }
     }
+  };
+
+  const handleGoogleSuccess = () => {
+    console.log("Google signup successful for partner");
+    // Optionally redirect to business onboarding after Google signup
+    // The GoogleLoginButton component will handle the login/signup flow
+  };
+
+  const handleGoogleError = (error: string) => {
+    setErrors({ submit: error });
+    showAlertMessage('error', error);
   };
 
   const goToPreviousStep = () => {
@@ -654,33 +662,74 @@ if (!formData.phoneNumber.trim()) {
 
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
           <div>
-            <div className="mb-5 sm:mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step === "details" ? "bg-brand-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                }`}>
-                  1
+            {step === "details" && (
+              <>
+                <div className="mb-5 sm:mb-8">
+                  <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
+                    Partner Registration
+                  </h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Choose your preferred signup method
+                  </p>
                 </div>
-                <div className="h-1 w-8 bg-gray-300 dark:bg-gray-700"></div>
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step === "otp" ? "bg-brand-500 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                }`}>
-                  2
+
+                {/* Google Signup Button */}
+                <div className="mb-6">
+                  <GoogleLoginButton 
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    role="agent"
+                  />
                 </div>
-              </div>
-              
-              <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
-                {step === "details" ? "Partner Registration" : "Verify Your Email"}
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {step === "details" 
-                  ? "Enter your details to create an account" 
-                  : "Enter the OTP sent to your email"}
-              </p>
-            </div>
+
+                {/* Divider */}
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">
+                      Or sign up with email
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {step === "otp" && (
+  <div className="mb-5 sm:mb-8">
+    <div className="flex items-center gap-3 mb-4">
+      {/* Step 1 - Always show as completed when on OTP step */}
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-500 text-white">
+        1
+      </div>
+      <div className="h-1 w-8 bg-gray-300 dark:bg-gray-700"></div>
+      {/* Step 2 - Current step */}
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-500 text-white">
+        2
+      </div>
+    </div>
+    
+    <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
+      Verify Your Email
+    </h1>
+    <p className="text-sm text-gray-500 dark:text-gray-400">
+      Enter the OTP sent to your email
+    </p>
+  </div>
+)}
 
             {/* Alert Messages */}
-            
+            {showAlert && alert && (
+              <Alert
+                type={alert.type}
+                message={alert.message}
+                onClose={() => {
+                  setShowAlert(false);
+                  setAlert(null);
+                }}
+              />
+            )}
 
             {verificationSuccessful ? (
               <div className="text-center py-10">
@@ -900,26 +949,6 @@ if (!formData.phoneNumber.trim()) {
                     </>
                   )}
 
-                  {/* Display submit errors from API */}
-                  {/* {errors.submit && !showAlert && (
-                    <Alert
-                      type="error"
-                      message={errors.submit}
-                      onClose={() => setErrors(prev => ({ ...prev, submit: undefined }))}
-                    />
-                  )} */}
-
-                  {showAlert && alert && (
-              <Alert
-                type={alert.type}
-                message={alert.message}
-                onClose={() => {
-                  setShowAlert(false);
-                  setAlert(null);
-                }}
-              />
-            )}
-
                   <div>
                     <Button 
                       type="submit"
@@ -955,7 +984,7 @@ if (!formData.phoneNumber.trim()) {
               </form>
             )}
 
-            {!verificationSuccessful && (
+            {!verificationSuccessful && step === "details" && (
               <div className="mt-5">
                 <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400">
                   Already have an account?{" "}
