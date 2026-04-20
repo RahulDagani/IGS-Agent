@@ -13,6 +13,7 @@ interface BusinessFormData {
   business_state: string;
   business_city: string;
   business_address: string;
+  business_certificate: File | null;
 }
 
 interface FormErrors {
@@ -21,6 +22,7 @@ interface FormErrors {
   business_state?: string;
   business_city?: string;
   business_address?: string;
+  business_certificate?: string;
   submit?: string;
 }
 
@@ -135,6 +137,7 @@ export default function BusinessDetailsPage() {
     business_state: "",
     business_city: "",
     business_address: "",
+    business_certificate: null,
   });
 
   const [countries, setCountries] = useState<{ value: string; label: string }[]>([]);
@@ -235,22 +238,25 @@ export default function BusinessDetailsPage() {
       const stateName = State.getStateByCodeAndCountry(formData.business_state, formData.business_country)?.name || formData.business_state;
       const cityName = formData.business_city;
 
-      const payload = {
-        business_name: formData.business_name,
-        country_code: countryName,
-        state_code: stateName,
-        city_code: cityName,
-        street_address: formData.business_address,
-      };
-        const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+      const body = new FormData();
+      body.append("business_name", formData.business_name);
+      body.append("country_code", countryName);
+      body.append("state_code", stateName);
+      body.append("city_code", cityName);
+      body.append("street_address", formData.business_address);
+      if (formData.business_certificate) {
+        body.append("business_certificate", formData.business_certificate);
+      }
 
       const response = await fetch(`${BASE_URL}/agent/business`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
+          // No Content-Type — browser sets it automatically with the boundary for multipart
         },
-        body: JSON.stringify(payload),
+        body,
       });
 
       const data = await response.json();
@@ -278,15 +284,26 @@ export default function BusinessDetailsPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Clear error when user starts typing
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file && file.type !== "application/pdf") {
+      setErrors(prev => ({ ...prev, business_certificate: "Only PDF files are accepted" }));
+      e.target.value = "";
+      return;
+    }
+    if (file && file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, business_certificate: "File must be under 5 MB" }));
+      e.target.value = "";
+      return;
+    }
+    setFormData(prev => ({ ...prev, business_certificate: file }));
+    setErrors(prev => ({ ...prev, business_certificate: undefined }));
   };
 
   const getCountryName = (countryCode: string) => {
@@ -379,7 +396,7 @@ export default function BusinessDetailsPage() {
 
                 <div>
                   <Label required>Business Address</Label>
-                  <InputField 
+                  <InputField
                     type="text"
                     name="business_address"
                     placeholder="Enter your complete business address"
@@ -387,6 +404,30 @@ export default function BusinessDetailsPage() {
                     onChange={handleChange}
                     error={errors.business_address}
                   />
+                </div>
+
+                <div>
+                  <Label>Business Certificate <span className="text-gray-400 font-normal">(PDF, max 5 MB)</span></Label>
+                  <div className={`relative flex items-center w-full rounded-lg border ${errors.business_certificate ? "border-red-500" : "border-gray-300 dark:border-gray-700"} bg-white dark:bg-gray-800 overflow-hidden`}>
+                    <label className="flex items-center gap-2 px-4 py-3 cursor-pointer w-full">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      <span className={`text-sm truncate ${formData.business_certificate ? "text-gray-800 dark:text-white" : "text-gray-400"}`}>
+                        {formData.business_certificate ? formData.business_certificate.name : "Choose PDF file..."}
+                      </span>
+                      <input
+                        type="file"
+                        name="business_certificate"
+                        accept="application/pdf"
+                        onChange={handleFileChange}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                  {errors.business_certificate && (
+                    <p className="text-red-500 text-sm mt-1">{errors.business_certificate}</p>
+                  )}
                 </div>
 
                 {/* Display selected location summary */}
