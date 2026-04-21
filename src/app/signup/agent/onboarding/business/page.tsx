@@ -214,6 +214,7 @@ export default function BusinessDetailsPage() {
     if (!formData.business_state) newErrors.business_state = "State is required";
     if (!formData.business_city) newErrors.business_city = "City is required";
     if (!formData.business_address.trim()) newErrors.business_address = "Business address is required";
+    if (!formData.business_certificate) newErrors.business_certificate = "Business certificate is required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -407,7 +408,7 @@ export default function BusinessDetailsPage() {
                 </div>
 
                 <div>
-                  <Label>Business Certificate <span className="text-gray-400 font-normal">(PDF, max 5 MB)</span></Label>
+                  <Label required>Business Certificate <span className="text-gray-400 font-normal">(PDF, max 5 MB)</span></Label>
                   <div className={`relative flex items-center w-full rounded-lg border ${errors.business_certificate ? "border-red-500" : "border-gray-300 dark:border-gray-700"} bg-white dark:bg-gray-800 overflow-hidden`}>
                     <label className="flex items-center gap-2 px-4 py-3 cursor-pointer w-full">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
