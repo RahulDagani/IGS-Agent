@@ -1,1161 +1,556 @@
 "use client"
-import React, { useState, useMemo, useEffect } from "react";
-import Badge from "@/components/ui/badge/Badge";
-import { User, Upload, FileText, X } from "lucide-react";
-import { useAuth } from '@/context/AuthContext';
-import { useParams, useRouter } from "next/navigation";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Send, Paperclip, Eye, X, FileText, MessageCircle,
+  Image as ImageIcon, Pencil, GraduationCap,
+} from "lucide-react";
+import StudentProgramsPage from "@/app/partner/(partners)/students/[id]/apply/Programs";
+import { Country, State } from "country-state-city";
+
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 interface Application {
   id: number;
-  university: string;
-  course: string;
-  intake: string;
-  status: "Applied" | "Received" | "Submitted to University" | "Documents Pending";
-  assignedTo: string;
-  studentName: string;
-  studentEmail: string;
-  agentName: string;
-  agentEmail: string;
-  country?: string;
-  degree?: string;
-  location?: string;
-  externalEvaluation?: string;
-  ielts?: number;
-  pte?: number;
-  duolingo?: number;
-  profileStatus: string;
-  commonDocumentsStatus: string;
-  specificDocumentsStatus: string;
-  commonDocuments?: Document[];
-  specificDocuments?: Document[];
+  uuid: string;
+  course_id: number;
+  current_status_id: number;
+  status_label: string;
+  status_key: string;
+  course_name: string;
+  university_name: string;
+  university_logo: string | null;
+  created_at: string;
 }
 
-interface Document {
+interface ApplicationDetail {
   id: number;
-  document_name: string;
-  document_type?: string;
-  is_mandatory: number;
+  uuid: string;
+  course_id: number;
+  current_status_id: number;
+  status_key: string;
+  status_label: string;
+  course_name: string;
+  university_name: string;
+  university_country: string;
+  university_state: string;
+  university_city: string;
+  study_level_name: string;
+  tuition_fee: string;
+  application_fee: string;
+  currency_code: string;
+  intake: string;
+  intake_year: number;
+  application_login: string | null;
+  application_password: string | null;
+  assigned_to: number | null;
+  assigned_to_name: string | null;
+}
+
+interface ChatMessage {
+  id: number;
+  application_id: number;
+  comment: string;
+  file: string | null;
+  who_has_created: "student" | "tenant";
+  is_mine: number;
+  created_by_name: string | null;
+  created_by_email: string;
+  created_at: string;
   file_url: string | null;
-  status: string;
-  remarks: string | null;
-  uploaded_at: string | null;
 }
 
-// API Response Interfaces
-interface ApiApplication {
-  application: {
-    id: number;
-    uuid: string;
-    tenant_id: number;
-    student_user_id: number;
-    course_id: number;
-    study_level_id: number;
-    current_status_id: number;
-    assigned_to: string | null;
-    remarks: string | null;
-    is_submitted_to_university: number;
-    created_by: number;
-    created_at: string;
-    updated_at: string | null;
-    is_deleted: number;
-    status_key: string | null;
-    status_label: string | null;
-    status_sort_order: number | null;
-    course_name: string;
-    course_slug: string;
-    duration_min: number;
-    duration_max: number;
-    duration_unit: string;
-    tuition_fee: string;
-    application_fee: string;
-    currency_code: string;
-    study_level_name: string;
-    discipline_name: string;
-    university_name: string;
-    university_slug: string;
-    university_logo: string | null;
-    university_country: string;
-    university_state: string;
-    university_city: string;
-  };
-  student_profile: {
-    id: number;
-    uuid: string;
-    tenant_id: number;
-    user_id: number;
-    passport_number: string;
-    salutation: string | null;
-    first_name: string;
-    middle_name: string;
-    last_name: string;
-    alternate_email: string | null;
-    country_code: string | null;
-    state_code: string | null;
-    city_code: string | null;
-    alternate_phone_number: string | null;
-    dob: string;
-    gender: string | null;
-    citizenship: string | null;
-    address: string | null;
-    postal_code: string | null;
-    emergency_c_name: string | null;
-    emergency_c_relation: string | null;
-    emergency_c_email: string | null;
-    emergency_c_phone: string | null;
-    profile: string | null;
-    created_at: string;
-    updated_at: string;
-    is_deleted: number;
-  };
-  profile_status: string;
-  common_documents: {
-    list: Array<{
-      id: number;
-      student_id: number;
-      study_level_id: number;
-      document_name: string;
-      is_mandatory: number;
-      file_url: string | null;
-      uploaded_at: string | null;
-      uploaded_by: number | null;
-      status: string;
-      remarks: string | null;
-      is_deleted: number;
-      created_at: string;
-    }>;
-    status: string;
-  };
-  specific_documents: {
-    list: Array<{
-      id: number;
-      application_id: number;
-      document_name: string;
-      document_type: string;
-      is_mandatory: number;
-      file_url: string | null;
-      uploaded_at: string | null;
-      uploaded_by: number | null;
-      status: string;
-      remarks: string | null;
-      is_deleted: number;
-      created_at: string;
-    }>;
-    status: string;
-  };
-}
-
-interface ApiResponse {
-  success: boolean;
-  data: ApiApplication[];
-}
-
-type SortField = keyof Application | "";
-type SortDirection = "asc" | "desc";
-
-interface FilterOptions {
-  agent: string;
-  student: string;
-  university: string;
-  course: string;
-}
-
-interface FilterModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onApply: (filters: FilterOptions) => void;
-  agents: Array<{ email: string; name: string }>;
-  students: Array<{ email: string; name: string }>;
-  universities: string[];
-  courses: string[];
-}
-
-// Document Upload Modal Component
-interface DocumentUploadModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  applicationId: number;
-  documents: Document[];
-  documentType: 'common' | 'specific';
-  onUploadSuccess: () => void;
-}
-
-const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
-  isOpen,
-  onClose,
-  applicationId,
-  documents,
-  documentType,
-  onUploadSuccess,
-}) => {
+export default function ApplicationsPage() {
+  const { id: studentId } = useParams();
   const { token } = useAuth();
-  const [uploading, setUploading] = useState<{ [key: number]: boolean }>({});
-  const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({});
+  const searchParams = useSearchParams();
+  const appFromUrl = searchParams.get("app");
 
-  const handleFileUpload = async (documentId: number, file: File) => {
-    if (!file) return;
+  const [activeTab, setActiveTab] = useState<"applied" | "apply">("applied");
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [activeApp, setActiveApp] = useState<number | null>(null);
+  const [applicationDetail, setApplicationDetail] = useState<ApplicationDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-    const formData = new FormData();
-    formData.append('document_id', documentId.toString());
-    formData.append('file', file);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [chatFile, setChatFile] = useState<File | null>(null);
+  const [chatFilePreview, setChatFilePreview] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
-    setUploading(prev => ({ ...prev, [documentId]: true }));
-    setUploadProgress(prev => ({ ...prev, [documentId]: 0 }));
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [editingCredentials, setEditingCredentials] = useState({ login: "", password: "" });
+  const [savingCredentials, setSavingCredentials] = useState(false);
 
+  const chatFileRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (studentId) fetchApplications();
+  }, [studentId]);
+
+  useEffect(() => {
+    if (applications.length > 0 && !activeApp) {
+      setActiveApp(applications[0].id);
+    }
+  }, [applications]);
+
+  useEffect(() => {
+    if (appFromUrl) {
+      setActiveApp(Number(appFromUrl));
+      setActiveTab("applied");
+    }
+  }, [appFromUrl]);
+
+  useEffect(() => {
+    if (activeApp) {
+      fetchApplicationDetail(activeApp);
+      fetchMessages(activeApp);
+    }
+  }, [activeApp]);
+
+  const fetchApplications = async () => {
     try {
-      const xhr = new XMLHttpRequest();
-      
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          const progress = (event.loaded / event.total) * 100;
-          setUploadProgress(prev => ({ ...prev, [documentId]: progress }));
-        }
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/agent/applications/student/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const uploadPromise = new Promise((resolve, reject) => {
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            resolve(xhr.response);
-          } else {
-            reject(new Error('Upload failed'));
-          }
-        };
-        xhr.onerror = () => reject(new Error('Upload failed'));
-      });
-
-      // Use the same API endpoint for both common and specific documents
-      xhr.open('PUT', `${BASE_URL}/agent/student/application/${applicationId}/upload/document`);
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      xhr.send(formData);
-
-      await uploadPromise;
-      onUploadSuccess();
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload document. Please try again.');
+      const data = await res.json();
+      if (data.success) setApplications(data.data || []);
+    } catch (err) {
+      console.error("Error fetching applications:", err);
     } finally {
-      setUploading(prev => ({ ...prev, [documentId]: false }));
-      setUploadProgress(prev => ({ ...prev, [documentId]: 0 }));
+      setLoading(false);
     }
   };
 
-  const handleFileChange = (documentId: number, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
-      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      if (!allowedTypes.includes(fileExtension)) {
-        alert('Please select a valid file type (PDF, JPG, PNG, DOC, DOCX)');
-        return;
-      }
+  const fetchApplicationDetail = async (appId: number) => {
+    try {
+      setDetailLoading(true);
+      const res = await fetch(`${BASE_URL}/agent/application/student/detail/${studentId}/${appId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) setApplicationDetail(data.data.application);
+    } catch (err) {
+      console.error("Error fetching detail:", err);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
-      // Validate file size (10MB max)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
-        return;
-      }
+  const fetchMessages = async (appId: number) => {
+    try {
+      setMessagesLoading(true);
+      const res = await fetch(`${BASE_URL}/agent/application/comments/${appId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) setMessages(data.data || []);
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
 
-      handleFileUpload(documentId, file);
+  const sendMessage = async () => {
+    if (!activeApp || (!newMessage.trim() && !chatFile)) return;
+    try {
+      setSending(true);
+      const formData = new FormData();
+      if (newMessage.trim()) formData.append("comment", newMessage.trim());
+      if (chatFile) formData.append("file", chatFile);
+      const res = await fetch(`${BASE_URL}/agent/application/comments/${activeApp}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewMessage("");
+        setChatFile(null);
+        if (chatFilePreview) URL.revokeObjectURL(chatFilePreview);
+        setChatFilePreview(null);
+        fetchMessages(activeApp);
+      }
+    } catch (err) {
+      console.error("Error sending message:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const saveCredentials = async () => {
+    if (!activeApp) return;
+    try {
+      setSavingCredentials(true);
+      const res = await fetch(`${BASE_URL}/agent/application/credentials/${activeApp}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          application_login: editingCredentials.login,
+          application_password: editingCredentials.password,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (applicationDetail) {
+          setApplicationDetail({
+            ...applicationDetail,
+            application_login: editingCredentials.login,
+            application_password: editingCredentials.password,
+          });
+        }
+        setShowCredentialsModal(false);
+      }
+    } catch (err) {
+      console.error("Error saving credentials:", err);
+    } finally {
+      setSavingCredentials(false);
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'uploaded': return 'text-green-600';
-      case 'pending': return 'text-yellow-600';
-      case 'rejected': return 'text-red-600';
-      default: return 'text-gray-600';
+    const s = (status || "").toLowerCase();
+    if (s.includes("applied")) return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400";
+    if (s.includes("pending") || s.includes("document")) return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400";
+    if (s.includes("received") || s.includes("submitted")) return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
+    if (s.includes("reject") || s.includes("closed")) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
+    return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
+  };
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+
+  const formatTime = (d: string) =>
+    new Date(d).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  const getCountryName = (code: string) => Country.getCountryByCode(code)?.name || code;
+  const getStateName = (stateCode: string, countryCode: string) =>
+    State.getStateByCodeAndCountry(stateCode, countryCode)?.name || stateCode;
+
+  const renderMessages = () => {
+    if (messagesLoading) {
+      return (
+        <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+          Loading messages...
+        </div>
+      );
     }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'uploaded': return 'Uploaded';
-      case 'pending': return 'Pending';
-      case 'rejected': return 'Rejected';
-      default: return 'Pending';
+    if (messages.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
+            <MessageCircle size={20} className="text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No messages yet</p>
+        </div>
+      );
     }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Upload {documentType === 'common' ? 'Common' : 'Specific'} Documents
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        <div className="p-6">
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {documentType === 'common' 
-                ? 'These documents are common across all your applications.'
-                : 'These documents are specific to this university application.'
-              }
-            </p>
+    return messages.map((msg) => {
+      const isMine = msg.is_mine === 1;
+      return (
+        <div key={msg.id} className={`flex gap-3 mb-4 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0 ${isMine ? "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"}`}>
+            {isMine ? "Me" : (msg.created_by_name?.[0] || "T").toUpperCase()}
           </div>
-
-          <div className="space-y-4">
-            {documents.map((doc) => (
-              <div key={doc.id} className="mb-4">
-                <label className="doc-card w-full cursor-pointer">
-                  <div className="upload-area border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:border-brand-300 dark:hover:border-brand-500 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="doc-title font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                          {doc.document_name}
-                          {doc.is_mandatory === 1 && (
-                            <span className="text-red-500 text-sm">*</span>
-                          )}
-                        </div>
-                        <div className={`doc-status text-sm mt-1 ${getStatusColor(doc.status)}`}>
-                          {getStatusText(doc.status)}
-                          {uploading[doc.id] && (
-                            <span className="ml-2">
-                              Uploading... {Math.round(uploadProgress[doc.id])}%
-                            </span>
-                          )}
-                        </div>
-                        {doc.file_url && (
-                          <div className="text-xs text-green-600 mt-1">
-                            File uploaded successfully
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Upload className="text-gray-400" size={16} />
-                        <FileText className="text-gray-400" size={20} />
-                      </div>
-                    </div>
-                  </div>
-                  <input
-                    className="hidden"
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                    type="file"
-                    onChange={(e) => handleFileChange(doc.id, e)}
-                    disabled={uploading[doc.id]}
-                  />
-                </label>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const FilterModal: React.FC<FilterModalProps> = ({
-  isOpen,
-  onClose,
-  onApply,
-  agents,
-  students,
-  universities,
-  courses,
-}) => {
-  const [selectedAgent, setSelectedAgent] = useState<string>("all");
-  const [selectedStudent, setSelectedStudent] = useState<string>("all");
-  const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
-  const [selectedCourse, setSelectedCourse] = useState<string>("all");
-
-  const handleApply = () => {
-    const filters: FilterOptions = {
-      agent: selectedAgent,
-      student: selectedStudent,
-      university: selectedUniversity,
-      course: selectedCourse,
-    };
-    onApply(filters);
-    onClose();
-  };
-
-  const handleReset = () => {
-    setSelectedAgent("all");
-    setSelectedStudent("all");
-    setSelectedUniversity("all");
-    setSelectedCourse("all");
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Apply Filters
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {/* Agent Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select Agent
-            </label>
-            <select
-              value={selectedAgent}
-              onChange={(e) => setSelectedAgent(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Agents</option>
-              {agents.map((agent) => (
-                <option key={agent.email} value={agent.email}>
-                  {agent.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Student Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select Student
-            </label>
-            <select
-              value={selectedStudent}
-              onChange={(e) => setSelectedStudent(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Students</option>
-              {students.map((student) => (
-                <option key={student.email} value={student.email}>
-                  {student.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* University Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select University
-            </label>
-            <select
-              value={selectedUniversity}
-              onChange={(e) => setSelectedUniversity(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Universities</option>
-              {universities.map((university) => (
-                <option key={university} value={university}>
-                  {university}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Course Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Select Course
-            </label>
-            <select
-              value={selectedCourse}
-              onChange={(e) => setSelectedCourse(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All Courses</option>
-              {courses.map((course) => (
-                <option key={course} value={course}>
-                  {course}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleReset}
-            className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Reset
-          </button>
-          <button
-            onClick={handleApply}
-            className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10"
-          >
-            Apply Filters
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Icons component for the card
-const CardIcons = {
-  GraduationCap: () => (
-    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v6l9-5M12 20l-9-5" />
-    </svg>
-  ),
-  MapMarker: () => (
-    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  ),
-  FileAlt: () => (
-    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-  )
-};
-
-interface ApplicationCardProps {
-  application: Application;
-  onContinue: (application: Application, documentType?: 'common' | 'specific') => void;
-}
-
-const ApplicationCard: React.FC<ApplicationCardProps> = ({ application, onContinue }) => {
-  const getStatusColor = (status: Application["status"]) => {
-    switch (status) {
-      case "Applied":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
-      case "Received":
-        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300";
-      case "Submitted to University":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
-      case "Documents Pending":
-        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-      default:
-        return "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300";
-    }
-  };
-
-  const getStepStatus = (step: 'commonForm' | 'commonDocs' | 'specificDocs') => {
-    if (step === 'commonForm') {
-      return application.profileStatus === 'complete' ? 'completed' : 'pending';
-    }
-    if (step === 'commonDocs') {
-      return application.commonDocumentsStatus === 'complete' ? 'completed' : 'pending';
-    }
-    if (step === 'specificDocs') {
-      return application.specificDocumentsStatus === 'complete' ? 'completed' : 'pending';
-    }
-    return 'pending';
-  };
-
-  const getStepIcon = (status: 'completed' | 'pending') => {
-    return status === 'completed' ? '✓' : '✕';
-  };
-
-  const getStepColor = (status: 'completed' | 'pending') => {
-    return status === 'completed' ? 'bg-green-100 text-green-500' : 'bg-red-100 text-red-500';
-  };
-
-  return (
-    <div className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
-      {/* Status Badge */}
-      <div className="flex justify-end">
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full mb-2 ${getStatusColor(application.status)}`}>
-          {application.status}
-        </span>
-      </div>
-     
-      {/* Top Section */}
-      <div className="flex items-start justify-between">
-        {/* University Info */}
-        <div className="flex items-start gap-3">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center text-white font-bold text-sm">
-            {application.university.split(' ').map(word => word[0]).join('')}
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-gray-800 dark:text-white leading-snug">
-              {application.course}
-            </h2>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              {application.university}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {application.country}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100 dark:border-gray-700 mt-4 pt-4 space-y-3">
-        {/* Degree */}
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <CardIcons.GraduationCap />
-          <span>
-            <strong className="font-semibold text-gray-800 dark:text-white">Degree:</strong>{" "}
-            {application.degree}
-          </span>
-        </div>
-
-        {/* Location */}
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <CardIcons.MapMarker />
-          <span>
-            <strong className="font-semibold text-gray-800 dark:text-white">Location:</strong>{" "}
-            {application.location}
-          </span>
-        </div>
-
-        {/* External Evaluation */}
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <CardIcons.FileAlt />
-          <span>
-            <strong className="font-semibold text-gray-800 dark:text-white">
-              External Evaluation:
-            </strong>{" "}
-            {application.externalEvaluation}
-          </span>
-        </div>
-      </div>
-
-      {/* Entry Requirements */}
-      <div className="mt-5">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-2">
-          ENTRY REQUIREMENTS
-        </h3>
-        <div className="flex gap-2 flex-wrap">
-          {application.ielts && (
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              IELTS: <span className="text-gray-900 dark:text-white">{application.ielts}</span>
-            </span>
-          )}
-          {application.pte && (
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              PTE: <span className="text-gray-900 dark:text-white">{application.pte}</span>
-            </span>
-          )}
-          {application.duolingo && (
-            <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full font-semibold text-gray-700 dark:text-gray-300">
-              Duolingo: <span className="text-gray-900 dark:text-white">{application.duolingo}</span>
-            </span>
-          )}
-        </div>
-      </div>
-      
-      {/* Student */}
-      <div className="flex items-center text-sm text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-700 mt-4 pt-4 space-y-3">
-        <User size={16} className="mb-0 mr-2"/>
-        <span>
-          <strong className="font-semibold text-gray-800 dark:text-white">Student:</strong>{" "}
-          {`${application.studentEmail}`}
-        </span>
-      </div>
-
-      {/* Status Steps */}
-      <div className="mt-4">
-        <p className="text-sm font-semibold text-red-500 mb-3">Pending</p>
-        <div className="flex justify-between items-center text-center">
-          <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${getStepColor(getStepStatus('commonForm'))}`}>
-              <span className="text-lg font-bold">{getStepIcon(getStepStatus('commonForm'))}</span>
+          <div className={`rounded-lg p-3 max-w-sm ${isMine ? "bg-gray-100 dark:bg-gray-700 text-right" : "bg-blue-50 dark:bg-blue-900/20"}`}>
+            <div className={`flex items-center gap-2 mb-1 ${isMine ? "flex-row-reverse" : ""}`}>
+              <span className={`text-xs font-medium ${isMine ? "text-gray-700 dark:text-gray-300" : "text-blue-700 dark:text-blue-400"}`}>
+                {isMine ? "You" : (msg.created_by_name || "Team")}
+              </span>
+              <span className="text-xs text-gray-400">{formatTime(msg.created_at)}</span>
             </div>
-            <p className="text-xs dark:text-white">Common Form</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${getStepColor(getStepStatus('commonDocs'))}`}>
-              <span className="text-lg font-bold">{getStepIcon(getStepStatus('commonDocs'))}</span>
-            </div>
-            <p className="text-xs dark:text-white">Common Docs</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${getStepColor(getStepStatus('specificDocs'))}`}>
-              <span className="text-lg font-bold">{getStepIcon(getStepStatus('specificDocs'))}</span>
-            </div>
-            <p className="text-xs dark:text-white">Specific Docs</p>
+            {msg.comment && (
+              <p className={`text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap ${isMine ? "text-right" : ""}`}>
+                {msg.comment}
+              </p>
+            )}
+            {msg.file_url && (
+              <a href={msg.file_url} target="_blank" rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                <Eye size={12} />
+                {msg.file?.split("/").pop() || "Attachment"}
+              </a>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* Buttons */}
-      <div className="mt-6 flex gap-3">
-        <button className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-semibold py-2 rounded-lg text-sm transition-all">
-          LIVE CHAT
-        </button>
-        <button 
-          onClick={() => onContinue(application)}
-          className="flex-1 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-900/30 font-semibold py-2 rounded-lg text-sm transition-all"
-        >
-          Continue
-        </button>
-      </div>
-
-      {/* Quick Action Buttons */}
-      <div className="mt-3 flex gap-2">
-        {getStepStatus('commonDocs') === 'pending' && (
-          <button 
-            onClick={() => onContinue(application, 'common')}
-            className="flex-1 px-3 py-1 text-xs border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800 rounded"
-          >
-            Upload Common Docs
-          </button>
-        )}
-        {getStepStatus('specificDocs') === 'pending' && (
-          <button 
-            onClick={() => onContinue(application, 'specific')}
-            className="flex-1 px-3 py-1 text-xs border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800 rounded"
-          >
-            Upload Specific Docs
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
-
-export default function ApplicationsTable() {
-  const { token, logout } = useAuth();
-  const { id: student_user_id } = useParams();
-  const router = useRouter();
-  const [apiData, setApiData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sortField] = useState<SortField>("");
-  const [sortDirection] = useState<SortDirection>("asc");
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
-  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState<boolean>(false);
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [selectedDocumentType, setSelectedDocumentType] = useState<'common' | 'specific'>('specific');
-  const [filters, setFilters] = useState<FilterOptions>({
-    agent: "all",
-    student: "all",
-    university: "all",
-    course: "all",
-  });
-
-  // Fetch applications from API
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/student/application/all/${student_user_id}/applications`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          if (response.status === 403) {
-            logout("agent");
-            return;
-          }
-          throw new Error('Failed to fetch applications');
-        }
-
-        const data: ApiResponse = await response.json();
-        
-        if (data.success) {
-          setApiData(data);
-        } else {
-          throw new Error('Failed to load applications');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (student_user_id) {
-      fetchApplications();
-    }
-  }, [student_user_id, token, logout]);
-
-  // Transform API data to match the Application interface
-  const tableData: Application[] = useMemo(() => {
-    if (!apiData?.data) return [];
-
-    return apiData.data.map((app) => {
-      // Map status from API to our Application status
-      const getStatus = (): Application["status"] => {
-        const statusKey = app.application.status_key;
-        const commonDocsStatus = app.common_documents.status;
-        const specificDocsStatus = app.specific_documents.status;
-        
-        if (commonDocsStatus === "incomplete" || specificDocsStatus === "incomplete") return "Documents Pending";
-        if (statusKey === "applied") return "Applied";
-        if (statusKey === "received") return "Received";
-        if (app.application.is_submitted_to_university === 1) return "Submitted to University";
-        
-        return "Applied";
-      };
-
-      // Format location from university data
-      const formatLocation = () => {
-        const { university_city, university_state, university_country } = app.application;
-        const locationParts = [];
-        if (university_city && university_city !== 'STF') locationParts.push(university_city);
-        if (university_state && university_state !== 'CA') locationParts.push(university_state);
-        if (university_country) locationParts.push(university_country);
-        return locationParts.join(', ') || 'Location not specified';
-      };
-
-      // Format intake from created date
-      const formatIntake = (createdAt: string) => {
-        const date = new Date(createdAt);
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        
-        // Determine intake based on month
-        if (month >= 8 && month <= 10) return `Fall ${year}`;
-        if (month >= 5 && month <= 7) return `Summer ${year}`;
-        if (month >= 2 && month <= 4) return `Spring ${year}`;
-        return `Winter ${year}`;
-      };
-
-      return {
-        id: app.application.id,
-        university: app.application.university_name,
-        course: app.application.course_name,
-        intake: formatIntake(app.application.created_at),
-        status: getStatus(),
-        assignedTo: app.application.assigned_to || "Unassigned",
-        studentName: `${app.student_profile.first_name} ${app.student_profile.last_name}`,
-        studentEmail: "student@example.com", // You might need to get this from student data
-        agentName: "Agent Name", // Placeholder
-        agentEmail: "agent@example.com", // Placeholder
-        country: app.application.university_country,
-        degree: app.application.study_level_name,
-        location: formatLocation(),
-        externalEvaluation: "Required",
-        ielts: 7.0, // Placeholder
-        pte: 68, // Placeholder
-        duolingo: 120, // Placeholder
-        profileStatus: app.profile_status,
-        commonDocumentsStatus: app.common_documents.status,
-        specificDocumentsStatus: app.specific_documents.status,
-        commonDocuments: app.common_documents.list,
-        specificDocuments: app.specific_documents.list
-      };
-    });
-  }, [apiData]);
-
-  // Get unique values for filters
-  const agents = useMemo(() => {
-    return Array.from(
-      new Map(
-        tableData.map(app => [app.agentEmail, {
-          email: app.agentEmail,
-          name: app.agentName
-        }])
-      ).values()
-    );
-  }, [tableData]);
-
-  const students = useMemo(() => {
-    return Array.from(
-      new Map(
-        tableData.map(app => [app.studentEmail, {
-          email: app.studentEmail,
-          name: app.studentName
-        }])
-      ).values()
-    );
-  }, [tableData]);
-
-  const universities = useMemo(() => {
-    return Array.from(new Set(tableData.map(app => app.university)));
-  }, [tableData]);
-
-  const courses = useMemo(() => {
-    return Array.from(new Set(tableData.map(app => app.course)));
-  }, [tableData]);
-
-  // Filter and sort data
-  const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((application) => {
-      const matchesAgent = filters.agent === "all" || application.agentEmail === filters.agent;
-      const matchesStudent = filters.student === "all" || application.studentEmail === filters.student;
-      const matchesUniversity = filters.university === "all" || application.university === filters.university;
-      const matchesCourse = filters.course === "all" || application.course === filters.course;
-      
-      return matchesAgent && matchesStudent && matchesUniversity && matchesCourse;
-    });
-
-    // Sorting
-    if (sortField) {
-      filtered.sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        // Handle undefined values
-        if (aValue === undefined && bValue === undefined) return 0;
-        if (aValue === undefined) return sortDirection === "asc" ? 1 : -1;
-        if (bValue === undefined) return sortDirection === "asc" ? -1 : 1;
-        
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-        
-        if (aValue < bValue) {
-          return sortDirection === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortDirection === "asc" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [tableData, filters, sortField, sortDirection]);
-
-  const handleApplyFilters = (newFilters: FilterOptions) => {
-    setFilters(newFilters);
-  };
-
-  const handleContinue = (application: Application, documentType?: 'common' | 'specific') => {
-    if (application.profileStatus === 'incomplete') {
-      // Redirect to application form
-      router.push(`/partner/students/${student_user_id}/application-form`);
-    } else if (application.commonDocumentsStatus === 'incomplete' && !documentType) {
-      // Open common documents modal if no specific type provided
-      setSelectedApplication(application);
-      setSelectedDocumentType('common');
-      setIsDocumentModalOpen(true);
-    } else if (application.specificDocumentsStatus === 'incomplete' && !documentType) {
-      // Open specific documents modal if no specific type provided
-      setSelectedApplication(application);
-      setSelectedDocumentType('specific');
-      setIsDocumentModalOpen(true);
-    } else if (documentType) {
-      // Open the specified document type modal
-      setSelectedApplication(application);
-      setSelectedDocumentType(documentType);
-      setIsDocumentModalOpen(true);
-    } else {
-      // All steps are complete
-      alert('All application steps are complete!');
-    }
-  };
-
-  const handleUploadSuccess = () => {
-    // Refresh the applications data
-    const fetchApplications = async () => {
-      try {
-        const response = await fetch(`${BASE_URL}/agent/student/application/all/${student_user_id}/applications`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data: ApiResponse = await response.json();
-          if (data.success) {
-            setApiData(data);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to refresh applications:', err);
-      }
-    };
-
-    fetchApplications();
-  };
-
-  const hasActiveFilters = filters.agent !== "all" || filters.student !== "all" || 
-                          filters.university !== "all" || filters.course !== "all";
-
-  const clearAllFilters = () => {
-    setFilters({
-      agent: "all",
-      student: "all",
-      university: "all",
-      course: "all",
+      );
     });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <svg className="animate-spin h-8 w-8 text-brand-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading applications...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-red-500 text-lg mb-2">Error loading applications</div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
-      </div>
-    );
-  }
-
   return (
-    <>
-    <PageBreadcrumb pageTitle="Student Applications" />
+    <div className="w-full">
+      {/* Top Tabs */}
+      <div className="flex gap-8 border-b dark:border-gray-700 mb-5">
+        <button
+          onClick={() => setActiveTab("apply")}
+          className={`pb-3 font-medium text-sm ${activeTab === "apply" ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400" : "text-gray-500 dark:text-gray-400"}`}
+        >
+          Apply to Programs
+        </button>
+        <button
+          onClick={() => setActiveTab("applied")}
+          className={`pb-3 font-medium text-sm ${activeTab === "applied" ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400" : "text-gray-500 dark:text-gray-400"}`}
+        >
+          Applied Programs
+        </button>
+      </div>
 
-    <div className="space-y-4">
-      {/* Student Info Header */}
-      {apiData && apiData.data.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-                {apiData.data[0].student_profile.first_name} {apiData.data[0].student_profile.last_name}
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Passport: {apiData.data[0].student_profile.passport_number}
-              </p>
+      {activeTab === "apply" ? (
+        <div className="w-full">
+          <StudentProgramsPage />
+        </div>
+      ) : (
+        <div className="grid grid-cols-12 gap-5">
+          {/* Left panel — application list */}
+          <div className="col-span-4 space-y-3">
+            {applications.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md p-6 text-center">
+                <GraduationCap size={32} className="text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">No applications yet.</p>
+                <button
+                  onClick={() => setActiveTab("apply")}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create Application
+                </button>
+              </div>
+            ) : (
+              applications.map((app) => (
+                <div
+                  key={app.id}
+                  onClick={() => setActiveApp(app.id)}
+                  className={`cursor-pointer border dark:border-gray-700 rounded-md p-4 relative bg-white dark:bg-gray-800 ${activeApp === app.id ? "border-blue-500 dark:border-blue-400" : "border-gray-200 dark:border-gray-700"}`}
+                >
+                  <span className={`text-xs font-semibold px-2 py-1 rounded mb-2 inline-block ${getStatusColor(app.status_label)}`}>
+                    {app.status_label}
+                  </span>
+                  <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                    <p><span className="font-medium dark:text-gray-200">Course:</span> {app.course_name}</p>
+                    <p><span className="font-medium dark:text-gray-200">University:</span> {app.university_name}</p>
+                    <p><span className="font-medium dark:text-gray-200">Ref:</span> {app.uuid}</p>
+                    <p><span className="font-medium dark:text-gray-200">Date:</span> {formatDate(app.created_at)}</p>
+                  </div>
+                  {activeApp === app.id && (
+                    <div className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-0 h-0 border-t-[10px] border-b-[10px] border-l-[10px] border-transparent border-l-blue-500 dark:border-l-blue-400" />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Right panel — detail */}
+          <div className="col-span-8">
+            {detailLoading ? (
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md p-6 flex items-center justify-center h-48">
+                <div className="text-gray-500 dark:text-gray-400 text-sm">Loading details...</div>
+              </div>
+            ) : applicationDetail ? (
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md p-6 space-y-4">
+                {/* Header */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-semibold dark:text-white">{applicationDetail.course_name}</h2>
+                    <p className="text-gray-500 dark:text-gray-400">{applicationDetail.university_name}</p>
+                    {applicationDetail.university_country && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {applicationDetail.university_city && `${applicationDetail.university_city}, `}
+                        {applicationDetail.university_state && `${getStateName(applicationDetail.university_state, applicationDetail.university_country)}, `}
+                        {getCountryName(applicationDetail.university_country)}
+                      </p>
+                    )}
+                    <p className="text-sm font-semibold underline dark:text-white mt-1">{applicationDetail.uuid}</p>
+                    {applicationDetail.intake && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Intake: {applicationDetail.intake} {applicationDetail.intake_year}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`text-sm px-3 py-1 rounded font-medium ${getStatusColor(applicationDetail.status_label)}`}>
+                    {applicationDetail.status_label}
+                  </span>
+                </div>
+
+                {/* Fees */}
+                <div className="flex gap-4 flex-wrap">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Application Fee:{" "}
+                    <span className="ml-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-sm font-medium">
+                      {parseFloat(applicationDetail.application_fee || "0") > 0
+                        ? `${applicationDetail.currency_code} ${applicationDetail.application_fee}`
+                        : "No Fee"}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Tuition Fee:{" "}
+                    <span className="ml-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-sm font-medium">
+                      {applicationDetail.currency_code} {applicationDetail.tuition_fee}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Credentials */}
+                <div className="flex gap-4 flex-wrap items-center text-sm text-gray-500 dark:text-gray-400">
+                  <span>Login: <span className="text-gray-800 dark:text-gray-200 font-medium">{applicationDetail.application_login || "N/A"}</span></span>
+                  <span>Password: <span className="text-gray-800 dark:text-gray-200 font-medium">{applicationDetail.application_password || "N/A"}</span></span>
+                  <button
+                    onClick={() => {
+                      setEditingCredentials({
+                        login: applicationDetail.application_login || "",
+                        password: applicationDetail.application_password || "",
+                      });
+                      setShowCredentialsModal(true);
+                    }}
+                    className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline text-xs"
+                  >
+                    <Pencil size={12} />Edit
+                  </button>
+                </div>
+
+                {/* Chat/Comments */}
+                <div className="border-t dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 border-b border-blue-600 pb-2 mb-4 inline-block">
+                    Comments
+                  </h3>
+
+                  <div className="h-56 overflow-y-auto mb-4 pr-1">
+                    {renderMessages()}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* File preview */}
+                  {chatFile && (
+                    <div className="mb-3 p-2 bg-gray-50 dark:bg-gray-700 rounded border dark:border-gray-600 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        {chatFile.type.startsWith("image/") ? <ImageIcon size={14} /> : <FileText size={14} />}
+                        <span className="truncate max-w-[200px]">{chatFile.name}</span>
+                      </div>
+                      <button onClick={() => { setChatFile(null); if (chatFilePreview) URL.revokeObjectURL(chatFilePreview); setChatFilePreview(null); }}>
+                        <X size={14} className="text-gray-500" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Write your message..."
+                      rows={3}
+                      disabled={sending}
+                      className="border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                    />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <input
+                          type="file"
+                          ref={chatFileRef}
+                          className="hidden"
+                          disabled={sending}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (!f) return;
+                            setChatFile(f);
+                            if (f.type.startsWith("image/")) setChatFilePreview(URL.createObjectURL(f));
+                          }}
+                        />
+                        <button
+                          onClick={() => chatFileRef.current?.click()}
+                          disabled={sending}
+                          className="flex items-center gap-1 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-sm hover:bg-blue-200 dark:hover:bg-blue-800/40"
+                        >
+                          <Paperclip size={15} />Attach
+                        </button>
+                      </div>
+                      <button
+                        onClick={sendMessage}
+                        disabled={(!newMessage.trim() && !chatFile) || sending}
+                        className={`flex items-center gap-1 px-4 py-2 rounded text-sm text-white ${(!newMessage.trim() && !chatFile) || sending ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                      >
+                        {sending ? (
+                          <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Sending</>
+                        ) : (
+                          <><Send size={15} />Send</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-md p-6 flex items-center justify-center h-48">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Select an application to view details</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Credentials Modal */}
+      {showCredentialsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center p-5 border-b dark:border-gray-700">
+              <h3 className="text-base font-semibold dark:text-white">Edit Application Credentials</h3>
+              <button onClick={() => setShowCredentialsModal(false)} disabled={savingCredentials}>
+                <X size={20} className="text-gray-500" />
+              </button>
             </div>
-            <div className="text-right">
-              <Badge 
-                size="sm" 
-                color={apiData.data[0].profile_status === "complete" ? "success" : "warning"}
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Application Login</label>
+                <input
+                  type="text"
+                  value={editingCredentials.login}
+                  onChange={(e) => setEditingCredentials(prev => ({ ...prev, login: e.target.value }))}
+                  className="w-full px-3 py-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  placeholder="Login"
+                  disabled={savingCredentials}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Application Password</label>
+                <input
+                  type="text"
+                  value={editingCredentials.password}
+                  onChange={(e) => setEditingCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  placeholder="Password"
+                  disabled={savingCredentials}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 p-5 border-t dark:border-gray-700">
+              <button onClick={() => setShowCredentialsModal(false)} disabled={savingCredentials} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                Cancel
+              </button>
+              <button
+                onClick={saveCredentials}
+                disabled={savingCredentials || !editingCredentials.login || !editingCredentials.password}
+                className={`px-4 py-2 rounded text-sm text-white flex items-center gap-2 ${savingCredentials || !editingCredentials.login || !editingCredentials.password ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
               >
-                Profile: {apiData.data[0].profile_status}
-              </Badge>
+                {savingCredentials ? <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</> : "Save Credentials"}
+              </button>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        {/* Filter Button and Active Filters */}
-        <div className="flex items-center gap-3">
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Clear All
-            </button>
-          )}
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-            </svg>
-            Apply Filters
-          </button>
-        </div>
-      </div>
-
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap gap-2">
-          {filters.agent !== "all" && (
-            <Badge size="sm" color="primary">
-              Agent: {agents.find(a => a.email === filters.agent)?.name}
-            </Badge>
-          )}
-          {filters.student !== "all" && (
-            <Badge size="sm" color="primary">
-              Student: {students.find(s => s.email === filters.student)?.name}
-            </Badge>
-          )}
-          {filters.university !== "all" && (
-            <Badge size="sm" color="primary">
-              University: {filters.university}
-            </Badge>
-          )}
-          {filters.course !== "all" && (
-            <Badge size="sm" color="primary">
-              Course: {filters.course}
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAndSortedData.length > 0 ? (
-          filteredAndSortedData.map((application) => (
-            <ApplicationCard 
-              key={application.id} 
-              application={application} 
-              onContinue={handleContinue}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center py-12">
-            <div className="text-gray-500 dark:text-gray-400 text-lg mb-2">
-              No applications found matching your criteria.
-            </div>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Try adjusting your filters
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Results Count */}
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} applications
-      </div>
-
-      {/* Filter Modal */}
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        onApply={handleApplyFilters}
-        agents={agents}
-        students={students}
-        universities={universities}
-        courses={courses}
-      />
-
-      {/* Document Upload Modal */}
-      {selectedApplication && (
-        <DocumentUploadModal
-          isOpen={isDocumentModalOpen}
-          onClose={() => {
-            setIsDocumentModalOpen(false);
-            setSelectedApplication(null);
-          }}
-          applicationId={selectedApplication.id}
-          documents={
-            selectedDocumentType === 'common' 
-              ? selectedApplication.commonDocuments || []
-              : selectedApplication.specificDocuments || []
-          }
-          documentType={selectedDocumentType}
-          onUploadSuccess={handleUploadSuccess}
-        />
       )}
     </div>
-    </>
   );
 }
