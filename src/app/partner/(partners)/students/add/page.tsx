@@ -239,7 +239,7 @@ export default function AddStudent() {
                 </div>
 
                 {/* Phone */}
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Phone Number *</label>
                   {selectedPhoneCountry && (
                     <PhoneInput
