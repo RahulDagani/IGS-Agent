@@ -316,7 +316,7 @@ export default function DocumentsPage() {
     );
   };
 
-  const renderDocList = <T extends { is_mandatory: number }>(
+  const renderDocList = <T extends { id: number; is_mandatory: number; status: string }>(
     docs: T[],
     renderCard: (doc: T) => React.ReactNode
   ) => {
@@ -341,8 +341,8 @@ export default function DocumentsPage() {
             <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold">
               <FileText size={18} />
               Mandatory Documents ({mandatory.length})
-              <span className={`text-sm font-normal ${mandatory.every(d => (d as CommonDocument).status === "uploaded") ? "text-green-600" : "text-red-600"}`}>
-                ({mandatory.filter(d => (d as CommonDocument).status === "uploaded").length}/{mandatory.length} uploaded)
+              <span className={`text-sm font-normal ${mandatory.every(d => d.status === "uploaded") ? "text-green-600" : "text-red-600"}`}>
+                ({mandatory.filter(d => d.status === "uploaded").length}/{mandatory.length} uploaded)
               </span>
             </div>
             {mandatoryOpen ? <Minus className="text-gray-500" size={18} /> : <Plus className="text-gray-500" size={18} />}
@@ -351,7 +351,7 @@ export default function DocumentsPage() {
             <div className="px-5 pb-5">
               {mandatory.length === 0
                 ? <p className="text-sm text-gray-500 text-center py-4">No mandatory documents</p>
-                : mandatory.map(doc => <React.Fragment key={(doc as CommonDocument).id}>{renderCard(doc)}</React.Fragment>)
+                : mandatory.map(doc => <React.Fragment key={doc.id}>{renderCard(doc)}</React.Fragment>)
               }
             </div>
           )}
@@ -366,7 +366,7 @@ export default function DocumentsPage() {
               <FileText size={18} />
               Optional Documents ({optional.length})
               <span className="text-sm font-normal text-gray-500">
-                ({optional.filter(d => (d as CommonDocument).status === "uploaded").length}/{optional.length} uploaded)
+                ({optional.filter(d => d.status === "uploaded").length}/{optional.length} uploaded)
               </span>
             </div>
             {nonMandatoryOpen ? <Minus className="text-gray-500" size={18} /> : <Plus className="text-gray-500" size={18} />}
@@ -375,7 +375,7 @@ export default function DocumentsPage() {
             <div className="px-5 pb-5">
               {optional.length === 0
                 ? <p className="text-sm text-gray-500 text-center py-4">No optional documents</p>
-                : optional.map(doc => <React.Fragment key={(doc as CommonDocument).id}>{renderCard(doc)}</React.Fragment>)
+                : optional.map(doc => <React.Fragment key={doc.id}>{renderCard(doc)}</React.Fragment>)
               }
             </div>
           )}
