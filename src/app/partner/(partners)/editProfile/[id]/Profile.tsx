@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams ,useSearchParams} from "next/navigation";
 
 
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Plus, AlertTriangle, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap } from "lucide-react";
+import { User, Calendar, Mail, MapPin, Globe, Users, Plus, Award, ChevronDown, ChevronUp, Briefcase, GraduationCap } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Country, State, City } from "country-state-city";
@@ -243,7 +243,6 @@ const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useSta
 
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("");
-  const [error, setError] = useState<string>("");
   const [validationMessage, setValidationMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -255,16 +254,11 @@ const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useSta
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
   useEffect(()=> {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-
-      setTimeout(()=> {
-        setValidationMessage("")
-        setError("")
-      },3000)
-  }, [validationMessage, error])
+    if (!validationMessage) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const t = setTimeout(() => setValidationMessage(""), 3000);
+    return () => clearTimeout(t);
+  }, [validationMessage])
 
   // Fetch student data on component mount
   useEffect(() => {
@@ -309,7 +303,6 @@ const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useSta
             setSelectedState(data.state_code);
           }
         } else {
-          setError('Failed to fetch student data');
           console.error('Failed to fetch student data');
         }
       } catch (error) {
@@ -628,19 +621,6 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaE
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500 mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Loading student data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="text-center">
-          <div className="flex justify-center text-red-500">
-            <AlertTriangle />
-          </div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Failed to Fetch Saved data</p>
         </div>
       </div>
     );
