@@ -292,8 +292,16 @@ export default function AgentRegistrationPage() {
   }>({});
   const [alert, setAlert] = useState<{type: 'success' | 'error' | 'info'; message: string} | null>(null);
   const [showAlert, setShowAlert] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/auth/google/status`)
+      .then(r => r.json())
+      .then(d => setGoogleConfigured(d.configured === true))
+      .catch(() => setGoogleConfigured(false));
+  }, [BASE_URL]);
 
   useEffect(() => {
     if (showAlert && alert) {
@@ -409,24 +417,27 @@ export default function AgentRegistrationPage() {
               </p>
             </div>
 
-            {/* Google Signup Button */}
-            <div className="mb-6">
-              <GoogleLoginButton
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                role="agent"
-              />
-            </div>
+            {/* Google Signup Button — only shown when Google is configured */}
+            {googleConfigured && (
+              <>
+                <div className="mb-6">
+                  <GoogleLoginButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    role="agent"
+                  />
+                </div>
 
-            {/* Divider */}
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">Or sign up with email</span>
-              </div>
-            </div>
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">Or sign up with email</span>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Alert Messages */}
             {showAlert && alert && (

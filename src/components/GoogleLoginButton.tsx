@@ -75,12 +75,10 @@ export const GoogleLoginButton = ({
 
             if (onSuccess) onSuccess();
           } else {
-            console.log("Sdfsadf")
-            throw new Error(data.message+"1" || "Google login failed");
+            throw new Error(data.message || "Google login failed");
           }
         } else {
-          console.log("abcdddd")
-          throw new Error(data.message+"2" || "Google login failed");
+          throw new Error(data.message || "Google login failed");
         }
       } catch (error) {
         console.error('Google login error:', error);
