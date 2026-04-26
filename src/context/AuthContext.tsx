@@ -21,12 +21,14 @@ interface User {
   panel_type: string;
   email_verified?: number;
   phone_number: string;
+  is_agent_verified?: number;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (user: User, token: string) => void;
+  updateUser: (fields: Partial<User>) => void;
   adminAgentLogin: (user: User, token: string, adminToken: string) => void;
   adminReLoginFromAgent: (user: User, token: string) => void;
   logout: (userType: string) => void;
@@ -72,6 +74,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.set("token", jwt, { expires: 7 });
   };
 
+  const updateUser = (fields: Partial<User>) => {
+    if (!user) return;
+    const updated = { ...user, ...fields };
+    setUser(updated);
+    Cookies.set("user", JSON.stringify(updated), { expires: 7 });
+  };
+
   const adminReLoginFromAgent = (userData: User, jwt:string) => {
     setUser(userData);
     setToken(jwt);
@@ -114,6 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     token,
     adminToken,
     login,
+    updateUser,
     logout,
     adminAgentLogin,
     adminReLoginFromAgent,

@@ -49,10 +49,8 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
     }
 
 
-    if(user && !user.phone_number){
-      let signinRoute = "/signin/phone";
-        const returnUrl = encodeURIComponent(pathname || "/");
-        router.replace(`${signinRoute}?returnUrl=${returnUrl}`);
+    if(user?.role_key === 'agent' && user?.is_agent_verified === 0) {
+      router.replace('/signup/agent/pending-verification');
     }
 
     
@@ -68,7 +66,7 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
     );
   }
 
-  if (!isAuthenticated || !user || !allowedRoles.includes(user.panel_type)) {
+  if (!isAuthenticated || !user || !allowedRoles.includes(user.panel_type) || user?.is_agent_verified === 0) {
     return null;
   }
 

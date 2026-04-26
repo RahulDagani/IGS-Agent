@@ -62,9 +62,17 @@ export const GoogleLoginButton = ({
                 }
               
                 if(status === "business_pending"){
-                  router.push('/signup/agent/onboarding/business');
+                  if(!user.phone_number) {
+                    router.push('/signup/agent/onboarding/phone');
+                  } else {
+                    router.push('/signup/agent/onboarding/business');
+                  }
                 }else if(status === "under_review"){
-                  router.push('/signup/agent/pending-verification');
+                  if(!user.phone_number) {
+                    router.push('/signup/agent/onboarding/phone?next=pending');
+                  } else {
+                    router.push('/signup/agent/pending-verification');
+                  }
                 }else if(status === "verification_failed"){
                   router.push('/signup/agent/verification-failed');
                 }else if(status === "verified"){
