@@ -696,7 +696,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   // Fetch future intakes from API when modal opens
   useEffect(() => {
-    if (!isOpen || !courseId || !token) return;
+    if (!isOpen || !courseId) return;
     const fetchIntakes = async () => {
       setIsFetchingIntakes(true);
       setSelectedIntakeId(0);
@@ -1820,6 +1820,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         students={students}
         isFetchingStudents={isFetchingStudents}
         studentError={studentError}
+        courseId={selectedCourse?.id}
       />
 
       
