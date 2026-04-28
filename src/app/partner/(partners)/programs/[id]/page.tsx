@@ -129,6 +129,7 @@ interface Course {
   study_level_id: number;
   admission_requirements: string;
   is_popular: number;
+  university_id: number;
   university: string;
   university_slug: string;
   university_country: string;
