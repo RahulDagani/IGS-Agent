@@ -349,7 +349,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     return (
                       <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <div className={`p-3 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''}`}>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
                               <input
                                 type="radio"
                                 id={`intake-${intake.id}`}
@@ -359,19 +360,43 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 onChange={(e) => setSelectedIntakeId(Number(e.target.value))}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                               />
-                              <label
-                                htmlFor={`intake-${intake.id}`}
-                                className="font-medium text-gray-800 dark:text-white"
-                              >
+                              <label htmlFor={`intake-${intake.id}`} className="font-medium text-gray-800 dark:text-white">
                                 {intake.intake_name} {intake.intake_year}
-                                {intake.application_deadline && (
-                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                    (Deadline: {formatDate(intake.application_deadline)})
-                                  </span>
-                                )}
                               </label>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleIntakeDetails(intake.id)}
+                              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 ml-2 flex-shrink-0"
+                            >
+                              <svg className={`w-5 h-5 transition-transform ${openIntakeDetails === intake.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
                           </div>
-                      </div>
+                        </div>
+                        {openIntakeDetails === intake.id && (
+                          <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-900 space-y-1">
+                            {intake.application_start_date && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-500 dark:text-gray-400">Application Start:</span>
+                                <span className="font-medium text-gray-800 dark:text-white">{formatDate(intake.application_start_date)}</span>
+                              </div>
+                            )}
+                            {intake.application_deadline && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-500 dark:text-gray-400">Application Deadline:</span>
+                                <span className="font-medium text-gray-800 dark:text-white">{formatDate(intake.application_deadline)}</span>
+                              </div>
+                            )}
+                            {intake.course_start_date && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-500 dark:text-gray-400">Course Start:</span>
+                                <span className="font-medium text-gray-800 dark:text-white">{formatDate(intake.course_start_date)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
