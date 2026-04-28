@@ -50,12 +50,14 @@ interface SpecificDocument extends BaseDocument {
 interface Document extends BaseDocument {
   study_level_id?: number;
   study_level_name?: string;
+  country_code?: string;
   tenant_id?: number;
   application_id?: number;
   document_type?: string;
   course_name?: string;
   university_name?: string;
   is_common?: boolean;
+  doc_category?: 'study_level' | 'country' | 'specific';
 }
 
 interface ApiResponse {
@@ -63,6 +65,10 @@ interface ApiResponse {
   data: {
     study_level_documents: {
       list: CommonDocument[];
+      status: string;
+    };
+    country_wise_documents: {
+      list: BaseDocument[];
       status: string;
     };
     application_specific_documents: {
@@ -127,19 +133,25 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
         const data: ApiResponse = await response.json();
         
         if (data.success) {
-          // Combine common and specific documents
           const commonDocs = (data.data.study_level_documents?.list ?? []).map(doc => ({
             ...doc,
-            is_common: true
+            is_common: true,
+            doc_category: 'study_level' as const,
+          }));
+
+          const countryDocs = (data.data.country_wise_documents?.list ?? []).map(doc => ({
+            ...doc,
+            is_common: true,
+            doc_category: 'country' as const,
           }));
 
           const specificDocs = (data.data.application_specific_documents?.list ?? []).map(doc => ({
             ...doc,
-            is_common: false
+            is_common: false,
+            doc_category: 'specific' as const,
           }));
-          
-          // Merge both lists
-          setDocuments([...commonDocs, ...specificDocs]);
+
+          setDocuments([...commonDocs, ...countryDocs, ...specificDocs]);
         } else {
           throw new Error('Failed to fetch documents');
         }
@@ -211,7 +223,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   };
 
   // Upload file function - handles both common and specific documents
-  const uploadFile = async (documentId: number, isCommon: boolean, applicationId: number | null) => {
+  const uploadFile = async (documentId: number, isCommon: boolean, applicationId: number | null, doc_category?: string) => {
     const file = selectedFile[documentId];
     if (!file) {
       setUploadErrors(prev => ({ 
@@ -260,8 +272,10 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       });
 
       
-      const endpoint = isCommon 
-        ? `${BASE_URL}/agent/application/upload/common/document/${studentId}`
+      const endpoint = isCommon
+        ? (doc_category === 'country'
+            ? `${BASE_URL}/agent/student/upload/country-document/${studentId}`
+            : `${BASE_URL}/agent/student/upload/document/${studentId}`)
         : `${BASE_URL}/agent/application/upload/document/${applicationId}`;
       
       xhr.open('PUT', endpoint);
@@ -292,11 +306,12 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   };
 
   // File input component
-  const FileInput = ({ documentId, isCommon, currentFileName, applicationId = null }: { 
-    documentId: number, 
+  const FileInput = ({ documentId, isCommon, currentFileName, applicationId = null, doc_category }: {
+    documentId: number,
     isCommon: boolean,
     currentFileName?: string,
     applicationId?: number | null,
+    doc_category?: string,
   }) => {
     const isUploading = uploading[documentId];
     const progress = uploadProgress[documentId];
@@ -325,7 +340,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
           </label>
           
           <button
-            onClick={() => uploadFile(documentId, isCommon, applicationId)}
+            onClick={() => uploadFile(documentId, isCommon, applicationId, doc_category)}
             disabled={isUploading || !selectedFileForDoc}
             className={`flex items-center gap-2 px-4 py-2 rounded-md ${
               isUploading || !selectedFileForDoc
@@ -445,11 +460,12 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
           </div>
 
           <div className="ml-4">
-            <FileInput 
-              documentId={doc.id} 
+            <FileInput
+              documentId={doc.id}
               isCommon={isCommon}
               currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
               applicationId={!isCommon ? doc.application_id : null}
+              doc_category={doc.doc_category}
             />
           </div>
         </div>
