@@ -282,15 +282,18 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       xhr.send(formData);
 
       await uploadPromise;
-      
-      
+
+      // Update just the uploaded document in local state — no full refetch
+      setDocuments(prev => prev.map(doc =>
+        doc.id === documentId
+          ? { ...doc, status: 'uploaded', file_url: URL.createObjectURL(file) }
+          : doc
+      ));
       setSelectedFile(prev => ({ ...prev, [documentId]: null }));
-      
-      
+
       if (onDocumentUpload) {
-        onDocumentUpload(); // Call the callback if provided
+        onDocumentUpload();
       }
-      setRefreshTrigger(prev => prev + 1);
       
     } catch (err) {
       setUploadErrors(prev => ({ 
