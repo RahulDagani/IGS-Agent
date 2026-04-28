@@ -109,7 +109,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
 
   // Fetch documents from API
   useEffect(() => {
-    const tabType = activeTab == 'your' ? 'agent' : 'self';
+    const tabType = activeTab == 'your' ? 'student' : 'self';
  
     const fetchDocuments = async () => {
       try {
