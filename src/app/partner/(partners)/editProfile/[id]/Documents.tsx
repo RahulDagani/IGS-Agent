@@ -168,13 +168,8 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     }
   }, [studentId, token, refreshTrigger, activeTab]);
 
-  // For IGS tab, hide pending docs (admin-only upload) and strip upload option
-  const visibleDocuments = activeTab === 'Igs'
-    ? documents.filter(doc => doc.status !== 'pending')
-    : documents;
-
-  const mandatoryDocuments = visibleDocuments.filter(doc => doc.is_mandatory === 1);
-  const nonMandatoryDocuments = visibleDocuments.filter(doc => doc.is_mandatory === 0);
+  const mandatoryDocuments = documents.filter(doc => doc.is_mandatory === 1);
+  const nonMandatoryDocuments = documents.filter(doc => doc.is_mandatory === 0);
 
   // Format date for display
   const formatDate = (dateString: string | null) => {
