@@ -628,20 +628,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
 };
 
 // Application Confirmation Modal Component for Student Portal
-interface CourseIntakeDeadline {
-  id: number;
-  deadline_type: string;
-  deadline_date: string;
-  extended_date: string | null;
-  is_closed: number;
-  notes: string | null;
-}
 interface CourseIntake {
   id: number;
   intake_id: number;
   intake_name: string;
   intake_year: number;
-  deadlines: CourseIntakeDeadline[];
+  course_start_date: string | null;
+  application_start_date: string | null;
+  application_deadline: string | null;
 }
 
 interface ConfirmModalProps {
@@ -707,13 +701,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       setIsFetchingIntakes(true);
       setSelectedIntakeId(0);
       try {
-        const res = await fetch(`${BASE_URL}/agent/course/intake/${courseId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${BASE_URL}/course/${courseId}/intakes`);
         const data = await res.json();
         if (data.success && data.data?.length > 0) {
           setIntakes(data.data);
-          setSelectedIntakeId(data.data[0].id);
+          setSelectedIntakeId(data.data[0].intake_id);
         } else {
           setIntakes([]);
         }

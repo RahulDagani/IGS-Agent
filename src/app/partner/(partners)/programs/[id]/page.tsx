@@ -149,21 +149,14 @@ interface Course {
   gpa_score: string | null;
 }
 
-interface Deadline {
-  id: number;
-  deadline_type: string;
-  deadline_date: string;
-  extended_date: string | null;
-  is_closed: number;
-  notes: string | null;
-}
-
 interface Intake {
   id: number;
   intake_id: number;
   intake_name: string;
   intake_year: number;
-  deadlines: Deadline[];
+  course_start_date: string | null;
+  application_start_date: string | null;
+  application_deadline: string | null;
 }
 
 interface CourseDetailsResponse {
@@ -245,28 +238,18 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       setIsFetchingIntakes(true);
       setIntakesError(null);
       
-      const response = await fetch(`${BASE_URL}/agent/course/intake/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
+      const response = await fetch(`${BASE_URL}/course/${courseId}/intakes`);
+
       if (!response.ok) {
         throw new Error(`Failed to fetch intakes: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setIntakes(data.data || []);
-        
-        // Select first open intake by default
-        const firstOpenIntake = data.data.find((intake: Intake) => 
-          intake.deadlines.some(deadline => deadline.is_closed === 0)
-        );
-        
-        if (firstOpenIntake) {
-          setSelectedIntakeId(firstOpenIntake.intake_id);
+        if (data.data?.length > 0) {
+          setSelectedIntakeId(data.data[0].intake_id);
         }
       } else {
         throw new Error(data.message || 'Failed to load intakes');
@@ -367,8 +350,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     return (
                       <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <div className={`p-3 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3">
                               <input
                                 type="radio"
                                 id={`intake-${intake.id}`}
@@ -378,63 +360,18 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 onChange={(e) => setSelectedIntakeId(Number(e.target.value))}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                               />
-                              <div>
-                                <label 
-                                  htmlFor={`intake-${intake.id}`}
-                                  className={`font-medium text-gray-800 dark:text-white`}
-                                >
-                                  {intake.intake_name} {intake.intake_year}
-                                </label>
-                                
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleIntakeDetails(intake.id)}
-                              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                            >
-                              <svg
-                                className={`w-5 h-5 transition-transform ${openIntakeDetails === intake.id ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                              <label
+                                htmlFor={`intake-${intake.id}`}
+                                className="font-medium text-gray-800 dark:text-white"
                               >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </button>
+                                {intake.intake_name} {intake.intake_year}
+                                {intake.application_deadline && (
+                                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                                    (Deadline: {formatDate(intake.application_deadline)})
+                                  </span>
+                                )}
+                              </label>
                           </div>
-                        </div>
-                        
-                        {openIntakeDetails === intake.id && (
-                          <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-900">
-                            <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Deadlines:</h5>
-                            <div className="space-y-2">
-                              {intake.deadlines.map((deadline) => (
-                                <div key={deadline.id} className="text-sm">
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">{deadline.deadline_type}:</span>
-                                    <span className="font-medium text-gray-800 dark:text-white">
-                                      {formatDate(deadline.deadline_date)}
-                                    </span>
-                                  </div>
-                                  {deadline.extended_date && (
-                                    <div className="flex justify-between mt-1">
-                                      <span className="text-gray-600 dark:text-gray-400">Extended Date:</span>
-                                      <span className="text-yellow-600 dark:text-yellow-400">
-                                        {formatDate(deadline.extended_date)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {deadline.notes && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
-                                      Note: {deadline.notes}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
