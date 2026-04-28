@@ -61,11 +61,11 @@ interface Document extends BaseDocument {
 interface ApiResponse {
   success: number;
   data: {
-    common_documents: {
+    study_level_documents: {
       list: CommonDocument[];
       status: string;
     };
-    specific_documents: {
+    application_specific_documents: {
       list: SpecificDocument[];
       status: string;
     };
@@ -128,12 +128,12 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
         
         if (data.success) {
           // Combine common and specific documents
-          const commonDocs = data.data.common_documents.list.map(doc => ({
+          const commonDocs = (data.data.study_level_documents?.list ?? []).map(doc => ({
             ...doc,
             is_common: true
           }));
-          
-          const specificDocs = data.data.specific_documents.list.map(doc => ({
+
+          const specificDocs = (data.data.application_specific_documents?.list ?? []).map(doc => ({
             ...doc,
             is_common: false
           }));

@@ -628,6 +628,22 @@ const FilterModal: React.FC<FilterModalProps> = ({
 };
 
 // Application Confirmation Modal Component for Student Portal
+interface CourseIntakeDeadline {
+  id: number;
+  deadline_type: string;
+  deadline_date: string;
+  extended_date: string | null;
+  is_closed: number;
+  notes: string | null;
+}
+interface CourseIntake {
+  id: number;
+  intake_id: number;
+  intake_name: string;
+  intake_year: number;
+  deadlines: CourseIntakeDeadline[];
+}
+
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -637,7 +653,9 @@ interface ConfirmModalProps {
   students: Student[];
   isFetchingStudents: boolean;
   studentError: string | null;
-
+  courseId?: number | null;
+  token?: string | null;
+  preSelectedStudentId?: number;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -649,14 +667,20 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   students,
   isFetchingStudents,
   studentError,
+  courseId,
+  token,
+  preSelectedStudentId,
 }) => {
-  const [selectedStudentId, setSelectedStudentId] = useState<number>(0);
+  const [selectedStudentId, setSelectedStudentId] = useState<number>(preSelectedStudentId ?? 0);
   const [selectedIntakeId, setSelectedIntakeId] = useState<number>(0);
-  const [intakes, setIntakes] = useState<Intake[]>([]);
+  const [intakes, setIntakes] = useState<CourseIntake[]>([]);
+  const [isFetchingIntakes, setIsFetchingIntakes] = useState(false);
   const [openIntakeDetails, setOpenIntakeDetails] = useState<number | null>(null);
 
   const [appLogin, setAppLogin] = useState<string>("");
   const [appPassword, setAppPassword] = useState<string>("");
+
+  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
   const formatFee = (fee: string, currency: string) => {
     if (!fee || fee === "0.00") return "Free";
@@ -671,17 +695,36 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     });
   };
 
-  // Set intakes from course data when modal opens
+  // Sync pre-selected student when prop changes
   useEffect(() => {
-    if (isOpen && course && course.intakes) {
-      setIntakes(course.intakes);
-      
+    if (preSelectedStudentId) setSelectedStudentId(preSelectedStudentId);
+  }, [preSelectedStudentId]);
 
-        // If no open intake found, select the first one
-        setSelectedIntakeId(course.intakes[0].intake_id);
-      
-    }
-  }, [isOpen, course]);
+  // Fetch future intakes from API when modal opens
+  useEffect(() => {
+    if (!isOpen || !courseId || !token) return;
+    const fetchIntakes = async () => {
+      setIsFetchingIntakes(true);
+      setSelectedIntakeId(0);
+      try {
+        const res = await fetch(`${BASE_URL}/agent/course/intake/${courseId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success && data.data?.length > 0) {
+          setIntakes(data.data);
+          setSelectedIntakeId(data.data[0].id);
+        } else {
+          setIntakes([]);
+        }
+      } catch {
+        setIntakes([]);
+      } finally {
+        setIsFetchingIntakes(false);
+      }
+    };
+    fetchIntakes();
+  }, [isOpen, courseId, token]);
 
   const handleSubmit = () => {
     if (selectedStudentId === 0) {
