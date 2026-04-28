@@ -373,6 +373,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                               </label>
                           </div>
                       </div>
+                      </div>
                     );
                   })}
                 </div>
