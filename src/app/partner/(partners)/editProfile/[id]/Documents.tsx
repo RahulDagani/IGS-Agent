@@ -168,9 +168,13 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     }
   }, [studentId, token, refreshTrigger, activeTab]);
 
-  // Group documents by mandatory status and type
-  const mandatoryDocuments = documents.filter(doc => doc.is_mandatory === 1);
-  const nonMandatoryDocuments = documents.filter(doc => doc.is_mandatory === 0);
+  // For IGS tab, hide pending docs (admin-only upload) and strip upload option
+  const visibleDocuments = activeTab === 'Igs'
+    ? documents.filter(doc => doc.status !== 'pending')
+    : documents;
+
+  const mandatoryDocuments = visibleDocuments.filter(doc => doc.is_mandatory === 1);
+  const nonMandatoryDocuments = visibleDocuments.filter(doc => doc.is_mandatory === 0);
 
   // Format date for display
   const formatDate = (dateString: string | null) => {
@@ -459,15 +463,17 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
             </div>
           </div>
 
-          <div className="ml-4">
-            <FileInput
-              documentId={doc.id}
-              isCommon={isCommon}
-              currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
-              applicationId={!isCommon ? doc.application_id : null}
-              doc_category={doc.doc_category}
-            />
-          </div>
+          {activeTab !== 'Igs' && (
+            <div className="ml-4">
+              <FileInput
+                documentId={doc.id}
+                isCommon={isCommon}
+                currentFileName={fileName !== 'No file uploaded' ? fileName : undefined}
+                applicationId={!isCommon ? doc.application_id : null}
+                doc_category={doc.doc_category}
+              />
+            </div>
+          )}
         </div>
 
         {doc.file_url && (
