@@ -248,7 +248,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       if (data.success) {
         setIntakes(data.data || []);
         if (data.data?.length > 0) {
-          setSelectedIntakeId(data.data[0].intake_id);
+          setSelectedIntakeId(data.data[0].id);
         }
       } else {
         throw new Error(data.message || 'Failed to load intakes');
@@ -344,7 +344,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               ) : (
                 <div className="space-y-3">
                   {intakes.map((intake) => {
-                    const isSelected = selectedIntakeId === intake.intake_id;
+                    const isSelected = selectedIntakeId === intake.id;
                     
                     return (
                       <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -355,7 +355,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 type="radio"
                                 id={`intake-${intake.id}`}
                                 name="intake"
-                                value={intake.intake_id}
+                                value={intake.id}
                                 checked={isSelected}
                                 onChange={(e) => setSelectedIntakeId(Number(e.target.value))}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
@@ -671,7 +671,8 @@ const CourseDetailsPage: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          student_user_id: studentId,
+          student_id: studentId,
+          university_id: courseData?.course?.university_id,
           course_id: courseId,
           course_intake_id: intakeId,
           study_level_id: studyLevelId,

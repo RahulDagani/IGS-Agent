@@ -705,7 +705,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         const data = await res.json();
         if (data.success && data.data?.length > 0) {
           setIntakes(data.data);
-          setSelectedIntakeId(data.data[0].intake_id);
+          setSelectedIntakeId(data.data[0].id);
         } else {
           setIntakes([]);
         }
@@ -783,7 +783,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               ) : (
                 <div className="space-y-3">
                   {intakes.map((intake) => {
-                    const isSelected = selectedIntakeId === intake.intake_id;
+                    const isSelected = selectedIntakeId === intake.id;
                     return (
                       <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <div className={`p-3 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''}`}>
@@ -793,7 +793,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 type="radio"
                                 id={`intake-${intake.id}`}
                                 name="intake"
-                                value={intake.intake_id}
+                                value={intake.id}
                                 checked={isSelected}
                                 onChange={(e) => setSelectedIntakeId(Number(e.target.value))}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
@@ -1520,7 +1520,7 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         university_id: selectedCourse.university_id,
         study_level_id: selectedCourse.study_level_id,
         remarks: "Student wants to apply for this course",
-        student_user_id: studentId,
+        student_id: studentId,
         course_intake_id: intakeId,
         application_login: appLogin,  
         application_password: appPassword
