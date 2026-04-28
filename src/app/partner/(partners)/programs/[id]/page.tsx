@@ -1,7 +1,6 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { Heart, DollarSign, Play, Download, Globe } from "lucide-react";
-import Badge from "@/components/ui/badge/Badge";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { City, Country, State } from "country-state-city";
@@ -859,9 +858,9 @@ const CourseDetailsPage: React.FC = () => {
 
                 {/* Action Buttons and Links */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {courseData.intakes[0]?.deadlines[0] && (
+                  {course.university_website && (
                     <a
-                      href={course.university_website || "#"}
+                      href={course.university_website}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -903,51 +902,14 @@ const CourseDetailsPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {courseData.intakes.map((intake) => (
                   <div key={intake.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="space-y-3">
-                      <div>
-                        <h4 className="font-medium text-gray-800 dark:text-white mb-1">
-                          {intake.intake_name} {intake.intake_year}
-                        </h4>
-                      </div>
-                      
-                      {intake.deadlines && intake.deadlines.length > 0 && (
-                        <div className="space-y-2">
-                          {intake.deadlines.map((deadline) => (
-                            <div key={deadline.id} className="border-t border-gray-100 dark:border-gray-700 pt-2">
-                              <div className="flex justify-between">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  {deadline.deadline_type}:
-                                </span>
-                                <span className="text-sm font-medium text-gray-800 dark:text-white">
-                                  {formatDate(deadline.deadline_date)} {deadline.is_closed == 0 ?  <Badge size="sm" color="success">
-                                   Open
-                
-              </Badge> :  <Badge size="sm" color="error">
-                
-                Closed
-              </Badge>}
-                                </span>
-                              </div>
-                              {deadline.extended_date && (
-                                <div className="flex justify-between mt-1">
-                                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                                    Extended Date:
-                                  </span>
-                                  <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                                    {formatDate(deadline.extended_date)}
-                                  </span>
-                                </div>
-                              )}
-                              {deadline.notes && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  Note: {deadline.notes}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <h4 className="font-medium text-gray-800 dark:text-white mb-1">
+                      {intake.intake_name} {intake.intake_year}
+                    </h4>
+                    {intake.application_deadline && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Deadline: {formatDate(intake.application_deadline)}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
