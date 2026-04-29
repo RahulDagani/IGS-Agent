@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { Country } from "country-state-city";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -53,7 +52,6 @@ export default function StudentTable() {
   const [searchLoading, setSearchLoading] = useState(false); 
   
   // Filter states
-  const [countryCode, setCountryCode] = useState<string>("");
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
   
@@ -67,7 +65,6 @@ export default function StudentTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(10);
 
-  const countries = Country.getAllCountries();
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
@@ -94,10 +91,6 @@ export default function StudentTable() {
     // Add search/filter params
     if (searchTerm) {
       params.append('keyword', searchTerm);
-    }
-    
-    if (countryCode) {
-      params.append('country_code', countryCode);
     }
     
     if (startDate) {
@@ -156,7 +149,7 @@ export default function StudentTable() {
   // Reset to first page when filters change (except pagination controls)
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, countryCode, dateRange]);
+  }, [searchTerm, dateRange]);
 
   // Format date to readable string
   const formatDate = (dateString: string) => {
@@ -180,11 +173,6 @@ export default function StudentTable() {
   // Handle search with debounce
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-  };
-
-  // Handle country change
-  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCountryCode(e.target.value);
   };
 
   // Handle page change
@@ -383,24 +371,6 @@ export default function StudentTable() {
               </div>
             </div>
 
-            {/* Country Filter */}
-            <div className="relative">
-              <select
-                id="country_code"
-                name="country_code"
-                value={countryCode}
-                onChange={handleCountryChange}
-                className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 appearance-none"
-              >
-                <option value="">All Countries</option>
-                {countries.map(country => (
-                  <option key={country.isoCode} value={country.isoCode}>
-                    {country.name}
-                  </option>
-                ))}
-              </select>
-             
-            </div>
 
             
 
@@ -477,8 +447,6 @@ export default function StudentTable() {
                     { key: "first_name", label: "Name" },
                     { key: "email", label: "Email" },
                     { key: "phone", label: "Phone" },
-                    { key: "passport_number", label: "Passport" },
-                    { key: "dob", label: "Date of Birth" },
                     { key: "status", label: "Status" },
                     { key: "created_at", label: "Created" },
                   ].map(({ key, label }) => (
@@ -514,12 +482,6 @@ export default function StudentTable() {
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {student.phone}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {student.passport_number}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {formatDate(student.dob)}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <StatusBadge status={student.status} />
