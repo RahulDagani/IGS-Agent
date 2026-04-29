@@ -342,6 +342,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
           </label>
           
           <button
+            type="button"
             onClick={() => uploadFile(documentId, isCommon, applicationId, doc_category)}
             disabled={isUploading || !selectedFileForDoc}
             className={`flex items-center gap-2 px-4 py-2 rounded-md ${
