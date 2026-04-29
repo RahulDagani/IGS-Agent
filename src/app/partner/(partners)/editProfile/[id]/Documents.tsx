@@ -203,7 +203,6 @@ interface DocumentCardProps {
   doc: Document;
   activeTab: string;
   uploading: UploadState;
-  uploadProgress: UploadProgress;
   uploadErrors: UploadError;
   uploadSuccess: UploadSuccess;
   selectedFile: { [key: number]: File | null };
@@ -251,7 +250,6 @@ function DocumentCard({
   doc,
   activeTab,
   uploading,
-  uploadProgress,
   uploadErrors,
   uploadSuccess,
   selectedFile,
@@ -329,7 +327,7 @@ function DocumentCard({
               applicationId={!isCommon ? doc.application_id : null}
               doc_category={doc.doc_category}
               isUploading={uploading[doc.id] ?? false}
-              progress={uploadProgress[doc.id] ?? 0}
+              progress={0}
               fileError={uploadErrors[doc.id] ?? ''}
               uploadSuccess={uploadSuccess[doc.id] ?? false}
               selectedFileForDoc={selectedFile[doc.id] ?? null}
@@ -381,7 +379,6 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<UploadState>({});
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [uploadErrors, setUploadErrors] = useState<UploadError>({});
   const [uploadSuccess, setUploadSuccess] = useState<UploadSuccess>({});
   const [selectedFile, setSelectedFile] = useState<{ [key: number]: File | null }>({});
@@ -389,50 +386,49 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   const BASE_URL = 'https://api.applystore.org/api';
   const { token } = useAuth();
 
-  useEffect(() => {
+  const fetchDocuments = async (showLoader = true) => {
     const tabType = activeTab === 'your' ? 'student' : 'self';
+    try {
+      if (showLoader) setLoading(true);
+      const response = await fetch(`${BASE_URL}/agent/student/commondocs/${studentId}?document_type=${tabType}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
 
-    const fetchDocuments = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${BASE_URL}/agent/student/commondocs/${studentId}?document_type=${tabType}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: ApiResponse = await response.json();
 
-        const data: ApiResponse = await response.json();
+      if (data.success) {
+        const commonDocs = (data.data.study_level_documents?.list ?? []).map(doc => ({
+          ...doc,
+          is_common: true,
+          doc_category: 'study_level' as const,
+        }));
 
-        if (data.success) {
-          const commonDocs = (data.data.study_level_documents?.list ?? []).map(doc => ({
-            ...doc,
-            is_common: true,
-            doc_category: 'study_level' as const,
-          }));
+        const countryDocs = (data.data.country_wise_documents?.list ?? []).map(doc => ({
+          ...doc,
+          is_common: true,
+          doc_category: 'country' as const,
+        }));
 
-          const countryDocs = (data.data.country_wise_documents?.list ?? []).map(doc => ({
-            ...doc,
-            is_common: true,
-            doc_category: 'country' as const,
-          }));
+        const specificDocs = (data.data.application_specific_documents?.list ?? []).map(doc => ({
+          ...doc,
+          is_common: false,
+          doc_category: 'specific' as const,
+        }));
 
-          const specificDocs = (data.data.application_specific_documents?.list ?? []).map(doc => ({
-            ...doc,
-            is_common: false,
-            doc_category: 'specific' as const,
-          }));
-
-          setDocuments([...commonDocs, ...countryDocs, ...specificDocs]);
-        } else {
-          throw new Error('Failed to fetch documents');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
+        setDocuments([...commonDocs, ...countryDocs, ...specificDocs]);
+      } else {
+        throw new Error('Failed to fetch documents');
       }
-    };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (studentId) fetchDocuments();
   }, [studentId, token, activeTab]);
 
@@ -462,55 +458,30 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     formData.append('file', file);
 
     setUploading(prev => ({ ...prev, [documentId]: true }));
-    setUploadProgress(prev => ({ ...prev, [documentId]: 0 }));
     setUploadErrors(prev => ({ ...prev, [documentId]: '' }));
 
     try {
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          const progress = (event.loaded / event.total) * 100;
-          setUploadProgress(prev => ({ ...prev, [documentId]: progress }));
-        }
-      });
-
-      const uploadPromise = new Promise((resolve, reject) => {
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            try {
-              const response = JSON.parse(xhr.responseText);
-              if (response.success) resolve(response);
-              else reject(new Error(response.message || 'Upload failed'));
-            } catch {
-              resolve(xhr.responseText);
-            }
-          } else {
-            reject(new Error(`Upload failed with status: ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error('Network error occurred'));
-      });
-
       const endpoint = isCommon
         ? (doc_category === 'country'
             ? `${BASE_URL}/agent/student/upload/country-document/${studentId}`
             : `${BASE_URL}/agent/student/upload/document/${studentId}`)
         : `${BASE_URL}/agent/application/upload/document/${applicationId}`;
 
-      xhr.open('PUT', endpoint);
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      xhr.send(formData);
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
 
-      await uploadPromise;
+      const data = await response.json();
 
-      setDocuments(prev =>
-        prev.map(doc =>
-          doc.id === documentId
-            ? { ...doc, status: 'uploaded', file_url: URL.createObjectURL(file) }
-            : doc,
-        ),
-      );
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `Upload failed (${response.status})`);
+      }
+
+      // Refetch to get the real updated file_url from the server
+      await fetchDocuments(false);
+
       setSelectedFile(prev => ({ ...prev, [documentId]: null }));
       setUploadSuccess(prev => ({ ...prev, [documentId]: true }));
       setTimeout(() => setUploadSuccess(prev => ({ ...prev, [documentId]: false })), 3000);
@@ -523,14 +494,12 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       }));
     } finally {
       setUploading(prev => ({ ...prev, [documentId]: false }));
-      setUploadProgress(prev => ({ ...prev, [documentId]: 0 }));
     }
   };
 
   const cardProps = {
     activeTab,
     uploading,
-    uploadProgress,
     uploadErrors,
     uploadSuccess,
     selectedFile,
