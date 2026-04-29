@@ -140,6 +140,7 @@ interface ChatMessage {
   created_by_name: string | null;
   created_by_email: string;
   file_url: string | null;
+  is_mine: number;
 }
 
 interface ChatUploadState {
