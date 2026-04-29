@@ -585,45 +585,43 @@ const updateCredentials = async () => {
     }
 
     return messages.map((message) => {
-      const isAgent = message.who_has_created === 'agent';
-      const isTenant = message.who_has_created === 'tenant';
-      
-      const senderName = message.created_by_name || 
-                        (isAgent ? 'You' : 'IGS Team');
+      const isMine = message.is_mine === 1;
+      const senderName = message.created_by_name || (isMine ? 'You' : 'IGS Team');
 
       return (
-        <div key={message.id} className="flex gap-3 mb-6">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-            isAgent 
+        <div key={message.id} className={`flex gap-3 mb-6 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+          {/* Avatar */}
+          <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-semibold ${
+            isMine
               ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400'
           }`}>
             {senderName.charAt(0).toUpperCase()}
           </div>
+
+          {/* Bubble */}
           <div className={`rounded-lg p-4 max-w-xl ${
-            isAgent
+            isMine
               ? 'bg-blue-100 dark:bg-blue-900/30'
               : 'bg-gray-100 dark:bg-gray-700'
           }`}>
-            <div className="flex justify-between items-start mb-2">
+            <div className={`flex justify-between items-start mb-2 gap-4 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
               <p className={`font-medium ${
-                isAgent
-                  ? 'text-blue-700 dark:text-blue-400'
-                  : 'text-gray-700 dark:text-gray-300'
+                isMine ? 'text-blue-700 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
               }`}>
                 {senderName}
               </p>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                 {formatMessageTime(message.created_at)}
               </span>
             </div>
-            
+
             {message.comment && (
               <p className="text-gray-700 dark:text-gray-300 mb-3 whitespace-pre-wrap">
                 {message.comment}
               </p>
             )}
-            
+
             {message.file_url && (
               <div className="mt-2">
                 <a
@@ -640,7 +638,7 @@ const updateCredentials = async () => {
                 </a>
               </div>
             )}
-            
+
             {message.is_internal_note === 1 && (
               <div className="mt-2 inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
                 <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></span>
