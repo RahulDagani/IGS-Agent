@@ -380,7 +380,7 @@ export default function AgentAccountDetails() {
     try {
       const formData = new FormData();
       formData.append("signature", signatureFile);
-      const response = await fetch(`${BASE_URL}/agent/agent/signature`, {
+      const response = await fetch(`${BASE_URL}/agent/signature`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
