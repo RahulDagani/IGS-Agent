@@ -352,21 +352,9 @@ const updateCredentials = async () => {
   const loadMessages = async (applicationId: number) => {
     try {
       setIsLoadingMessages(true);
-      
-      let endpoint = '';
-      if (commentTab === 'Igs') {
-        endpoint = `${BASE_URL}/agent/application/comments/${applicationId}?who_has_created=tenant`;
-      } else if (commentTab === 'agent') {
-        endpoint = `${BASE_URL}/agent/application/comments/${applicationId}?who_has_created=agent`;
-      }
-
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch(`${BASE_URL}/agent/application/comments/${applicationId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      
       const data = await response.json();
       if (data.success) {
         setMessages(data.data);
@@ -382,7 +370,7 @@ const updateCredentials = async () => {
     if (activeProgram && (commentTab === 'Igs' || commentTab === 'agent')) {
       loadMessages(activeProgram);
     }
-  }, [commentTab, activeProgram]);
+  }, [activeProgram, commentTab]);
 
   const handleFileSelect = (documentId: number, file: File) => {
     setSelectedFile(file);
@@ -503,21 +491,7 @@ const updateCredentials = async () => {
       const data = await response.json();
       
       if (data.success) {
-        if (commentTab === 'agent') {
-          const messagesResponse = await fetch(`${BASE_URL}/agent/application/comments/${activeProgram}?who_has_created=agent`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const messagesData = await messagesResponse.json();
-          if (messagesData.success) {
-            setMessages(messagesData.data);
-          }
-        } else {
-          loadMessages(activeProgram);
-        }
-        
+        await loadMessages(activeProgram);
         setNewMessage('');
         removeChatFile();
         setHideFromCounselor(false);
