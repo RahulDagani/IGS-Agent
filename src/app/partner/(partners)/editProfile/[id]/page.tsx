@@ -28,8 +28,6 @@ export default function StudentDetailsPage() {
   const searchParams = useSearchParams();
   const activeTabFromUrl = searchParams.get("tab");
 
-  const [refreshDocuments, setRefreshDocuments] = useState(0);
-  
   const {id: studentId} = useParams();
   const { token } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
@@ -37,10 +35,6 @@ export default function StudentDetailsPage() {
   useEffect(() => {
     fetchStudentDetails();
   }, []);
-
-  useEffect(() => {
-    fetchStudentDetails();
-  }, [refreshDocuments]);
 
   useEffect(() => {
       if (activeTabFromUrl) {
@@ -309,7 +303,7 @@ export default function StudentDetailsPage() {
 
         {/* Documents Tab */}
         {activeTab === "documents" && (
-          <DocumentsPage key={refreshDocuments} onDocumentUpload={() => setRefreshDocuments(prev => prev + 1)} />
+          <DocumentsPage onDocumentUpload={() => {}} />
         )}
       </div>
     </div>
