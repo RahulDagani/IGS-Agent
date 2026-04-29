@@ -280,8 +280,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-99999 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[700px] max-h-[90vh] flex flex-col">
+        <div className="flex-shrink-0 flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Filter Programs
           </h3>
@@ -293,7 +293,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
           {/* <div className="grid grid-cols-2 gap-6">
              
@@ -608,7 +608,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
          
         </div>
 
-        <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex-shrink-0 flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleReset}
             className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
