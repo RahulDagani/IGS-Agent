@@ -90,6 +90,10 @@ interface UploadError {
   [key: number]: string;
 }
 
+interface UploadSuccess {
+  [key: number]: boolean;
+}
+
 interface DocumentsPageProps {
   onDocumentUpload: () => void;
 }
@@ -104,6 +108,7 @@ interface FileInputProps {
   isUploading: boolean;
   progress: number;
   fileError: string;
+  uploadSuccess: boolean;
   selectedFileForDoc: File | null;
   onFileSelect: (file: File | null) => void;
   onUpload: () => void;
@@ -113,23 +118,36 @@ function FileInput({
   isUploading,
   progress,
   fileError,
+  uploadSuccess,
   selectedFileForDoc,
   onFileSelect,
   onUpload,
 }: FileInputProps) {
   return (
-    <div className="flex flex-col gap-3 min-w-[250px]">
+    <div className="w-64 flex flex-col gap-2">
+      {/* Success message */}
+      {uploadSuccess && (
+        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-md">
+          <CheckCircle size={15} />
+          Uploaded successfully
+        </div>
+      )}
+
+      {/* Error message */}
       {fileError && (
-        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded-md">
-          <AlertCircle size={16} />
+        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-md">
+          <AlertCircle size={15} />
           {fileError}
         </div>
       )}
 
+      {/* Buttons row — fixed height, never changes */}
       <div className="flex gap-2">
-        <label className="flex items-center gap-2 cursor-pointer border dark:text-white border-gray-300 dark:border-gray-600 px-4 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
-          <UploadCloud size={16} />
-          Choose File
+        <label className="flex items-center gap-1.5 cursor-pointer border dark:text-white border-gray-300 dark:border-gray-600 px-3 py-1.5 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0">
+          <UploadCloud size={14} />
+          {selectedFileForDoc
+            ? <span className="max-w-[80px] truncate">{selectedFileForDoc.name}</span>
+            : 'Choose File'}
           <input
             type="file"
             className="hidden"
@@ -142,7 +160,7 @@ function FileInput({
           type="button"
           onClick={onUpload}
           disabled={isUploading || !selectedFileForDoc}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm shrink-0 ${
             isUploading || !selectedFileForDoc
               ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'
               : 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
@@ -150,33 +168,27 @@ function FileInput({
         >
           {isUploading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
               Uploading...
             </>
           ) : (
             <>
-              <UploadCloud size={16} />
+              <UploadCloud size={14} />
               Upload
             </>
           )}
         </button>
       </div>
 
-      {selectedFileForDoc && !isUploading && (
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          Selected: <span className="font-medium">{selectedFileForDoc.name}</span>
-        </div>
-      )}
-
+      {/* Progress bar — only shown while uploading, same fixed width */}
       {isUploading && (
         <div className="w-full">
-          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-            <span>Uploading...</span>
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
             <div
-              className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+              className="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -193,6 +205,7 @@ interface DocumentCardProps {
   uploading: UploadState;
   uploadProgress: UploadProgress;
   uploadErrors: UploadError;
+  uploadSuccess: UploadSuccess;
   selectedFile: { [key: number]: File | null };
   onFileSelect: (documentId: number, file: File | null) => void;
   onUpload: (documentId: number, isCommon: boolean, applicationId: number | null, doc_category?: string) => void;
@@ -240,6 +253,7 @@ function DocumentCard({
   uploading,
   uploadProgress,
   uploadErrors,
+  uploadSuccess,
   selectedFile,
   onFileSelect,
   onUpload,
@@ -317,6 +331,7 @@ function DocumentCard({
               isUploading={uploading[doc.id] ?? false}
               progress={uploadProgress[doc.id] ?? 0}
               fileError={uploadErrors[doc.id] ?? ''}
+              uploadSuccess={uploadSuccess[doc.id] ?? false}
               selectedFileForDoc={selectedFile[doc.id] ?? null}
               onFileSelect={(file) => onFileSelect(doc.id, file)}
               onUpload={() => onUpload(doc.id, isCommon, !isCommon ? (doc.application_id ?? null) : null, doc.doc_category)}
@@ -368,6 +383,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   const [uploading, setUploading] = useState<UploadState>({});
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [uploadErrors, setUploadErrors] = useState<UploadError>({});
+  const [uploadSuccess, setUploadSuccess] = useState<UploadSuccess>({});
   const [selectedFile, setSelectedFile] = useState<{ [key: number]: File | null }>({});
 
   const BASE_URL = 'https://api.applystore.org/api';
@@ -496,6 +512,8 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
         ),
       );
       setSelectedFile(prev => ({ ...prev, [documentId]: null }));
+      setUploadSuccess(prev => ({ ...prev, [documentId]: true }));
+      setTimeout(() => setUploadSuccess(prev => ({ ...prev, [documentId]: false })), 3000);
 
       if (onDocumentUpload) onDocumentUpload();
     } catch (err) {
@@ -514,6 +532,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     uploading,
     uploadProgress,
     uploadErrors,
+    uploadSuccess,
     selectedFile,
     onFileSelect: handleFileSelect,
     onUpload: uploadFile,
