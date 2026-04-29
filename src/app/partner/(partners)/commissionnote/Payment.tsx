@@ -376,6 +376,19 @@ export default function PaymentsTable() {
     noteNumber: ''
   });
 
+  // Raise Invoice modal state
+  const [raiseInvoiceModal, setRaiseInvoiceModal] = useState<{
+    isOpen: boolean;
+    noteId: number | null;
+    noteNumber: string;
+    isSubmitting: boolean;
+  }>({
+    isOpen: false,
+    noteId: null,
+    noteNumber: '',
+    isSubmitting: false,
+  });
+
   // Add ref to track initial mount and prevent unnecessary fetches
   const isInitialMount = useRef(true);
   const prevLimitRef = useRef(pagination.limit);
@@ -625,12 +638,40 @@ export default function PaymentsTable() {
 
   // Handle raise invoice button click
   const handleRaiseInvoice = useCallback((noteId: number, noteNumber: string) => {
-    setPdfModal({
+    setRaiseInvoiceModal({
       isOpen: true,
       noteId: noteId,
-      noteNumber: noteNumber
+      noteNumber: noteNumber,
+      isSubmitting: false,
     });
   }, []);
+
+  const submitRaiseInvoice = useCallback(async () => {
+    if (!raiseInvoiceModal.noteId) return;
+    setRaiseInvoiceModal(prev => ({ ...prev, isSubmitting: true }));
+    try {
+      const response = await fetch(
+        `${BASE_URL}/agent/commission-note/${raiseInvoiceModal.noteId}/raise-invoice`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        }
+      );
+      const data = await response.json();
+      if (data.status === 'success') {
+        setRaiseInvoiceModal({ isOpen: false, noteId: null, noteNumber: '', isSubmitting: false });
+        setDialog({ isOpen: true, type: 'success', message: 'Invoice raised successfully! Admin will review and process your payment.' });
+        fetchCommissionNotes(pagination.page);
+        if (raiseInvoiceModal.noteId) fetchCommissionNoteDetail(raiseInvoiceModal.noteId);
+      } else {
+        setDialog({ isOpen: true, type: 'error', message: data.message || 'Failed to raise invoice' });
+        setRaiseInvoiceModal(prev => ({ ...prev, isSubmitting: false }));
+      }
+    } catch (err) {
+      setDialog({ isOpen: true, type: 'error', message: err instanceof Error ? err.message : 'An error occurred' });
+      setRaiseInvoiceModal(prev => ({ ...prev, isSubmitting: false }));
+    }
+  }, [BASE_URL, token, raiseInvoiceModal, fetchCommissionNotes, fetchCommissionNoteDetail, pagination.page]);
 
   const closeDialog = () => {
     setDialog(prev => ({ ...prev, isOpen: false }));
@@ -742,11 +783,8 @@ export default function PaymentsTable() {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            who_has_created: "tenant",
-            invoice_note_id: noteId,
             comment: comment.trim(),
-            created_by: 1,
-            is_internal_note: true
+            is_internal_note: false
           })
         }
       );
@@ -1079,6 +1117,47 @@ export default function PaymentsTable() {
       {/* Status Dialog */}
       <StatusDialog />
 
+      {/* Raise Invoice Modal */}
+      {raiseInvoiceModal.isOpen && (
+        <div className="fixed inset-0 z-999999 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full animate-fade-in">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Raise Invoice</h3>
+                <button onClick={() => setRaiseInvoiceModal(prev => ({ ...prev, isOpen: false }))} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Commission Note: <span className="font-semibold">#{raiseInvoiceModal.noteNumber}</span>
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Submitting this invoice will notify the admin to process your commission payment. Ensure all commission details in the note are correct before proceeding.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRaiseInvoiceModal(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitRaiseInvoice}
+                  disabled={raiseInvoiceModal.isSubmitting}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                >
+                  {raiseInvoiceModal.isSubmitting ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  ) : (
+                    <><FileText size={16} /><span>Submit Invoice</span></>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PDF Modal */}
       <PDFViewModal
         isOpen={pdfModal.isOpen}
@@ -1238,17 +1317,25 @@ export default function PaymentsTable() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {/* Raise Invoice Button */}
-                  <button
-                    onClick={() => handleRaiseInvoice(
-                      activeNoteDetail.commission_note?.id || 0, 
-                      activeNoteDetail.commission_note?.note_number || ''
-                    )}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                  >
-                    <FileText size={16} />
-                    Raise Invoice
-                  </button>
+                  {/* Raise Invoice Button — only visible when invoice can be raised */}
+                  {['sent_to_partner', 'revisions_in_invoice_needed'].includes(activeNoteDetail.commission_note?.status || '') && (
+                    <button
+                      onClick={() => handleRaiseInvoice(
+                        activeNoteDetail.commission_note?.id || 0,
+                        activeNoteDetail.commission_note?.note_number || ''
+                      )}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <FileText size={16} />
+                      Raise Invoice
+                    </button>
+                  )}
+                  {['invoice_uploaded', 'invoice_uploaded_after_corrections'].includes(activeNoteDetail.commission_note?.status || '') && (
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
+                      <CheckCircle size={16} />
+                      Invoice Submitted
+                    </span>
+                  )}
 
                   {/* Download Button */}
                   <button
@@ -1440,15 +1527,20 @@ export default function PaymentsTable() {
 
                 {activeNoteDetail.comments && activeNoteDetail.comments.length > 0 ? (
                   <div className="mt-4 space-y-3 max-h-64 overflow-y-auto">
-                    {activeNoteDetail.comments.map((comment) => (
-                      <div key={comment.id} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{comment.comment}</p>
-                        <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span>{comment.created_by_name || `User ${comment.created_by}`}</span>
-                          <span>{formatDateTime(comment.created_at)}</span>
+                    {activeNoteDetail.comments.map((comment) => {
+                      const isAgent = comment.who_has_created === 'agent';
+                      return (
+                        <div key={comment.id} className={`p-3 rounded-lg border ${isAgent ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 ml-4' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 mr-4'}`}>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{comment.comment}</p>
+                          <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span className={`font-medium ${isAgent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                              {isAgent ? 'You' : (comment.created_by_name || 'Admin')}
+                            </span>
+                            <span>{formatDateTime(comment.created_at)}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-center text-gray-500 dark:text-gray-400 mt-6 py-4">

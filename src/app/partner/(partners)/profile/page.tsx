@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase } from "lucide-react";
+import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
 
@@ -72,7 +72,7 @@ interface AgentProfileResponse {
   };
 }
 
-type Tab = "business" | "payment" | "social";
+type Tab = "business" | "payment" | "social" | "signature";
 
 const BASE_URL = "https://api.applystore.org/api";
 
@@ -183,6 +183,11 @@ export default function AgentAccountDetails() {
     skype_id: "",
   });
 
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !authUser) {
       router.push('/signin/agent');
@@ -229,6 +234,11 @@ export default function AgentAccountDetails() {
         whatsapp_id: profileData.profile.whatsapp_id || "",
         skype_id: profileData.profile.skype_id || "",
       });
+
+      // Load existing signature
+      if ((profileData.profile as any).signature_url) {
+        setSignatureUrl((profileData.profile as any).signature_url);
+      }
       
     } catch (error) {
       console.error('Error loading agent profile:', error);
@@ -352,7 +362,120 @@ export default function AgentAccountDetails() {
     { id: "business", label: "Business", icon: Building },
     { id: "payment", label: "Payment", icon: CreditCard },
     { id: "social", label: "Social", icon: MessageCircle },
+    { id: "signature", label: "Signature", icon: PenLine },
   ];
+
+  const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSignatureFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setSignaturePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSignatureUpload = async () => {
+    if (!signatureFile || !token) return;
+    setUploadingSignature(true);
+    try {
+      const formData = new FormData();
+      formData.append("signature", signatureFile);
+      const response = await fetch(`${BASE_URL}/agent/agent/signature`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setSignatureUrl(data.signature_url);
+        setSignatureFile(null);
+        setSignaturePreview(null);
+        setSuccess("Signature uploaded successfully!");
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(data.message || "Failed to upload signature");
+        setTimeout(() => setError(""), 3000);
+      }
+    } catch (err) {
+      setError("Failed to upload signature");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setUploadingSignature(false);
+    }
+  };
+
+  const renderSignatureTab = () => (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Upload your signature to be automatically included on commission invoices submitted to the admin.
+        </p>
+
+        {/* Current Signature */}
+        {signatureUrl && (
+          <div className="mb-6">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Signature</p>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 inline-block">
+              <img
+                src={`${BASE_URL}/uploads/agent-signatures/${signatureUrl}`}
+                alt="Agent Signature"
+                className="max-h-24 object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Upload New Signature */}
+        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+          {signaturePreview ? (
+            <div className="space-y-4">
+              <img src={signaturePreview} alt="Signature Preview" className="max-h-24 object-contain mx-auto" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">{signatureFile?.name}</p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => { setSignatureFile(null); setSignaturePreview(null); }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Remove
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignatureUpload}
+                  disabled={uploadingSignature}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg text-sm hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {uploadingSignature ? (
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                  ) : <Upload size={14} />}
+                  {uploadingSignature ? "Uploading..." : "Upload Signature"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="cursor-pointer">
+              <PenLine size={32} className="mx-auto text-gray-400 mb-3" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Signature Image</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, or WEBP — max 2MB</p>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleSignatureChange}
+                className="hidden"
+              />
+              <div className="mt-4 px-4 py-2 border border-brand-500 text-brand-600 rounded-lg text-sm inline-block hover:bg-brand-50">
+                Choose File
+              </div>
+            </label>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderBusinessTab = () => (
     <form onSubmit={handleBusinessSubmit}>
@@ -928,6 +1051,7 @@ export default function AgentAccountDetails() {
           {activeTab === "business" && renderBusinessTab()}
           {activeTab === "payment" && renderPaymentTab()}
           {activeTab === "social" && renderSocialTab()}
+          {activeTab === "signature" && renderSignatureTab()}
         </div>
 
         {/* Navigation Buttons */}
@@ -937,6 +1061,7 @@ export default function AgentAccountDetails() {
             onClick={() => {
               if (activeTab === "payment") setActiveTab("business");
               if (activeTab === "social") setActiveTab("payment");
+              if (activeTab === "signature") setActiveTab("social");
             }}
             disabled={activeTab === "business"}
             className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
