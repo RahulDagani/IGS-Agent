@@ -265,7 +265,6 @@ export default function StudentTable() {
   // Clear all filters
   const clearFilters = () => {
     setSearchTerm("");
-    setCountryCode("");
     setDateRange([null, null]);
     setCurrentPage(1);
   };
