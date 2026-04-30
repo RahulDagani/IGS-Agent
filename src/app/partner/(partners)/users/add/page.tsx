@@ -8,11 +8,8 @@ import {
     X,
     Mail,
     Phone,
-    Lock,
     User,
     Shield,
-    Eye,
-    EyeOff,
     Loader,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,7 +19,6 @@ interface CreateUserPayload {
     name: string;
     email: string;
     phone: string;
-    password: string;
     role_id: string;
     agent_id: number;
     status: string;
@@ -75,16 +71,12 @@ export default function AddUserPage() {
         name: "",
         email: "",
         phone: "",
-        password: "",
-        confirmPassword: "",
         role: "",
         status: "active",
     });
-    
+
     const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
     const [rolesLoading, setRolesLoading] = useState(true);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState<string>("");
     const [error, setError] = useState<string>("");
@@ -152,37 +144,17 @@ const fetchAvailableRoles = async () => {
     const validateForm = () => {
         const errors: Record<string, string> = {};
 
-        // Name validation
-      
         if (!formData.name.trim()) {
             errors.name = "Name is required";
         }
-
-        // Email validation
         if (!formData.email.trim()) {
             errors.email = "Email is required";
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             errors.email = "Please enter a valid email address";
         }
-
-        // Phone validation
         if (!formData.phone.trim()) {
             errors.phone = "Phone number is required";
         }
-
-        // Password validation
-        if (!formData.password) {
-            errors.password = "Password is required";
-        }
-
-        // Confirm password validation
-        if (!formData.confirmPassword) {
-            errors.confirmPassword = "Please confirm your password";
-        } else if (formData.password !== formData.confirmPassword) {
-            errors.confirmPassword = "Passwords do not match";
-        }
-
-        // Role validation
         if (!formData.role) {
             errors.role = "Please select a role";
         }
@@ -242,8 +214,7 @@ const fetchAvailableRoles = async () => {
             name: formData.name,
             email: formData.email,
             phone: formData.phone,
-            password: formData.password,
-            role_id: selectedRole.role_id.toString(), // Send role_id instead of role_key
+            role_id: selectedRole.role_id.toString(),
             agent_id: user.id,
             status: formData.status,
         };
@@ -289,19 +260,15 @@ const fetchAvailableRoles = async () => {
     };
 
     const resetForm = () => {
-    setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        password: "",
-        confirmPassword: "",
-        role: availableRoles.length > 0 ? availableRoles[0].role_id.toString() : "",
-        status: "active",
-    });
-    setValidationErrors({});
-    setShowPassword(false);
-    setShowConfirmPassword(false);
-};
+        setFormData({
+            name: "",
+            email: "",
+            phone: "",
+            role: availableRoles.length > 0 ? availableRoles[0].role_id.toString() : "",
+            status: "active",
+        });
+        setValidationErrors({});
+    };
 
     return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-[#0f172a]">
@@ -425,68 +392,6 @@ const fetchAvailableRoles = async () => {
                                 )}
                             </div>
 
-                            {/* Password Input */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-300">
-                                    Password{" "}
-                                    <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        name="password"
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                        placeholder="Enter password"
-                                        className={`w-full pl-10 pr-12 py-2 bg-[#1F2937] border ${validationErrors.password ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
-                                    >
-                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                    </button>
-                                </div>
-                                {validationErrors.password && (
-                                    <p className="text-red-400 text-sm">
-                                        {validationErrors.password}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Confirm Password Input */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-300">
-                                    Confirm Password{" "}
-                                    <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        name="confirmPassword"
-                                        value={formData.confirmPassword}
-                                        onChange={handleChange}
-                                        placeholder="Confirm password"
-                                        className={`w-full pl-10 pr-12 py-2 bg-[#1F2937] border ${validationErrors.confirmPassword ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
-                                    >
-                                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                    </button>
-                                </div>
-                                {validationErrors.confirmPassword && (
-                                    <p className="text-red-400 text-sm">
-                                        {validationErrors.confirmPassword}
-                                    </p>
-                                )}
-                            </div>
-
                             {/* Role Selection */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-300">
@@ -594,7 +499,7 @@ const fetchAvailableRoles = async () => {
                         <div className="flex flex-col sm:flex-row items-center justify-between mt-8 border-t border-gray-700 pt-6 gap-4">
                             <button
                                 type="submit"
-                                disabled={loading || rolesLoading || availableRoles.length === 0 || !formData.role}
+                                disabled={loading || rolesLoading || availableRoles.length === 0 || !formData.role || !formData.email}
                                 className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto justify-center"
                             >
                                 {loading ? (
@@ -635,8 +540,7 @@ const fetchAvailableRoles = async () => {
                             <ul className="text-xs text-gray-400 space-y-1">
                                 <li>• All fields marked with * are required</li>
                                 <li>• Email must be unique and valid</li>
-                                <li>• Click the eye icon to show/hide password</li>
-                                <li>• User will receive an invitation email</li>
+                                <li>• An invitation email will be sent so the user can set their own password</li>
                                 <li>• Roles are loaded from the system</li>
                                 <li className={`${rolesLoading ? 'text-yellow-400' : 'text-gray-400'}`}>
                                     • {rolesLoading ? 'Loading roles...' : `Loaded ${availableRoles.length} roles`}
