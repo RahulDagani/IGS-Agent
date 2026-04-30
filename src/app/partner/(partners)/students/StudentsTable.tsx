@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { UserPlus, X } from "lucide-react";
 
 interface Student {
   user_id: number;
@@ -23,6 +24,14 @@ interface Student {
   dob: string;
   country_code: string | null;
   created_at: string;
+  assigned_counselor_name: string | null;
+  assigned_counselor_id: number | null;
+}
+
+interface Counselor {
+  id: number;
+  name: string;
+  email: string;
 }
 
 interface Pagination {
@@ -65,9 +74,18 @@ export default function StudentTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit, setLimit] = useState(10);
 
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+  const isCounsellor = user?.role_key === 'counsellor';
 
+  const [assignModal, setAssignModal] = useState<{
+    isOpen: boolean;
+    studentId: number | null;
+    currentCounselorId: number | null;
+  }>({ isOpen: false, studentId: null, currentCounselorId: null });
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [selectedCounselorId, setSelectedCounselorId] = useState<string>("");
+  const [assigning, setAssigning] = useState(false);
 
   const handleSearch = async () => {
     // Set search loading to true
@@ -136,6 +154,40 @@ export default function StudentTable() {
     } finally {
       setLoading(false);
       setSearchLoading(false);
+    }
+  };
+
+  const openAssignModal = async (studentId: number, currentCounselorId: number | null) => {
+    setSelectedCounselorId(currentCounselorId ? String(currentCounselorId) : "");
+    setAssignModal({ isOpen: true, studentId, currentCounselorId });
+    if (counselors.length === 0) {
+      try {
+        const res = await fetch(`${BASE_URL}/agent/student/counselors`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success) setCounselors(data.data);
+      } catch (e) {
+        console.error("Failed to load counselors", e);
+      }
+    }
+  };
+
+  const submitAssignment = async () => {
+    if (!assignModal.studentId) return;
+    setAssigning(true);
+    try {
+      await fetch(`${BASE_URL}/agent/student/${assignModal.studentId}/assign-counselor`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ counselor_id: selectedCounselorId ? Number(selectedCounselorId) : null }),
+      });
+      setAssignModal({ isOpen: false, studentId: null, currentCounselorId: null });
+      fetchStudents();
+    } catch (e) {
+      console.error("Failed to assign counselor", e);
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -448,6 +500,7 @@ export default function StudentTable() {
                     { key: "phone", label: "Phone" },
                     { key: "status", label: "Status" },
                     { key: "created_at", label: "Created" },
+                    ...(!isCounsellor ? [{ key: "assigned_counselor_name", label: "Counselor" }] : []),
                   ].map(({ key, label }) => (
                     <TableCell
                       key={key}
@@ -488,6 +541,22 @@ export default function StudentTable() {
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {formatDate(student.created_at)}
                       </TableCell>
+                      {!isCounsellor && (
+                        <TableCell className="px-5 py-4 text-start">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 text-theme-sm dark:text-gray-400">
+                              {student.assigned_counselor_name || "—"}
+                            </span>
+                            <button
+                              onClick={() => openAssignModal(student.user_id, student.assigned_counselor_id)}
+                              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-brand-500"
+                              title="Assign counselor"
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 ) : (
@@ -563,6 +632,48 @@ export default function StudentTable() {
           </div>
         )}
       </div>
+
+      {/* Assign Counselor Modal */}
+      {assignModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Assign Counselor</h3>
+              <button
+                onClick={() => setAssignModal({ isOpen: false, studentId: null, currentCounselorId: null })}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <select
+              value={selectedCounselorId}
+              onChange={(e) => setSelectedCounselorId(e.target.value)}
+              className="w-full h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white mb-4"
+            >
+              <option value="">— Unassign —</option>
+              {counselors.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setAssignModal({ isOpen: false, studentId: null, currentCounselorId: null })}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitAssignment}
+                disabled={assigning}
+                className="px-4 py-2 text-sm rounded-lg bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50"
+              >
+                {assigning ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
