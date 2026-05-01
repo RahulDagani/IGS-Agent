@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -8,579 +8,389 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
+import { useAuth } from "@/context/AuthContext";
+import { Wallet, Plus, X } from "lucide-react";
 
 interface WalletTransaction {
   id: number;
-  transactionType: "credit" | "debit" | "failed";
-  referenceType: "application" | "manual_topup" | "refund" | "adjustment";
+  type: "credit" | "debit";
+  gateway: string;
+  status: "success" | "pending" | "failed";
   amount: number;
-  balanceBefore: number;
-  balanceAfter: number;
-  paymentId: string;
-  remarks: string;
-  application: string;
-  date: string;
+  balance_before: number;
+  balance_after: number;
+  transaction_ref: string;
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
+  description: string;
+  created_at: string;
 }
 
-// Define the table data using the interface
-const tableData: WalletTransaction[] = [
-  {
-    id: 1,
-    transactionType: "credit",
-    referenceType: "manual_topup",
-    amount: 1000.00,
-    balanceBefore: 500.00,
-    balanceAfter: 1500.00,
-    paymentId: "PYMT_001234",
-    remarks: "Manual top-up by admin",
-    application: "APP-001",
-    date: "2024-01-15T10:30:00",
-  },
-  {
-    id: 2,
-    transactionType: "debit",
-    referenceType: "application",
-    amount: -250.00,
-    balanceBefore: 1500.00,
-    balanceAfter: 1250.00,
-    paymentId: "PYMT_001235",
-    remarks: "Application fee for Harvard University",
-    application: "APP-002",
-    date: "2024-01-16T14:20:00",
-  },
-  {
-    id: 3,
-    transactionType: "credit",
-    referenceType: "refund",
-    amount: 150.00,
-    balanceBefore: 1250.00,
-    balanceAfter: 1400.00,
-    paymentId: "PYMT_001236",
-    remarks: "Refund for cancelled application",
-    application: "APP-003",
-    date: "2024-01-18T09:15:00",
-  },
-  {
-    id: 4,
-    transactionType: "failed",
-    referenceType: "application",
-    amount: 0.00,
-    balanceBefore: 1400.00,
-    balanceAfter: 1400.00,
-    paymentId: "PYMT_001237",
-    remarks: "Payment failed - insufficient funds",
-    application: "APP-004",
-    date: "2024-01-20T16:45:00",
-  },
-  {
-    id: 5,
-    transactionType: "debit",
-    referenceType: "application",
-    amount: -300.00,
-    balanceBefore: 1400.00,
-    balanceAfter: 1100.00,
-    paymentId: "PYMT_001238",
-    remarks: "Application fee for Stanford University",
-    application: "APP-005",
-    date: "2024-01-22T11:30:00",
-  },
-  {
-    id: 6,
-    transactionType: "credit",
-    referenceType: "adjustment",
-    amount: 200.00,
-    balanceBefore: 1100.00,
-    balanceAfter: 1300.00,
-    paymentId: "PYMT_001239",
-    remarks: "Admin adjustment - service credit",
-    application: "N/A",
-    date: "2024-01-25T13:20:00",
-  },
-];
+interface WalletData {
+  wallet: { id: number; balance: number; currency: string };
+  payment_gateway_key: string | null;
+  recentTransactions: WalletTransaction[];
+}
 
 type SortField = keyof WalletTransaction | "";
 type SortDirection = "asc" | "desc";
 
 interface FilterOptions {
   transactionType: string;
-  referenceType: string;
+  status: string;
 }
 
-interface FilterModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onApply: (filters: FilterOptions) => void;
-}
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-const FilterModal: React.FC<FilterModalProps> = ({
-  isOpen,
-  onClose,
-  onApply,
-}) => {
-  const [selectedTransactionType, setSelectedTransactionType] = useState<string>("all");
-  const [selectedReferenceType, setSelectedReferenceType] = useState<string>("all");
+const loadRazorpayScript = (): Promise<boolean> =>
+  new Promise(resolve => {
+    if (document.getElementById("rzp-script")) return resolve(true);
+    const s = document.createElement("script");
+    s.id = "rzp-script";
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
 
-  const handleApply = () => {
-    const filters: FilterOptions = {
-      transactionType: selectedTransactionType,
-      referenceType: selectedReferenceType,
-    };
-    onApply(filters);
-    onClose();
+export default function WalletHistoryTable() {
+  const { token, user } = useAuth();
+
+  const [walletData, setWalletData] = useState<WalletData | null>(null);
+  const [allTransactions, setAllTransactions] = useState<WalletTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [topupOpen, setTopupOpen] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupLoading, setTopupLoading] = useState(false);
+  const [topupError, setTopupError] = useState<string | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [sortField, setSortField] = useState<SortField>("");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({ transactionType: "all", status: "all" });
+
+  const fetchWallet = async () => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`${BASE_URL}/agent/wallet/balance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setWalletData(json.data);
+        setAllTransactions(json.data.recentTransactions || []);
+      }
+    } catch (err) {
+      console.error("fetchWallet error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReset = () => {
-    setSelectedTransactionType("all");
-    setSelectedReferenceType("all");
+  useEffect(() => { fetchWallet(); }, [token]);
+
+  const handleTopup = async () => {
+    const amount = parseFloat(topupAmount);
+    if (!amount || amount <= 0) { setTopupError("Enter a valid amount"); return; }
+    setTopupError(null);
+    setTopupLoading(true);
+
+    try {
+      // Step 1: Create order on backend
+      const orderRes = await fetch(`${BASE_URL}/agent/wallet/topup/order`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const orderJson = await orderRes.json();
+      if (!orderJson.success) throw new Error(orderJson.message || "Failed to create order");
+
+      const { order_id, amount: rzpAmount, currency, key_id } = orderJson.data;
+
+      // Step 2: Load Razorpay checkout.js
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error("Failed to load Razorpay. Check your internet connection.");
+
+      // Step 3: Open Razorpay popup
+      const options = {
+        key: key_id,
+        amount: rzpAmount,
+        currency,
+        order_id,
+        name: "Agent Wallet Top-up",
+        description: `Add ${currency} ${amount.toFixed(2)} to wallet`,
+        prefill: { name: user?.name || "", email: user?.email || "" },
+        theme: { color: "#2563eb" },
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            // Step 4: Verify payment
+            const verifyRes = await fetch(`${BASE_URL}/agent/wallet/topup/verify`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const verifyJson = await verifyRes.json();
+            if (verifyJson.success) {
+              setTopupOpen(false);
+              setTopupAmount("");
+              fetchWallet();
+            } else {
+              setTopupError(verifyJson.message || "Payment verification failed");
+            }
+          } catch {
+            setTopupError("Verification failed. Contact support.");
+          }
+        },
+        modal: { ondismiss: () => setTopupLoading(false) },
+      };
+
+      // @ts-ignore — Razorpay loaded via CDN script
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err: unknown) {
+      setTopupError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setTopupLoading(false);
+    }
   };
 
-  if (!isOpen) return null;
+  const filteredAndSortedData = useMemo(() => {
+    const filtered = allTransactions.filter(t => {
+      const matchesSearch =
+        (t.transaction_ref || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (t.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (t.razorpay_payment_id || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = filters.transactionType === "all" || t.type === filters.transactionType;
+      const matchesStatus = filters.status === "all" || t.status === filters.status;
+      return matchesSearch && matchesType && matchesStatus;
+    });
+
+    if (sortField) {
+      filtered.sort((a, b) => {
+        let aVal: string | number = (a as Record<string, unknown>)[sortField as string] as string | number;
+        let bVal: string | number = (b as Record<string, unknown>)[sortField as string] as string | number;
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return filtered;
+  }, [allTransactions, searchTerm, filters, sortField, sortDirection]);
+
+  const handleSort = (field: keyof WalletTransaction) => {
+    if (sortField === field) setSortDirection(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDirection("asc"); }
+  };
+
+  const getSortIcon = (field: keyof WalletTransaction) => {
+    if (sortField !== field) return "↕";
+    return sortDirection === "asc" ? "↑" : "↓";
+  };
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: walletData?.wallet?.currency || "INR",
+      minimumFractionDigits: 2,
+    }).format(Math.abs(amount));
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const totalCredits = allTransactions.filter(t => t.type === "credit" && t.status === "success").reduce((s, t) => s + parseFloat(String(t.amount)), 0);
+  const totalDebits = allTransactions.filter(t => t.type === "debit" && t.status === "success").reduce((s, t) => s + parseFloat(String(t.amount)), 0);
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-48 text-gray-500">Loading wallet...</div>;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex z-999999">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Filter Transactions
-          </h3>
+    <div className="space-y-4">
+      {/* Balance + Top-up */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Current Balance</p>
+            <Wallet className="w-5 h-5 text-blue-500" />
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {formatCurrency(walletData?.wallet?.balance || 0)}
+          </p>
           <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={() => { setTopupOpen(true); setTopupError(null); setTopupAmount(""); }}
+            className="mt-3 inline-flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-full transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <Plus className="w-3.5 h-3.5" /> Top-up Wallet
           </button>
         </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Credits</p>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalCredits)}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Debits</p>
+          <p className="text-2xl font-bold text-red-500 dark:text-red-400">{formatCurrency(totalDebits)}</p>
+        </div>
+      </div>
 
-        <div className="space-y-4">
-          {/* Transaction Type Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Transaction Type
-            </label>
+      {/* Topup Modal */}
+      {topupOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top-up Wallet</h3>
+              <button onClick={() => setTopupOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Enter the amount to add. You'll be redirected to Razorpay to complete the payment securely.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (INR)</label>
+              <input
+                type="number"
+                min="1"
+                value={topupAmount}
+                onChange={e => { setTopupAmount(e.target.value); setTopupError(null); }}
+                placeholder="e.g. 500"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:text-white"
+              />
+              {topupError && <p className="text-xs text-red-500 mt-1">{topupError}</p>}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTopupOpen(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTopup}
+                disabled={topupLoading || !topupAmount}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {topupLoading ? "Processing..." : "Proceed to Pay"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters + Search */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <input
+            type="text"
+            placeholder="Search by ref, description, payment ID..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full sm:w-72 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:bg-gray-800 dark:text-white"
+          />
+          <div className="flex gap-2">
             <select
-              value={selectedTransactionType}
-              onChange={(e) => setSelectedTransactionType(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              value={filters.transactionType}
+              onChange={e => setFilters(f => ({ ...f, transactionType: e.target.value }))}
+              className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none"
             >
               <option value="all">All Types</option>
               <option value="credit">Credit</option>
               <option value="debit">Debit</option>
+            </select>
+            <select
+              value={filters.status}
+              onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+              className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="success">Success</option>
+              <option value="pending">Pending</option>
               <option value="failed">Failed</option>
             </select>
           </div>
-
-          {/* Reference Type Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Reference Type
-            </label>
-            <select
-              value={selectedReferenceType}
-              onChange={(e) => setSelectedReferenceType(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="all">All References</option>
-              <option value="application">Application</option>
-              <option value="manual_topup">Manual Top-up</option>
-              <option value="refund">Refund</option>
-              <option value="adjustment">Adjustment</option>
-            </select>
-          </div>
-
-        
-        </div>
-
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleReset}
-            className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            Reset
-          </button>
-          <button
-            onClick={handleApply}
-            className="flex-1 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500/10"
-          >
-            Apply Filters
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default function WalletHistoryTable() {
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [sortField, setSortField] = useState<SortField>("");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
-  const [filters, setFilters] = useState<FilterOptions>({
-    transactionType: "all",
-    referenceType: "all",
-  });
-
-  // Get unique values for filters
-
-
-  // Filter and sort data
-  const filteredAndSortedData = useMemo(() => {
-    const filtered = tableData.filter((transaction) => {
-      const matchesSearch = 
-        transaction.paymentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        transaction.remarks.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        transaction.application.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesTransactionType = filters.transactionType === "all" || transaction.transactionType === filters.transactionType;
-      const matchesReferenceType = filters.referenceType === "all" || transaction.referenceType === filters.referenceType;
-      
-      return matchesSearch && matchesTransactionType && matchesReferenceType;
-    });
-
-    // Sorting
-    if (sortField) {
-      filtered.sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-        
-        if (aValue < bValue) {
-          return sortDirection === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortDirection === "asc" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [searchTerm, filters, sortField, sortDirection]);
-
-  const handleSort = (field: keyof WalletTransaction) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const getSortIcon = (field: keyof WalletTransaction) => {
-    if (sortField !== field) return "↕️";
-    return sortDirection === "asc" ? "↑" : "↓";
-  };
-
-  const getTransactionTypeColor = (type: WalletTransaction["transactionType"]) => {
-    switch (type) {
-      case "credit":
-        return "success";
-      case "debit":
-        return "error";
-      case "failed":
-        return "warning";
-      default:
-        return "primary";
-    }
-  };
-
-  const getReferenceTypeColor = (type: WalletTransaction["referenceType"]) => {
-    switch (type) {
-      case "application":
-        return "primary";
-      case "manual_topup":
-        return "success";
-      case "refund":
-        return "warning";
-      case "adjustment":
-        return "info";
-      default:
-        return "primary";
-    }
-  };
-
-  const formatReferenceType = (type: WalletTransaction["referenceType"]) => {
-    return type.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
-
-  const formatAmount = (amount: number) => {
-    const formatted = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(Math.abs(amount));
-    
-    return amount >= 0 ? `+${formatted}` : `-${formatted}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatBalance = (balance: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(balance);
-  };
-
-  const handleApplyFilters = (newFilters: FilterOptions) => {
-    setFilters(newFilters);
-  };
-
-  const hasActiveFilters = filters.transactionType !== "all" || filters.referenceType !== "all";
-
-  const clearAllFilters = () => {
-    setFilters({
-      transactionType: "all",
-      referenceType: "all",
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-         {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Credits</div>
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {formatBalance(
-              filteredAndSortedData
-                .filter(t => t.transactionType === 'credit')
-                .reduce((sum, t) => sum + t.amount, 0)
-            )}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Debits</div>
-          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {formatBalance(
-              Math.abs(
-                filteredAndSortedData
-                  .filter(t => t.transactionType === 'debit')
-                  .reduce((sum, t) => sum + t.amount, 0)
-              )
-            )}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Current Balance</div>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {formatBalance(
-              filteredAndSortedData.length > 0 
-                ? filteredAndSortedData[filteredAndSortedData.length - 1].balanceAfter
-                : 0
-            )}
-          </div>
-        </div>
-      </div>
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row  ">
-        {/* Search Input */}
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by payment ID, remarks, or application..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg
-                className="h-5 w-5 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Button and Active Filters */}
-        <div className="flex items-center gap-3">
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Clear All
-            </button>
-          )}
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="dark:bg-dark-900 h-11 px-4 rounded-lg border border-gray-200 bg-transparent text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-            </svg>
-            Apply Filters
-          </button>
         </div>
       </div>
 
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap gap-2">
-          {filters.transactionType !== "all" && (
-            <Badge size="sm" color="primary">
-              Transaction: {filters.transactionType}
-            </Badge>
-          )}
-          {filters.referenceType !== "all" && (
-            <Badge size="sm" color="primary">
-              Reference: {formatReferenceType(filters.referenceType as WalletTransaction["referenceType"])}
-            </Badge>
-          )}
-         
-        </div>
-      )}
-
-     
-
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[800px]">
-            <Table>
-              {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+      {/* Transactions Table */}
+      <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="border-b border-gray-100 dark:border-gray-700">
+              <TableRow>
+                {[
+                  { label: "Date", field: "created_at" },
+                  { label: "Type", field: "type" },
+                  { label: "Amount", field: "amount" },
+                  { label: "Balance Before", field: "balance_before" },
+                  { label: "Balance After", field: "balance_after" },
+                  { label: "Status", field: "status" },
+                  { label: "Ref / Payment ID", field: "transaction_ref" },
+                  { label: "Description", field: "description" },
+                ].map(col => (
+                  <TableCell
+                    key={col.field}
+                    isHeader
+                    className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 cursor-pointer select-none whitespace-nowrap"
+                    onClick={() => handleSort(col.field as keyof WalletTransaction)}
+                  >
+                    {col.label} {getSortIcon(col.field as keyof WalletTransaction)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedData.length === 0 ? (
                 <TableRow>
-                  {[
-                    { key: "date", label: "Date" },
-                    { key: "transactionType", label: "Transaction Type" },
-                    { key: "referenceType", label: "Reference Type" },
-                    { key: "amount", label: "Amount" },
-                    { key: "balanceBefore", label: "Balance Before" },
-                    { key: "balanceAfter", label: "Balance After" },
-                    { key: "paymentId", label: "Payment ID" },
-                    { key: "remarks", label: "Remarks" },
-                    { key: "application", label: "Application" },
-                  ].map(({ key, label }) => (
-                    <TableCell
-                      key={key}
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => handleSort(key as keyof WalletTransaction)}
-                    >
-                      <div className="flex items-center gap-1">
-                        {label}
-                        <span className="text-xs">{getSortIcon(key as keyof WalletTransaction)}</span>
-                      </div>
-                    </TableCell>
-                  ))}
+                  <TableCell colSpan={8} className="text-center py-10 text-gray-400">
+                    No transactions found.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-
-              {/* Table Body */}
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {filteredAndSortedData.length > 0 ? (
-                  filteredAndSortedData.map((transaction) => (
-                    <TableRow key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <TableCell className="px-5 py-4 text-start min-w-[200px]">
-                        <div className="text-gray-800 text-theme-sm dark:text-white/90">
-                          {formatDate(transaction.date)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getTransactionTypeColor(transaction.transactionType)}
-                        >
-                          {transaction.transactionType.charAt(0).toUpperCase() + transaction.transactionType.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <Badge
-                          size="sm"
-                          color={getReferenceTypeColor(transaction.referenceType)}
-                        >
-                          {formatReferenceType(transaction.referenceType)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <span className={`font-medium text-theme-sm ${
-                          transaction.transactionType === 'credit' 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : transaction.transactionType === 'debit'
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}>
-                          {formatAmount(transaction.amount)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-600 text-start text-theme-sm dark:text-gray-400">
-                        {formatBalance(transaction.balanceBefore)}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-start text-theme-sm dark:text-white/90">
-                        {formatBalance(transaction.balanceAfter)}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-600 text-start text-theme-sm dark:text-gray-400">
-                        {transaction.paymentId}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="text-gray-800 text-theme-sm dark:text-white/90 max-w-[200px] truncate">
-                          {transaction.remarks}
-                        </div>
-                      </TableCell>
-                     
-                      <TableCell className="px-5 py-4 text-start">
-                        <div className="text-gray-600 text-theme-sm dark:text-gray-400">
-                          {transaction.application}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      
-                      className="px-5 py-8 text-center text-gray-500 text-theme-sm dark:text-gray-400"
-                    >
-                      No transactions found matching your criteria.
+              ) : (
+                filteredAndSortedData.map(txn => (
+                  <TableRow key={txn.id} className="border-b border-gray-50 dark:border-gray-800 last:border-0">
+                    <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {formatDate(txn.created_at)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <Badge color={txn.type === "credit" ? "success" : "error"}>
+                        {txn.type.charAt(0).toUpperCase() + txn.type.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`px-4 py-3 text-sm font-semibold ${txn.type === "credit" ? "text-green-600" : "text-red-500"}`}>
+                      {txn.type === "credit" ? "+" : "-"}{formatCurrency(txn.amount)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                      {formatCurrency(txn.balance_before || 0)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                      {formatCurrency(txn.balance_after || 0)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <Badge color={txn.status === "success" ? "success" : txn.status === "pending" ? "warning" : "error"}>
+                        {txn.status.charAt(0).toUpperCase() + txn.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+                      {txn.razorpay_payment_id || txn.transaction_ref || "—"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate">
+                      {txn.description || "—"}
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
-
-      {/* Results Count */}
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Showing {filteredAndSortedData.length} of {tableData.length} transactions
-      </div>
-
-      
-
-      {/* Filter Modal */}
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        onApply={handleApplyFilters}
-      />
     </div>
   );
 }
