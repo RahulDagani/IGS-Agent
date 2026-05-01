@@ -173,8 +173,8 @@ export default function WalletHistoryTable() {
 
     if (sortField) {
       filtered.sort((a, b) => {
-        let aVal: string | number = (a as Record<string, unknown>)[sortField as string] as string | number;
-        let bVal: string | number = (b as Record<string, unknown>)[sortField as string] as string | number;
+        let aVal: string | number = (a as unknown as Record<string, string | number>)[sortField as string];
+        let bVal: string | number = (b as unknown as Record<string, string | number>)[sortField as string];
         if (typeof aVal === "string") aVal = aVal.toLowerCase();
         if (typeof bVal === "string") bVal = bVal.toLowerCase();
         if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
