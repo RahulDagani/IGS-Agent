@@ -349,9 +349,9 @@ export default function WalletHistoryTable() {
             <TableBody>
               {filteredAndSortedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-gray-400">
+                  <td colSpan={8} className="text-center py-10 text-gray-400 text-sm">
                     No transactions found.
-                  </TableCell>
+                  </td>
                 </TableRow>
               ) : (
                 filteredAndSortedData.map(txn => (
