@@ -342,7 +342,7 @@ export default function PartnerDashboard() {
                 <div>
                   <span className="text-sm text-gray-500 dark:text-gray-400">Wallet Balance</span>
                   <h4 className="font-bold text-gray-800 text-title-sm dark:text-white/90">
-                    {dashboardData?.currency || 'INR'} {(dashboardData?.wallet_balance || 0).toFixed(2)}
+                    {dashboardData?.currency || 'INR'} {(parseFloat(String(dashboardData?.wallet_balance ?? 0)) || 0).toFixed(2)}
                   </h4>
                 </div>
                 <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
