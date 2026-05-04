@@ -37,12 +37,11 @@ interface RecentApplication {
 }
 
 interface PendingAction {
-  id: number;
-  student_name: string;
-  course_name: string;
-  university_name: string;
-  status_label: string;
-  updated_at: string;
+  student_id: number;
+  name: string;
+  email: string;
+  profile_incomplete: number;
+  pending_documents: number;
 }
 
 interface UpcomingDeadline {
@@ -74,7 +73,6 @@ interface DashboardData {
     visa_granted: number;
     rejected: number;
   };
-  pending_actions: PendingAction[];
   recent_applications: RecentApplication[];
   upcoming_deadlines: UpcomingDeadline[];
   recent_students: RecentStudent[];
@@ -104,19 +102,21 @@ export default function PartnerDashboard() {
   const isCounsellor = user?.role_key === 'counsellor';
 
   const [data, setData] = useState<DashboardData | null>(null);
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    fetch(`${BASE_URL}/agent/dashboard`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) setData(res.data);
-        else setError(res.message || "Failed to load");
+    Promise.all([
+      fetch(`${BASE_URL}/agent/dashboard`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch(`${BASE_URL}/agent/student/attention`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ])
+      .then(([dashboard, attention]) => {
+        if (dashboard.success) setData(dashboard.data);
+        else setError(dashboard.message || "Failed to load");
+        if (attention.success) setPendingActions(attention.data);
       })
       .catch(() => setError("Failed to load dashboard"))
       .finally(() => setLoading(false));
@@ -209,23 +209,35 @@ export default function PartnerDashboard() {
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-orange-500" />
               <h4 className="font-semibold text-gray-800 dark:text-white/90">Needs Your Attention</h4>
+              {pendingActions.length > 0 && (
+                <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{pendingActions.length}</span>
+              )}
             </div>
-            <Link href="/partner/applications" className="text-xs text-blue-500 hover:underline">View all</Link>
+            <Link href="/partner/students" className="text-xs text-blue-500 hover:underline">View all</Link>
           </div>
-          {(data?.pending_actions?.length ?? 0) === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">No pending actions — you&apos;re all caught up!</p>
+          {pendingActions.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">All caught up — no pending profiles or documents!</p>
           ) : (
             <div className="space-y-2">
-              {data?.pending_actions?.map(a => (
-                <Link key={a.id} href={`/partner/applications/${a.id}`}
+              {pendingActions.map(a => (
+                <Link key={a.student_id} href={`/partner/students/${a.student_id}`}
                   className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-900/10 hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90 truncate">{a.student_name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.university_name} · {a.course_name}</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90 truncate">{a.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.email}</p>
                   </div>
-                  <span className="ml-3 flex-shrink-0 text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-                    {a.status_label}
-                  </span>
+                  <div className="ml-3 flex-shrink-0 flex flex-col items-end gap-1">
+                    {a.profile_incomplete === 1 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                        Incomplete Profile
+                      </span>
+                    )}
+                    {a.pending_documents > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                        {a.pending_documents} doc{a.pending_documents !== 1 ? 's' : ''} pending
+                      </span>
+                    )}
+                  </div>
                 </Link>
               ))}
             </div>
