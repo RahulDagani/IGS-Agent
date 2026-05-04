@@ -163,6 +163,8 @@ export default function AgentAccountDetails() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error,setError] = useState("");
   const [success,setSuccess] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [isPaymentVerified, setIsPaymentVerified] = useState(false);
 
   
   const [businessData, setBusinessData] = useState<BusinessFormData>({
@@ -227,6 +229,8 @@ export default function AgentAccountDetails() {
       setExistingCertificateUrl(profileData.profile.business_certificate || null);
       setAgreementStartDate(profileData.profile.agreement_start_date || null);
       setAgreementEndDate(profileData.profile.agreement_end_date || null);
+      setIsVerified(profileData.profile.is_agent_verified === 1);
+      setIsPaymentVerified(profileData.profile.is_payment_verified === 1);
 
       // Populate payment data
       setPaymentData({
@@ -491,7 +495,7 @@ export default function AgentAccountDetails() {
 
   const renderBusinessTab = () => (
     <form onSubmit={handleBusinessSubmit}>
-      <div className="space-y-5">
+      <fieldset disabled={isVerified} className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Business Name */}
           <div>
@@ -705,37 +709,39 @@ export default function AgentAccountDetails() {
         )}
 
         {/* Submit Button */}
-        <div className="flex justify-end pt-4">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Updating...
-              </>
-            ) : (
-              <>
-                Save & Continue
-                <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                  <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+        {!isVerified && (
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  Save & Continue
+                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+                    <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </fieldset>
     </form>
   );
 
   const renderPaymentTab = () => (
     <form onSubmit={handlePaymentSubmit}>
-      <div className="space-y-5">
+      <fieldset disabled={isPaymentVerified} className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Bank Account Name */}
           <div>
@@ -796,31 +802,33 @@ export default function AgentAccountDetails() {
 
 
         {/* Submit Button */}
-        <div className="flex justify-end pt-4">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Updating...
-              </>
-            ) : (
-              <>
-                Save & Continue
-                <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                  <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+        {!isPaymentVerified && (
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-brand-500 hover:bg-brand-600 disabled:bg-brand-300 flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  Save & Continue
+                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
+                    <path d="M8 4L12 8L8 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </fieldset>
     </form>
   );
 
@@ -1057,14 +1065,18 @@ export default function AgentAccountDetails() {
           Agent Account Details
         </h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Complete your agent profile setup.
+          {isVerified ? "Your profile is verified." : "Complete your agent profile setup."}
         </p>
-        {success && <p className="mt-1 text-sm text-success-500 dark:text-success-400">
-          {success}
-        </p>}
-        {error && <p className="mt-1 text-sm text-red-500 dark:text-red-400">
-          {error}
-        </p>}
+        {isVerified && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
+            <CheckCircle size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+            <p className="text-sm text-green-700 dark:text-green-300">
+              Your account is <strong>verified</strong>. Profile details are locked. Contact admin to make changes.
+            </p>
+          </div>
+        )}
+        {success && <p className="mt-2 text-sm text-success-500 dark:text-success-400">{success}</p>}
+        {error && <p className="mt-2 text-sm text-red-500 dark:text-red-400">{error}</p>}
       </div>
       
       {/* Tab Navigation */}
