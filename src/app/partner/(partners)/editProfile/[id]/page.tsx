@@ -22,11 +22,11 @@ interface Student {
 
 
 export default function StudentDetailsPage() {
-  const [activeTab, setActiveTab] = useState<string>("profile");
-  const [student, setStudent] = useState<Student | null>(null);
-  const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
   const activeTabFromUrl = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<string>(activeTabFromUrl || "profile");
+  const [student, setStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const {id: studentId} = useParams();
   const { token } = useAuth();
@@ -37,10 +37,10 @@ export default function StudentDetailsPage() {
   }, []);
 
   useEffect(() => {
-      if (activeTabFromUrl) {
-        setActiveTab(activeTabFromUrl);
-      }
-    }, [activeTabFromUrl]);
+    if (activeTabFromUrl) {
+      setActiveTab(activeTabFromUrl);
+    }
+  }, [activeTabFromUrl]);
 
   
 
