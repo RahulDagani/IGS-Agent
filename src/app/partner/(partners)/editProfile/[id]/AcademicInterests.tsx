@@ -66,7 +66,7 @@ const AcademicInterests: React.FC = () => {
       }
 
       // Then fetch the student's interests
-      const interestsResponse = await fetch(`${BASE_URL}/tenant/agent/student/interests/${studentId}`, {
+      const interestsResponse = await fetch(`${BASE_URL}/agent/student/interests/${studentId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -270,7 +270,7 @@ const AcademicInterests: React.FC = () => {
         discipline_id: parseInt(formData.discipline)
       };
 
-      const response = await fetch(`${BASE_URL}/tenant/agent/student/interests/${studentId}`, {
+      const response = await fetch(`${BASE_URL}/agent/student/interests/${studentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
