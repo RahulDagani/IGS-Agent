@@ -1,16 +1,19 @@
+"use client";
 import GridShape from "@/components/common/GridShape";
 import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo";
 
 import { ThemeProvider } from "@/context/ThemeContext";
-import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import { useTenantLogo } from "@/hooks/useTenantLogo";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { logoUrl, companyName } = useTenantLogo();
+
   return (
     <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
       <ThemeProvider>
@@ -23,16 +26,11 @@ export default function AuthLayout({
               <div className="flex flex-col items-center max-w-xs">
                 <Link href="/" className="block mb-4">
                    <div className="flex justify-center items-center">
-                                <Image
-                                  className=""
-                                  src="/images/logo/logo.png"
-                                  alt="Logo"
-                                  width={45}
-                                  height={45}
-                                />
-                                <span className="dark:text-white ms-1 text-black font-semibold text-2xl">
-                                  ApplyTech
-                                </span>
+                                {logoUrl ? (
+                                  <img src={logoUrl} alt={companyName} className="h-12 w-auto object-contain" />
+                                ) : (
+                                  <span className="dark:text-white text-white font-semibold text-2xl">{companyName}</span>
+                                )}
                               </div>
                 </Link>
                 <p className="text-center text-gray-400 dark:text-white/60">

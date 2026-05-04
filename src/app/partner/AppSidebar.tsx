@@ -21,6 +21,7 @@ import {
   Percent,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useTenantLogo } from "@/hooks/useTenantLogo";
 
 // Types for API response
 interface ChildModule {
@@ -126,6 +127,7 @@ const AppSidebar: React.FC = () => {
   const { adminToken, adminReLoginFromAgent, user } = useAuth();
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const { logoUrl, companyName } = useTenantLogo();
 
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -501,12 +503,11 @@ const AppSidebar: React.FC = () => {
     return (
       <aside className="fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen w-[290px] border-r border-gray-200 z-50">
         <div className="py-8 flex justify-center">
-          <Image
-            src="/images/site/igslogo.png"
-            alt="Logo"
-            width={85}
-            height={65}
-          />
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+          ) : (
+            <span className="dark:text-white text-black font-semibold text-xl">{companyName}</span>
+          )}
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">Loading menu...</div>
@@ -539,23 +540,19 @@ const AppSidebar: React.FC = () => {
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <div className="flex justify-center items-center">
-                <Image
-                  className="mx-auto"
-                  src="/images/site/igslogo.png"
-                  alt="Logo"
-                  width={85}
-                  height={65}
-                />
+                {logoUrl ? (
+                  <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+                ) : (
+                  <span className="dark:text-white text-black font-semibold text-xl">{companyName}</span>
+                )}
               </div>
             </>
           ) : (
-            <Image
-              className=""
-              src="/images/site/igslogo.png"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+            logoUrl ? (
+              <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+            ) : (
+              <span className="dark:text-white text-black font-semibold text-xl">{companyName}</span>
+            )
           )}
         </Link>
       </div>
