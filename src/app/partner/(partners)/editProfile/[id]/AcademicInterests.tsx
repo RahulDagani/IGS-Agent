@@ -41,7 +41,7 @@ const AcademicInterests: React.FC = () => {
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-  const {studentId} = useParams();
+  const { id: studentId } = useParams();
 
   useEffect(() => {
     fetchAcademicInterests();
