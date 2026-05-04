@@ -220,7 +220,7 @@ export default function PartnerDashboard() {
           ) : (
             <div className="space-y-2">
               {pendingActions.map(a => (
-                <Link key={a.student_id} href={`/partner/students/${a.student_id}`}
+                <Link key={a.student_id} href={`/partner/editProfile/${a.student_id}`}
                   className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-900/10 hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90 truncate">{a.name}</p>
