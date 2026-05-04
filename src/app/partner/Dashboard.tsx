@@ -148,25 +148,25 @@ export default function PartnerDashboard() {
   const [selectedAdmitted, setSelectedAdmitted] = useState<string>("total");
   const [selectedDeferred, setSelectedDeferred] = useState<string>("total");
 
-  const intakeOptions = [
-    { value: "Spring", label: "Spring" },
-    { value: "Summer", label: "Summer" },
-    { value: "Fall", label: "Fall" },
-    { value: "Winter", label: "Winter" }
-  ];
+  const [intakeOptions, setIntakeOptions] = useState<{ value: string; label: string }[]>([]);
+  const [yearOptions, setYearOptions] = useState<{ value: string; label: string }[]>([]);
+  const [countryOptions, setCountryOptions] = useState<{ value: string; label: string }[]>([]);
 
-  const yearOptions = Array.from({ length: 6 }, (_, i) => {
-    const year = 2022 + i;
-    return { value: year.toString(), label: year.toString() };
-  });
-
-  const countryOptions = [
-    { value: "australia", label: "Australia" },
-    { value: "canada", label: "Canada" },
-    { value: "germany", label: "Germany" },
-    { value: "united-kingdom", label: "United Kingdom" },
-    { value: "united-states-of-america", label: "United States of America" }
-  ];
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${BASE_URL}/agent/course/filters/dynamic`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) return;
+        const f = res.data.filters;
+        setIntakeOptions((f.intakes || []).map((i: { id: number; intake: string }) => ({ value: i.intake, label: i.intake })));
+        setYearOptions((f.intakeYears || []).map((y: { intake_year: number }) => ({ value: String(y.intake_year), label: String(y.intake_year) })));
+        setCountryOptions((f.locations?.countries || []).map((c: { country_code: string }) => ({ value: c.country_code, label: c.country_code })));
+      })
+      .catch(() => {});
+  }, [token]);
 
   const getPendingCount = () => {
     switch (selectedPending) {
