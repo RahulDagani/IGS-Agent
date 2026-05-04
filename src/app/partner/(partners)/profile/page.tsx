@@ -75,6 +75,7 @@ interface AgentProfileResponse {
 type Tab = "business" | "payment" | "social" | "signature";
 
 const BASE_URL = "https://api.applystore.org/api";
+const STATIC_URL = "https://api.applystore.org";
 
 // API functions
 const fetchAgentProfile = async (token: string): Promise<AgentProfileResponse> => {
@@ -428,7 +429,7 @@ export default function AgentAccountDetails() {
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Signature</p>
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 inline-block">
               <img
-                src={`${BASE_URL}/uploads/agent-signatures/${signatureUrl}`}
+                src={`${STATIC_URL}/uploads/agent-signatures/${signatureUrl}`}
                 alt="Agent Signature"
                 className="max-h-24 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
