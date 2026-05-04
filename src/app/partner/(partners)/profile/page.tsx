@@ -7,9 +7,6 @@ import { Country, State, City } from "country-state-city";
 
 interface BusinessFormData {
   business_name: string;
-  business_certificate: string;
-  agency_logo: string;
-  pan_card_upload: string;
   country_code: string;
   street_address: string;
   city_code: string;
@@ -39,9 +36,9 @@ interface AgentProfileResponse {
   profile: {
     id: number;
     uuid: string;
-    tenant_id: number;
-    user_id: number;
     name: string;
+    email: string;
+    phone: string;
     business_name: string;
     business_certificate: string;
     agency_logo: string;
@@ -66,6 +63,9 @@ interface AgentProfileResponse {
     is_agent_verified: number;
     agent_verified_at: string;
     agent_payment_verified_at: string | null;
+    agreement_start_date: string | null;
+    agreement_end_date: string | null;
+    signature_url: string | null;
     created_at: string;
     updated_at: string;
     is_deleted: number;
@@ -95,14 +95,24 @@ const fetchAgentProfile = async (token: string): Promise<AgentProfileResponse> =
   return await response.json();
 };
 
-const updateBusinessProfile = async (formData: BusinessFormData, token: string): Promise<void> => {
+const updateBusinessProfile = async (formData: BusinessFormData, token: string, certificateFile?: File | null): Promise<void> => {
+  let body: BodyInit;
+  const headers: HeadersInit = { 'Authorization': `Bearer ${token}` };
+
+  if (certificateFile) {
+    const fd = new FormData();
+    Object.entries(formData).forEach(([k, v]) => { if (v) fd.append(k, v); });
+    fd.append('business_certificate', certificateFile);
+    body = fd;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(formData);
+  }
+
   const response = await fetch(`${BASE_URL}/agent/business`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(formData)
+    headers,
+    body,
   });
 
   if (!response.ok) {
@@ -156,15 +166,16 @@ export default function AgentAccountDetails() {
   
   const [businessData, setBusinessData] = useState<BusinessFormData>({
     business_name: "",
-    business_certificate: "dummy.png",
-    agency_logo: "dummy.png",
-    pan_card_upload: "dummy.png",
     country_code: "",
     street_address: "",
     city_code: "",
     state_code: "",
     postal_code: "",
   });
+  const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [existingCertificateUrl, setExistingCertificateUrl] = useState<string | null>(null);
+  const [agreementStartDate, setAgreementStartDate] = useState<string | null>(null);
+  const [agreementEndDate, setAgreementEndDate] = useState<string | null>(null);
 
   const [paymentData, setPaymentData] = useState<PaymentFormData>({
     ifsc_code: "",
@@ -206,15 +217,15 @@ export default function AgentAccountDetails() {
       // Populate business data
       setBusinessData({
         business_name: profileData.profile.business_name || "",
-        business_certificate: profileData.profile.business_certificate || "dummy.png",
-        agency_logo: profileData.profile.agency_logo || "dummy.png",
-        pan_card_upload: profileData.profile.pan_card_upload || "dummy.png",
         country_code: profileData.profile.country_code || "",
         street_address: profileData.profile.street_address || "",
         city_code: profileData.profile.city_code || "",
         state_code: profileData.profile.state_code || "",
         postal_code: profileData.profile.postal_code || "",
       });
+      setExistingCertificateUrl(profileData.profile.business_certificate || null);
+      setAgreementStartDate(profileData.profile.agreement_start_date || null);
+      setAgreementEndDate(profileData.profile.agreement_end_date || null);
 
       // Populate payment data
       setPaymentData({
@@ -235,9 +246,8 @@ export default function AgentAccountDetails() {
         skype_id: profileData.profile.skype_id || "",
       });
 
-      // Load existing signature
-      if ((profileData.profile as any).signature_url) {
-        setSignatureUrl((profileData.profile as any).signature_url);
+      if (profileData.profile.signature_url) {
+        setSignatureUrl(profileData.profile.signature_url);
       }
       
     } catch (error) {
@@ -284,10 +294,11 @@ export default function AgentAccountDetails() {
     setIsSubmitting(true);
 
     try {
-      await updateBusinessProfile(businessData, token);
+      await updateBusinessProfile(businessData, token, certificateFile);
+      if (certificateFile) setCertificateFile(null);
       setSuccess("Business profile updated successfully!")
       setTimeout(()=>{setSuccess("")},3000)
-      
+
       // Move to next tab
       setActiveTab("payment");
     } catch (error) {
@@ -636,20 +647,61 @@ export default function AgentAccountDetails() {
           />
         </div>
 
-        {/* File Upload Placeholders */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg dark:border-gray-600">
-            <Briefcase size={24} className="mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Business Certificate</p>
-            <p className="text-xs text-gray-400 mt-1">dummy.png</p>
-          </div>
-          <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg dark:border-gray-600">
-            <Building size={24} className="mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Agency Logo</p>
-            <p className="text-xs text-gray-400 mt-1">dummy.png</p>
-          </div>
-          
+        {/* Business Certificate Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            Business Certificate (PDF)
+          </label>
+          {existingCertificateUrl && (
+            <div className="mb-2 flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <CheckCircle size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+              <span className="text-sm text-green-700 dark:text-green-300">Certificate uploaded</span>
+              <a
+                href={existingCertificateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto text-sm text-brand-600 dark:text-brand-400 underline hover:text-brand-700"
+              >
+                View
+              </a>
+            </div>
+          )}
+          <label className="flex items-center gap-3 p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+            <Briefcase size={20} className="text-gray-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              {certificateFile ? (
+                <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{certificateFile.name}</p>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{existingCertificateUrl ? "Replace certificate (PDF)" : "Upload certificate (PDF)"}</p>
+              )}
+            </div>
+            <Upload size={16} className="text-gray-400 flex-shrink-0" />
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => setCertificateFile(e.target.files?.[0] || null)}
+            />
+          </label>
         </div>
+
+        {/* Agreement Dates (read-only, set by admin) */}
+        {(agreementStartDate || agreementEndDate) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Agreement Start Date</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {agreementStartDate ? new Date(agreementStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Agreement End Date</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {agreementEndDate ? new Date(agreementEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "—"}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Submit Button */}
         <div className="flex justify-end pt-4">
@@ -741,14 +793,6 @@ export default function AgentAccountDetails() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          
-          <div className="text-center p-4 border border-dashed border-gray-300 rounded-lg dark:border-gray-600">
-            <CreditCard size={24} className="mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">PAN Card</p>
-            <p className="text-xs text-gray-400 mt-1">dummy.png</p>
-          </div>
-        </div>
 
         {/* Submit Button */}
         <div className="flex justify-end pt-4">

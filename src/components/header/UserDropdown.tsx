@@ -12,6 +12,7 @@ interface ProfileData {
   name: string;
   phone_number: string;
   profile: string;
+  profile_pic: string;
   created_at: string;
   updated_at: string;
 }
@@ -48,7 +49,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         try {
           setLoading(true);
           
-          const response = await fetch(`${BASE_URL}/tenant/profile`, {
+          const response = await fetch(`${BASE_URL}/agent/profile`, {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
@@ -82,16 +83,23 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         onClick={toggleDropdown} 
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <Image
-            width={44}
-            height={44}
-            src="/images/user/owner.jpg"
-            alt="User"
-          />
+        <span className="mr-3 overflow-hidden rounded-full h-11 w-11 bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+          {profileData.profile ? (
+            <Image
+              width={44}
+              height={44}
+              src={profileData.profile}
+              alt="User"
+              className="w-full h-full object-cover rounded-full"
+            />
+          ) : (
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+              {profileData.name ? profileData.name.charAt(0).toUpperCase() : "A"}
+            </span>
+          )}
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{profileData.name || "Tenant"}</span>
+        <span className="block mr-1 font-medium text-theme-sm">{profileData.name || "Agent"}</span>
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
@@ -133,7 +141,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              href="/admin/profile"
+              href="/partner/profile"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
