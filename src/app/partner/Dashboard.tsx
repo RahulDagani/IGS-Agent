@@ -28,6 +28,7 @@ interface RecentStudent {
 
 interface RecentApplication {
   id: number;
+  student_id: number;
   updated_at: string;
   student_name: string;
   course_name: string;
@@ -298,7 +299,7 @@ export default function PartnerDashboard() {
             </div>
             <div className="space-y-2">
               {data?.recent_applications?.map(app => (
-                <Link key={app.id} href={`/partner/applications/${app.id}`}
+                <Link key={app.id} href={`/partner/editProfile/${app.student_id}?tab=applications&app=${app.id}`}
                   className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-2 rounded-lg transition-colors">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90 truncate">{app.student_name}</p>
