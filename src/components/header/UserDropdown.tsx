@@ -39,6 +39,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         name: "",
         phone_number: "",
         profile: "",
+        profile_pic: "",
         created_at: "",
         updated_at: ""
       });
