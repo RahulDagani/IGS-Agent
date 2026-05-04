@@ -154,17 +154,17 @@ function AgentLoginContent() {
 
           if(user.email_verified != 1){
             router.push('/signin/verify');
+            return;
           }
-        
+
           if(status === "business_pending"){
             router.push('/signup/agent/onboarding/business');
           }else if(status === "under_review"){
             router.push('/signup/agent/pending-verification');
           }else if(status === "verification_failed"){
             router.push('/signup/agent/verification-failed');
-          }else if(status === "verified"){
-            // Redirect to intended page or partner dashboard
-            router.push(callbackUrl);
+          }else{
+            router.push(callbackUrl !== '/' ? callbackUrl : '/partner');
           }
         }else{
           throw new Error(data.message || "Login failed");
