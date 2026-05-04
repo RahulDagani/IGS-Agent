@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { getSecureFileUrl } from "@/utils/fileUrl";
 import Programs from '../../programs/Programs';
 import { getStateByCodeAndCountry } from 'country-state-city/lib/state';
 import { Country, State } from 'country-state-city';
@@ -626,7 +627,7 @@ const updateCredentials = async () => {
             {message.file_url && (
               <div className="mt-2">
                 <a
-                  href={message.file_url}
+                  href={getSecureFileUrl(message.file_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded border dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -963,7 +964,7 @@ const updateCredentials = async () => {
                               <>
                               <div className="flex items-center gap-2 mb-4">
                                 <a
-                                  href={`${BASE_URL}/${doc.file_url}`}
+                                  href={getSecureFileUrl(doc.file_url)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
@@ -973,7 +974,7 @@ const updateCredentials = async () => {
                                 </a>
                                 <span className="text-gray-400">•</span>
                                 <a
-                                  href={`${BASE_URL}/${doc.file_url}`}
+                                  href={getSecureFileUrl(doc.file_url)}
                                   download
                                   className="flex items-center gap-2 text-green-600 dark:text-green-400 hover:underline"
                                 >

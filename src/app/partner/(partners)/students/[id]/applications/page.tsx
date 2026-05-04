@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { getSecureFileUrl } from "@/utils/fileUrl";
 import {
   Send, Paperclip, Eye, X, FileText, MessageCircle,
   Image as ImageIcon, Pencil, GraduationCap,
@@ -271,7 +272,7 @@ export default function ApplicationsPage() {
               </p>
             )}
             {msg.file_url && (
-              <a href={msg.file_url} target="_blank" rel="noopener noreferrer"
+              <a href={getSecureFileUrl(msg.file_url)} target="_blank" rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
                 <Eye size={12} />
                 {msg.file?.split("/").pop() || "Attachment"}

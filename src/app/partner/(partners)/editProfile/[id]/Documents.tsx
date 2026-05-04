@@ -18,6 +18,7 @@ import {
   Download
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getSecureFileUrl } from "@/utils/fileUrl";
 
 interface BaseDocument {
   id: number;
@@ -341,7 +342,7 @@ function DocumentCard({
       {doc.file_url && (
         <div className="mt-4 flex items-center gap-3">
           <a
-            href={doc.file_url}
+            href={getSecureFileUrl(doc.file_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-white dark:bg-gray-800 border flex items-center dark:border-gray-600 px-3 py-1 rounded-md text-sm dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -352,7 +353,7 @@ function DocumentCard({
 
           {activeTab === 'Igs' && (
             <a
-              href={doc.file_url}
+              href={getSecureFileUrl(doc.file_url)}
               download
               className="inline-flex items-center justify-center rounded-md border bg-white px-3 py-[2px] text-gray-600 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               title="Download file"
