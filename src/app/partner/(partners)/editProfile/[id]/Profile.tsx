@@ -134,7 +134,7 @@ const PhoneInput = ({
   );
 };
 
-export default function ProfileForm() {
+export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => void }) {
   const router = useRouter();
   const { id: studentId } = useParams();
   const [activeMainTab, setActiveMainTab] = useState<string>("profile");
@@ -381,6 +381,7 @@ export default function ProfileForm() {
           ...prev,
           [sectionId]: { isSaving: false, message: 'Saved successfully!', messageType: 'success' }
         }));
+        onProfileSave?.();
         if (nextSectionId) {
           setTimeout(() => {
             setExpandedSections(prev => ({ ...prev, [sectionId]: false, [nextSectionId]: true }));

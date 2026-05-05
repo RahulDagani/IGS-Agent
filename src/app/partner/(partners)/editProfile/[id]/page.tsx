@@ -27,6 +27,8 @@ export default function StudentDetailsPage() {
   const [activeTab, setActiveTab] = useState<string>(activeTabFromUrl || "profile");
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshProfile, setRefreshProfile] = useState(0);
+  const [refreshDocuments, setRefreshDocuments] = useState(0);
 
   const {id: studentId} = useParams();
   const { token } = useAuth();
@@ -35,6 +37,14 @@ export default function StudentDetailsPage() {
   useEffect(() => {
     fetchStudentDetails();
   }, []);
+
+  useEffect(() => {
+    fetchStudentDetails();
+  }, [refreshProfile]);
+
+  useEffect(() => {
+    fetchStudentDetails();
+  }, [refreshDocuments]);
 
   useEffect(() => {
     if (activeTabFromUrl) {
@@ -277,7 +287,7 @@ export default function StudentDetailsPage() {
                 
                  <span className="flex justify-center items-center">
                   <span>Documents</span> 
-                  <span className="num ml-1 bg-red-700 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                  <span className={`num ml-1 ${student.total_pending_documents > 0 ? 'bg-red-700' : 'bg-green-500'} text-white rounded-full w-4 h-4 flex items-center justify-center text-xs`}>
                       {student.total_pending_documents}
                     </span>
                   </span>
@@ -293,7 +303,7 @@ export default function StudentDetailsPage() {
       <div className="tab-content mt-6">
         {/* Profile Tab */}
         {activeTab === "profile" && (
-         <ProfileForm />
+         <ProfileForm onProfileSave={() => setRefreshProfile(prev => prev + 1)} />
         )}
 
         {/* Applications Tab */}
@@ -303,7 +313,7 @@ export default function StudentDetailsPage() {
 
         {/* Documents Tab */}
         {activeTab === "documents" && (
-          <DocumentsPage onDocumentUpload={() => {}} />
+          <DocumentsPage key={refreshDocuments} onDocumentUpload={() => setRefreshDocuments(prev => prev + 1)} />
         )}
       </div>
     </div>
