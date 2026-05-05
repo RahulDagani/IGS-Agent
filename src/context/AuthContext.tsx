@@ -31,7 +31,7 @@ interface AuthContextType {
   updateUser: (fields: Partial<User>) => void;
   adminAgentLogin: (user: User, token: string, adminToken: string) => void;
   adminReLoginFromAgent: (user: User, token: string) => void;
-  logout: (userType: string) => void;
+  logout: (userType: string) => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean; // ✅ added
   adminToken?: string | null;
@@ -103,19 +103,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
   }
 
-  const logout = (userType: string) => {
-    const panel = user?.panel_type;
+  const logout = async (userType: string) => {
+    const currentToken = Cookies.get("token");
+    if (currentToken) {
+      const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+      await fetch(`${BASE_URL}/files/revoke`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${currentToken}` },
+      }).catch(() => {});
+    }
+
     setUser(null);
     setToken(null);
 
     Cookies.remove("user");
     Cookies.remove("token");
     Cookies.remove("adminToken");
-   
-  
-    window.location.href = '/signin/agent';
 
-    
+    window.location.href = '/signin/agent';
   };
 
   const value: AuthContextType = {
