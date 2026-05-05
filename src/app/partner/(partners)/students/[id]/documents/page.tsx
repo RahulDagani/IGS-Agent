@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { getSecureFileUrl } from "@/utils/fileUrl";
+import { openSecureFile } from "@/utils/fileUrl";
 import {
   CheckCircle, XCircle, Clock, FileText, UploadCloud, Eye,
   Plus, Minus, AlertCircle, Building, GraduationCap
@@ -235,7 +235,7 @@ export default function DocumentsPage() {
         </div>
         {selected && !isUploading && <p className="text-xs text-gray-500 dark:text-gray-400">Selected: {selected.name}</p>}
         {fileName && !selected && !isUploading && (
-          <a href={getSecureFileUrl(fileUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600">
+          <a href="#" onClick={(e) => { e.preventDefault(); openSecureFile(fileUrl); }} className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600">
             <Eye size={12} />{fileName}
           </a>
         )}
