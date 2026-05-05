@@ -255,6 +255,7 @@ export default function ProfileForm() {
         if (!formData.email.trim()) errors.email = "Email is required";
         else if (!/^\S+@\S+\.\S+$/.test(formData.email)) errors.email = "Invalid email format";
         if (!formData.phone.trim()) errors.phone = "Phone number is required";
+        if (!formData.passport_number.trim()) errors.passport_number = "Passport number is required";
         if (!formData.dob) errors.dob = "Date of birth is required";
         if (!formData.gender) errors.gender = "Gender is required";
         break;
@@ -405,7 +406,7 @@ export default function ProfileForm() {
       case "personal":
         return !!(formData.salutation && formData.first_name.trim() && formData.last_name.trim() &&
           formData.email.trim() && /^\S+@\S+\.\S+$/.test(formData.email) &&
-          formData.phone.trim() && formData.dob && formData.gender);
+          formData.phone.trim() && formData.passport_number.trim() && formData.dob && formData.gender);
       case "address":
         return !!(formData.address.trim() && formData.country_code && formData.state_code &&
           formData.city_code && formData.postal_code.trim() && formData.citizenship);
@@ -530,8 +531,9 @@ export default function ProfileForm() {
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Passport Number</label>
-          <input type="text" name="passport_number" value={formData.passport_number} onChange={handleInputChange} placeholder="Enter passport number" className={inputCls("passport_number")} />
+          <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Passport Number *</label>
+          <input type="text" name="passport_number" value={formData.passport_number} onChange={handleInputChange} placeholder="Enter passport number" required className={inputCls("passport_number")} />
+          {fieldErrors.passport_number && <p className="mt-1 text-sm text-red-500">{fieldErrors.passport_number}</p>}
         </div>
       </div>
     </div>
