@@ -111,6 +111,8 @@ interface FileInputProps {
   fileError: string;
   uploadSuccess: boolean;
   selectedFileForDoc: File | null;
+  verifierEmail: string;
+  onVerifierEmailChange: (email: string) => void;
   onFileSelect: (file: File | null) => void;
   onUpload: () => void;
 }
@@ -121,6 +123,8 @@ function FileInput({
   fileError,
   uploadSuccess,
   selectedFileForDoc,
+  verifierEmail,
+  onVerifierEmailChange,
   onFileSelect,
   onUpload,
 }: FileInputProps) {
@@ -141,6 +145,19 @@ function FileInput({
           {fileError}
         </div>
       )}
+
+      {/* Verifier email input */}
+      <div className="flex flex-col gap-1.5">
+        <input
+          type="email"
+          placeholder="Verifier email (e.g. bank@example.com)"
+          value={verifierEmail}
+          onChange={(e) => onVerifierEmailChange(e.target.value)}
+          disabled={isUploading}
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 text-sm dark:bg-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-400 dark:text-gray-500">Email of the authority who can verify this document</p>
+      </div>
 
       {/* Buttons row — fixed height, never changes */}
       <div className="flex gap-2">
@@ -207,7 +224,9 @@ interface DocumentCardProps {
   uploadErrors: UploadError;
   uploadSuccess: UploadSuccess;
   selectedFile: { [key: number]: File | null };
+  verifierEmail: { [key: number]: string };
   onFileSelect: (documentId: number, file: File | null) => void;
+  onVerifierEmailChange: (documentId: number, email: string) => void;
   onUpload: (documentId: number, isCommon: boolean, applicationId: number | null, doc_category?: string) => void;
 }
 
@@ -254,7 +273,9 @@ function DocumentCard({
   uploadErrors,
   uploadSuccess,
   selectedFile,
+  verifierEmail,
   onFileSelect,
+  onVerifierEmailChange,
   onUpload,
 }: DocumentCardProps) {
   const statusConfig = getStatusIcon(doc.status, doc.is_mandatory);
@@ -332,6 +353,8 @@ function DocumentCard({
               fileError={uploadErrors[doc.id] ?? ''}
               uploadSuccess={uploadSuccess[doc.id] ?? false}
               selectedFileForDoc={selectedFile[doc.id] ?? null}
+              verifierEmail={verifierEmail[doc.id] ?? ''}
+              onVerifierEmailChange={(email) => onVerifierEmailChange(doc.id, email)}
               onFileSelect={(file) => onFileSelect(doc.id, file)}
               onUpload={() => onUpload(doc.id, isCommon, !isCommon ? (doc.application_id ?? null) : null, doc.doc_category)}
             />
@@ -382,6 +405,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
   const [uploadErrors, setUploadErrors] = useState<UploadError>({});
   const [uploadSuccess, setUploadSuccess] = useState<UploadSuccess>({});
   const [selectedFile, setSelectedFile] = useState<{ [key: number]: File | null }>({});
+  const [verifierEmail, setVerifierEmail] = useState<{ [key: number]: string }>({});
 
   const BASE_URL = 'https://api.applystore.org/api';
   const { token } = useAuth();
@@ -456,6 +480,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     const formData = new FormData();
     formData.append('document_id', documentId.toString());
     formData.append('file', file);
+    if (verifierEmail[documentId]) formData.append('verifier_email', verifierEmail[documentId]);
 
     setUploading(prev => ({ ...prev, [documentId]: true }));
     setUploadErrors(prev => ({ ...prev, [documentId]: '' }));
@@ -497,13 +522,19 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
     }
   };
 
+  const handleVerifierEmailChange = (documentId: number, email: string) => {
+    setVerifierEmail(prev => ({ ...prev, [documentId]: email }));
+  };
+
   const cardProps = {
     activeTab,
     uploading,
     uploadErrors,
     uploadSuccess,
     selectedFile,
+    verifierEmail,
     onFileSelect: handleFileSelect,
+    onVerifierEmailChange: handleVerifierEmailChange,
     onUpload: uploadFile,
   };
 
