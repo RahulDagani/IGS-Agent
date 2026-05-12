@@ -29,7 +29,9 @@ interface BaseDocument {
   file_url: string | null;
   uploaded_at: string | null;
   uploaded_by: number | null;
-  status: 'uploaded' | 'pending' | string;
+  status: 'uploaded' | 'pending' | 'verified' | string;
+  verifier_email: string | null;
+  verification_email_sent_at: string | null;
   remarks: string | null;
   is_deleted: number;
   created_at: string;
@@ -315,7 +317,7 @@ function DocumentCard({
           <div className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
             <p>
               <strong className="dark:text-gray-200">Status:</strong>{' '}
-              <span className={`capitalize ${doc.status === 'uploaded' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              <span className={`capitalize ${doc.status === 'verified' ? 'text-blue-600 dark:text-blue-400' : doc.status === 'uploaded' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {doc.status}
               </span>
             </p>
@@ -323,6 +325,17 @@ function DocumentCard({
               <p>
                 <strong className="dark:text-gray-200">Uploaded On:</strong>{' '}
                 {formatDate(doc.uploaded_at)}
+              </p>
+            )}
+            {doc.verifier_email && (
+              <p>
+                <strong className="dark:text-gray-200">Verifier Email:</strong>{' '}
+                <span className="text-gray-600 dark:text-gray-400">{doc.verifier_email}</span>
+              </p>
+            )}
+            {doc.verification_email_sent_at && (
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                Verification email sent on {formatDate(doc.verification_email_sent_at)}
               </p>
             )}
             {doc.uploaded_by && (
@@ -508,6 +521,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
       await fetchDocuments(false);
 
       setSelectedFile(prev => ({ ...prev, [documentId]: null }));
+      setVerifierEmail(prev => { const n = { ...prev }; delete n[documentId]; return n; });
       setUploadSuccess(prev => ({ ...prev, [documentId]: true }));
       setTimeout(() => setUploadSuccess(prev => ({ ...prev, [documentId]: false })), 3000);
 
