@@ -654,10 +654,6 @@ export default function PaymentsTable() {
     });
   }, []);
 
-  const handleSendEmailFromRaiseInvoice = useCallback(() => {
-    submitRaiseInvoice();
-  }, [submitRaiseInvoice]);
-
   const submitRaiseInvoice = useCallback(async () => {
     if (!raiseInvoiceModal.noteId) return;
     setRaiseInvoiceModal(prev => ({ ...prev, isSubmitting: true }));
@@ -684,6 +680,10 @@ export default function PaymentsTable() {
       setRaiseInvoiceModal(prev => ({ ...prev, isSubmitting: false }));
     }
   }, [BASE_URL, token, raiseInvoiceModal, fetchCommissionNotes, fetchCommissionNoteDetail, pagination.page]);
+
+  const handleSendEmailFromRaiseInvoice = useCallback(() => {
+    submitRaiseInvoice();
+  }, [submitRaiseInvoice]);
 
   const closeDialog = () => {
     setDialog(prev => ({ ...prev, isOpen: false }));
