@@ -428,7 +428,7 @@ export default function PaymentsTable() {
       
       // Add status filter based on active tab
       if (active === "progress") {
-        params.append('status', 'draft,sent_to_partner,invoice_uploaded,invoice_uploaded_after_corrections,revision_in_cn_needed');
+        params.append('status', 'draft,sent_to_partner,invoice_uploaded');
       } else if (active === "paid") {
         params.append('status', 'commission_payment_done');
       }
@@ -951,10 +951,6 @@ export default function PaymentsTable() {
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
     } else if (status === "invoice_uploaded") {
       return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
-    } else if (status === "revisions_in_invoice_needed" || status === "revision_in_cn_needed") {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-    } else if (status === "invoice_uploaded_after_corrections") {
-      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300";
     }
     return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
   };
@@ -964,8 +960,6 @@ export default function PaymentsTable() {
     { value: "draft", label: "Draft" },
     { value: "sent_to_partner", label: "Sent To Partner" },
     { value: "invoice_uploaded", label: "Invoice Uploaded" },
-    { value: "invoice_uploaded_after_corrections", label: "Invoice Uploaded After Corrections" },
-    { value: "revision_in_cn_needed", label: "Revision In CN Needed" },
     { value: "commission_payment_done", label: "Commission Payment Done" },
   ];
 
@@ -1328,7 +1322,7 @@ export default function PaymentsTable() {
                       Raise Invoice
                     </button>
                   )}
-                  {['invoice_uploaded', 'invoice_uploaded_after_corrections'].includes(activeNoteDetail.commission_note?.status || '') && (
+                  {activeNoteDetail.commission_note?.status === 'invoice_uploaded' && (
                     <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
                       <CheckCircle size={16} />
                       Invoice Submitted
