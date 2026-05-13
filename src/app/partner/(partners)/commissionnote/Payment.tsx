@@ -1348,14 +1348,18 @@ export default function PaymentsTable() {
                   </button>
 
                   {/* Send Mail Button */}
-                  {/* <button
-                    onClick={handleSendEmail}
+                  <button
+                    onClick={() => setPdfModal({
+                      isOpen: true,
+                      noteId: activeNoteId,
+                      noteNumber: activeNoteDetail.commission_note?.note_number || ''
+                    })}
                     disabled={sendingMail}
                     className="inline-flex items-center gap-2 px-3 py-2 border border-green-600 text-green-600 dark:border-green-500 dark:text-green-400 rounded-lg text-sm hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
                   >
                     <Mail size={16} />
                     {sendingMail ? "Sending..." : "Send Mail"}
-                  </button> */}
+                  </button>
                 </div>
               </div>
 
