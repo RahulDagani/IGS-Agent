@@ -107,17 +107,23 @@ interface PDFModalProps {
   onClose: () => void;
   noteId: number;
   noteNumber: string;
+  pdfEndpoint?: string;
+  confirmLabel?: string;
+  actionLabel?: string;
   onConfirm: () => void;
   onSendEmail: () => void;
   isSendingMail: boolean;
 }
 
 // PDF Modal Component
-const PDFViewModal: React.FC<PDFModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  noteId, 
+const PDFViewModal: React.FC<PDFModalProps> = ({
+  isOpen,
+  onClose,
+  noteId,
   noteNumber,
+  pdfEndpoint,
+  confirmLabel,
+  actionLabel,
   onConfirm,
   onSendEmail,
   isSendingMail
@@ -130,16 +136,18 @@ const PDFViewModal: React.FC<PDFModalProps> = ({
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE || "https://api.applystore.org";
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  const resolvedEndpoint = pdfEndpoint || `${BASE_URL}/agent/commission-note/pdf/view/${noteId}`;
+
   // Fetch PDF with authentication
   const fetchPDF = useCallback(async () => {
     if (!noteId || !token) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(
-        `${BASE_URL}/agent/commission-note/pdf/view/${noteId}`,
+        resolvedEndpoint,
         {
           method: 'GET',
           headers: {
@@ -167,7 +175,7 @@ const PDFViewModal: React.FC<PDFModalProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [noteId, token, BASE_URL]);
+  }, [noteId, token, resolvedEndpoint]);
 
   useEffect(() => {
     if (isOpen && noteId) {
@@ -228,10 +236,10 @@ const PDFViewModal: React.FC<PDFModalProps> = ({
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-white/[0.05]">
             <div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Commission Note: {noteNumber}
+                {actionLabel === "Submit Invoice" ? "Invoice Preview" : "Commission Note"}: {noteNumber}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Review the commission note before sending
+                {actionLabel === "Submit Invoice" ? "Review the invoice before submitting" : "Review the commission note before sending"}
               </p>
             </div>
             <button
@@ -304,7 +312,7 @@ const PDFViewModal: React.FC<PDFModalProps> = ({
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  I confirm that the commission note has been reviewed and is correct.
+                  {confirmLabel || "I confirm that the commission note has been reviewed and is correct."}
                 </span>
               </label>
 
@@ -328,8 +336,8 @@ const PDFViewModal: React.FC<PDFModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <Mail size={16} />
-                      <span>Send Email</span>
+                      {actionLabel === "Submit Invoice" ? <FileText size={16} /> : <Mail size={16} />}
+                      <span>{actionLabel || "Send Email"}</span>
                     </>
                   )}
                 </button>
@@ -635,7 +643,7 @@ export default function PaymentsTable() {
     }
   }, [pdfModal.noteId, sendEmail]);
 
-  // Handle raise invoice button click
+  // Handle raise invoice button click — open invoice preview modal
   const handleRaiseInvoice = useCallback((noteId: number, noteNumber: string) => {
     setRaiseInvoiceModal({
       isOpen: true,
@@ -644,6 +652,10 @@ export default function PaymentsTable() {
       isSubmitting: false,
     });
   }, []);
+
+  const handleSendEmailFromRaiseInvoice = useCallback(() => {
+    submitRaiseInvoice();
+  }, [submitRaiseInvoice]);
 
   const submitRaiseInvoice = useCallback(async () => {
     if (!raiseInvoiceModal.noteId) return;
@@ -1109,45 +1121,20 @@ export default function PaymentsTable() {
       {/* Status Dialog */}
       <StatusDialog />
 
-      {/* Raise Invoice Modal */}
-      {raiseInvoiceModal.isOpen && (
-        <div className="fixed inset-0 z-999999 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full animate-fade-in">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Raise Invoice</h3>
-                <button onClick={() => setRaiseInvoiceModal(prev => ({ ...prev, isOpen: false }))} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Commission Note: <span className="font-semibold">#{raiseInvoiceModal.noteNumber}</span>
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                Submitting this invoice will notify the admin to process your commission payment. Ensure all commission details in the note are correct before proceeding.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setRaiseInvoiceModal(prev => ({ ...prev, isOpen: false }))}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitRaiseInvoice}
-                  disabled={raiseInvoiceModal.isSubmitting}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-                >
-                  {raiseInvoiceModal.isSubmitting ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  ) : (
-                    <><FileText size={16} /><span>Submit Invoice</span></>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Raise Invoice Modal — PDF Preview */}
+      {raiseInvoiceModal.isOpen && raiseInvoiceModal.noteId && (
+        <PDFViewModal
+          isOpen={raiseInvoiceModal.isOpen}
+          onClose={() => setRaiseInvoiceModal(prev => ({ ...prev, isOpen: false }))}
+          noteId={raiseInvoiceModal.noteId}
+          noteNumber={raiseInvoiceModal.noteNumber}
+          pdfEndpoint={`${BASE_URL}/agent/commission-note/invoice/preview/${raiseInvoiceModal.noteId}`}
+          confirmLabel="I confirm the invoice details are correct and ready to submit."
+          actionLabel="Submit Invoice"
+          onConfirm={() => {}}
+          onSendEmail={handleSendEmailFromRaiseInvoice}
+          isSendingMail={raiseInvoiceModal.isSubmitting}
+        />
       )}
 
       {/* PDF Modal */}
