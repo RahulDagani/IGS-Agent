@@ -428,8 +428,7 @@ export default function PaymentsTable() {
       
       // Add status filter based on active tab
       if (active === "progress") {
-        // For progress tab, exclude paid status
-        params.append('status', 'draft,sent_to_partner,invoice_uploaded,revisions_in_invoice_needed,invoice_uploaded_after_corrections,revision_in_cn_needed');
+        params.append('status', 'draft,sent_to_partner,invoice_uploaded,invoice_uploaded_after_corrections,revision_in_cn_needed');
       } else if (active === "paid") {
         params.append('status', 'commission_payment_done');
       }
@@ -965,7 +964,6 @@ export default function PaymentsTable() {
     { value: "draft", label: "Draft" },
     { value: "sent_to_partner", label: "Sent To Partner" },
     { value: "invoice_uploaded", label: "Invoice Uploaded" },
-    { value: "revisions_in_invoice_needed", label: "Revisions In Invoice Needed" },
     { value: "invoice_uploaded_after_corrections", label: "Invoice Uploaded After Corrections" },
     { value: "revision_in_cn_needed", label: "Revision In CN Needed" },
     { value: "commission_payment_done", label: "Commission Payment Done" },
@@ -1318,7 +1316,7 @@ export default function PaymentsTable() {
 
                 <div className="flex flex-wrap gap-2">
                   {/* Raise Invoice Button — only visible when invoice can be raised */}
-                  {['sent_to_partner', 'revisions_in_invoice_needed'].includes(activeNoteDetail.commission_note?.status || '') && (
+                  {['sent_to_partner'].includes(activeNoteDetail.commission_note?.status || '') && (
                     <button
                       onClick={() => handleRaiseInvoice(
                         activeNoteDetail.commission_note?.id || 0,
