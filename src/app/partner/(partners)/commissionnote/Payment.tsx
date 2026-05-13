@@ -371,6 +371,7 @@ export default function PaymentsTable() {
   const [commentText, setCommentText] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [sendingMail, setSendingMail] = useState(false);
   
   // PDF Modal state
@@ -775,6 +776,32 @@ export default function PaymentsTable() {
       setError(err instanceof Error ? err.message : "An error occurred while downloading PDF");
     } finally {
       setDownloadingPdf(false);
+    }
+  }, [BASE_URL, token]);
+
+  // Download Invoice PDF function
+  const downloadInvoice = useCallback(async (noteId: number) => {
+    if (!noteId) return;
+    try {
+      setDownloadingInvoice(true);
+      const response = await fetch(
+        `${BASE_URL}/agent/commission-note/invoice/download/${noteId}`,
+        { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (!response.ok) throw new Error(`Failed to download invoice: ${response.status}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${noteId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred while downloading invoice");
+    } finally {
+      setDownloadingInvoice(false);
     }
   }, [BASE_URL, token]);
 
@@ -1316,15 +1343,27 @@ export default function PaymentsTable() {
                     </span>
                   )}
 
-                  {/* Download Button */}
+                  {/* Download Commission Note Button */}
                   <button
                     onClick={handleDownloadPdf}
                     disabled={downloadingPdf}
                     className="inline-flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
                   >
                     <Download size={16} />
-                    {downloadingPdf ? "Downloading..." : "Download"}
+                    {downloadingPdf ? "Downloading..." : "Download Note"}
                   </button>
+
+                  {/* Download Invoice Button — visible once agent has raised the invoice */}
+                  {['invoice_uploaded', 'commission_payment_done'].includes(activeNoteDetail.commission_note?.status || '') && (
+                    <button
+                      onClick={() => activeNoteId && downloadInvoice(activeNoteId)}
+                      disabled={downloadingInvoice}
+                      className="inline-flex items-center gap-2 px-3 py-2 border border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-400 rounded-lg text-sm hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50"
+                    >
+                      <FileText size={16} />
+                      {downloadingInvoice ? "Downloading..." : "Download Invoice"}
+                    </button>
+                  )}
 
                   {/* Send Mail Button */}
                   <button
