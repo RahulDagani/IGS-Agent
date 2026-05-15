@@ -10,6 +10,7 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
 import { Wallet, Plus, X, Clock } from "lucide-react";
+import Link from "next/link";
 
 interface WalletTransaction {
   id: number;
@@ -250,7 +251,10 @@ export default function WalletHistoryTable() {
           <p className="text-2xl font-bold text-red-500 dark:text-red-400">{formatCurrency(totalDebits)}</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+        <Link
+          href="/partner/wallet/pending-fees"
+          className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors"
+        >
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm text-gray-500 dark:text-gray-400">Pending Application Fees</p>
             <Clock className="w-5 h-5 text-orange-500" />
@@ -259,7 +263,7 @@ export default function WalletHistoryTable() {
             {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(pendingFeeTotal)}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{pendingFeeCount} application(s) with pending fee</p>
-        </div>
+        </Link>
       </div>
 
       {/* Topup Modal */}
