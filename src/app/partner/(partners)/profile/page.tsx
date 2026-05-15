@@ -30,6 +30,7 @@ interface PaymentFormData {
   ifsc_code: string;
   bank_account_number: string;
   bank_account_name: string;
+  pan_number: string;
 }
 
 interface AgentProfileResponse {
@@ -60,6 +61,8 @@ interface AgentProfileResponse {
     ifsc_code: string;
     bank_account_number: string;
     bank_account_name: string;
+    pan_number: string;
+    pan_card_upload: string;
     is_payment_verified: number;
     is_agent_verified: number;
     agent_verified_at: string;
@@ -123,14 +126,24 @@ const updateBusinessProfile = async (formData: BusinessFormData, token: string, 
   }
 };
 
-const updatePaymentProfile = async (formData: PaymentFormData, token: string): Promise<void> => {
+const updatePaymentProfile = async (formData: PaymentFormData, token: string, panCardFile?: File | null): Promise<void> => {
+  let body: FormData | string;
+  const headers: Record<string, string> = { 'Authorization': `Bearer ${token}` };
+
+  if (panCardFile) {
+    const fd = new FormData();
+    Object.entries(formData).forEach(([k, v]) => { if (v) fd.append(k, v); });
+    fd.append('pan_card_upload', panCardFile);
+    body = fd;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(formData);
+  }
+
   const response = await fetch(`${BASE_URL}/agent/business`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(formData)
+    headers,
+    body
   });
 
   if (!response.ok) {
@@ -181,10 +194,14 @@ export default function AgentAccountDetails() {
   const [agreementStartDate, setAgreementStartDate] = useState<string | null>(null);
   const [agreementEndDate, setAgreementEndDate] = useState<string | null>(null);
 
+  const [panCardFile, setPanCardFile] = useState<File | null>(null);
+  const [existingPanCardUrl, setExistingPanCardUrl] = useState<string | null>(null);
+
   const [paymentData, setPaymentData] = useState<PaymentFormData>({
     ifsc_code: "",
     bank_account_number: "",
     bank_account_name: "",
+    pan_number: "",
   });
 
   const [socialData, setSocialData] = useState<SocialFormData>({
@@ -238,7 +255,9 @@ export default function AgentAccountDetails() {
         ifsc_code: profileData.profile.ifsc_code || "",
         bank_account_number: profileData.profile.bank_account_number || "",
         bank_account_name: profileData.profile.bank_account_name || "",
+        pan_number: profileData.profile.pan_number || "",
       });
+      setExistingPanCardUrl(profileData.profile.pan_card_upload || null);
 
       // Populate social data
       setSocialData({
@@ -329,7 +348,8 @@ export default function AgentAccountDetails() {
     setIsSubmitting(true);
 
     try {
-      await updatePaymentProfile(paymentData, token);
+      await updatePaymentProfile(paymentData, token, panCardFile);
+      if (panCardFile) setPanCardFile(null);
       setSuccess("Payment profile updated successfully!");
         setTimeout(()=>{setSuccess("")},3000)
 
@@ -800,6 +820,63 @@ export default function AgentAccountDetails() {
           />
         </div>
 
+        {/* PAN Number */}
+        <div>
+          <label htmlFor="pan_number" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            PAN Number
+          </label>
+          <input
+            type="text"
+            id="pan_number"
+            name="pan_number"
+            value={paymentData.pan_number}
+            onChange={handlePaymentInputChange}
+            placeholder="Enter PAN number"
+            className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+          />
+        </div>
+
+        {/* PAN Card Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
+            PAN Card (PDF)
+          </label>
+          {existingPanCardUrl && (
+            <div className="mb-2 flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <CheckCircle size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+              <span className="text-sm text-green-700 dark:text-green-300">PAN card uploaded</span>
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); openSecureFile(existingPanCardUrl); }}
+                className="ml-auto text-sm text-brand-600 dark:text-brand-400 underline hover:text-brand-700"
+              >
+                View
+              </a>
+            </div>
+          )}
+          <label className="flex items-center gap-3 w-full cursor-pointer rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
+            <Briefcase size={20} className="text-gray-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              {panCardFile ? (
+                <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{panCardFile.name}</p>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{existingPanCardUrl ? "Replace PAN card (PDF)" : "Upload PAN card (PDF)"}</p>
+              )}
+            </div>
+            <Upload size={16} className="text-gray-400 flex-shrink-0" />
+            <input
+              type="file"
+              accept="application/pdf"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (file && file.type !== 'application/pdf') return;
+                setPanCardFile(file);
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </div>
 
         {/* Submit Button */}
         {!isPaymentVerified && (
