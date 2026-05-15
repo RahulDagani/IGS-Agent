@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
+import { openSecureFile } from "@/utils/fileUrl";
 
 interface BusinessFormData {
   business_name: string;
@@ -662,9 +663,8 @@ export default function AgentAccountDetails() {
               <CheckCircle size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
               <span className="text-sm text-green-700 dark:text-green-300">Certificate uploaded</span>
               <a
-                href={existingCertificateUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#"
+                onClick={(e) => { e.preventDefault(); openSecureFile(existingCertificateUrl); }}
                 className="ml-auto text-sm text-brand-600 dark:text-brand-400 underline hover:text-brand-700"
               >
                 View
