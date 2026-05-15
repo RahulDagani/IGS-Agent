@@ -15,8 +15,11 @@ import {
   Eye, 
   Download, 
   MessageCircle,
-  Image as ImageIcon, 
-  FileText 
+  Image as ImageIcon,
+  FileText,
+  CheckCircle,
+  CreditCard,
+  Receipt,
 } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -67,6 +70,8 @@ interface ApplicationDetail {
   tuition_fee: string;
   application_fee: string;
   currency_code: string;
+  payment_status: string;
+  payment_id: string | null;
   study_level_name: string;
   discipline_id: number;
   discipline_name: string;
@@ -757,18 +762,39 @@ const updateCredentials = async () => {
                 </div>
               </div>
 
-              <div className="mt-2 flex gap-3">
-                <div className="text-gray-500 dark:text-gray-400">
-                  Application Fee:{' '}
-                  <span className="ml-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded text-sm font-medium">
-                    {parseFloat(applicationDetail.application_fee) > 0 
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {/* Application Fee */}
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  Application Fee:
+                  <span className="ml-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded font-medium">
+                    {parseFloat(applicationDetail.application_fee) > 0
                       ? `${applicationDetail.currency_code} ${applicationDetail.application_fee}`
-                      : 'No Application Fee'}
+                      : 'No Fee'}
                   </span>
+                  {parseFloat(applicationDetail.application_fee) > 0 && (
+                    applicationDetail.payment_status === 'success' ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          <CheckCircle size={11} /> Paid
+                        </span>
+                        {applicationDetail.payment_id && (
+                          <a href={applicationDetail.payment_id} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline">
+                            <Receipt size={11} /> View Proof
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        <CreditCard size={11} /> Fee Pending
+                      </span>
+                    )
+                  )}
                 </div>
-                <div className="text-gray-500 dark:text-gray-400 ">
-                  Tuition Fee:{' '}
-                  <span className="ml-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded text-sm font-medium">
+                {/* Tuition Fee */}
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Tuition Fee:
+                  <span className="ml-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1 rounded font-medium">
                     {applicationDetail.currency_code} {applicationDetail.tuition_fee}
                   </span>
                 </div>
