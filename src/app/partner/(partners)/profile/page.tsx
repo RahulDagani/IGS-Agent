@@ -62,7 +62,6 @@ interface AgentProfileResponse {
     bank_account_number: string;
     bank_account_name: string;
     pan_number: string;
-    pan_card_upload: string;
     is_payment_verified: number;
     is_agent_verified: number;
     agent_verified_at: string;
