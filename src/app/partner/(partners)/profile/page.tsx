@@ -217,6 +217,7 @@ export default function AgentAccountDetails() {
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [signatureBlobUrl, setSignatureBlobUrl] = useState<string | null>(null);
   const [uploadingSignature, setUploadingSignature] = useState(false);
 
   useEffect(() => {
@@ -229,6 +230,22 @@ export default function AgentAccountDetails() {
       loadAgentProfile();
     }
   }, [authUser, authLoading, router, token]);
+
+  useEffect(() => {
+    if (!signatureUrl || !token) return;
+    let objectUrl: string;
+    fetch(`${BASE_URL}/files/view/agent-signatures/${encodeURIComponent(signatureUrl)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.ok ? res.blob() : null)
+      .then(blob => {
+        if (!blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSignatureBlobUrl(objectUrl);
+      })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [signatureUrl, token]);
 
   const loadAgentProfile = async () => {
     try {
@@ -452,12 +469,15 @@ export default function AgentAccountDetails() {
           <div className="mb-6">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Signature</p>
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 inline-block">
-              <img
-                src={`${STATIC_URL}/uploads/agent-signatures/${signatureUrl}`}
-                alt="Agent Signature"
-                className="max-h-24 object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
+              {signatureBlobUrl ? (
+                <img
+                  src={signatureBlobUrl}
+                  alt="Agent Signature"
+                  className="max-h-24 object-contain"
+                />
+              ) : (
+                <div className="w-24 h-12 flex items-center justify-center text-xs text-gray-400">Loading...</div>
+              )}
             </div>
           </div>
         )}
