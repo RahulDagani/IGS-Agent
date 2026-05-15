@@ -69,17 +69,26 @@ export default function WalletHistoryTable() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [filters, setFilters] = useState<FilterOptions>({ transactionType: "all", status: "all" });
 
+  const [pendingFeeCount, setPendingFeeCount] = useState(0);
+  const [pendingFeeTotal, setPendingFeeTotal] = useState(0);
+
   const fetchWallet = async () => {
     if (!token) return;
     try {
       setLoading(true);
-      const res = await fetch(`${BASE_URL}/agent/wallet/balance`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success) {
-        setWalletData(json.data);
-        setAllTransactions(json.data.recentTransactions || []);
+      const [walletRes, pendingRes] = await Promise.all([
+        fetch(`${BASE_URL}/agent/wallet/balance`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${BASE_URL}/agent/wallet/pending-fees`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const walletJson = await walletRes.json();
+      if (walletJson.success) {
+        setWalletData(walletJson.data);
+        setAllTransactions(walletJson.data.recentTransactions || []);
+      }
+      const pendingJson = await pendingRes.json();
+      if (pendingJson.success) {
+        setPendingFeeCount(pendingJson.data.pendingPayments?.length ?? 0);
+        setPendingFeeTotal(pendingJson.data.totalAmount ?? 0);
       }
     } catch (err) {
       console.error("fetchWallet error:", err);
@@ -206,8 +215,6 @@ export default function WalletHistoryTable() {
 
   const totalCredits = allTransactions.filter(t => t.type === "credit" && t.status === "success").reduce((s, t) => s + parseFloat(String(t.amount)), 0);
   const totalDebits = allTransactions.filter(t => t.type === "debit" && t.status === "success").reduce((s, t) => s + parseFloat(String(t.amount)), 0);
-  const pendingTransactions = allTransactions.filter(t => t.status === "pending");
-  const pendingTotal = pendingTransactions.reduce((s, t) => s + parseFloat(String(t.amount)), 0);
 
   if (loading) {
     return <div className="flex items-center justify-center h-48 text-gray-500">Loading wallet...</div>;
@@ -245,11 +252,13 @@ export default function WalletHistoryTable() {
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Pending Transactions</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Pending Application Fees</p>
             <Clock className="w-5 h-5 text-orange-500" />
           </div>
-          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(pendingTotal)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{pendingTransactions.length} transaction(s) pending</p>
+          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(pendingFeeTotal)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{pendingFeeCount} application(s) with pending fee</p>
         </div>
       </div>
 
