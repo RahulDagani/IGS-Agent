@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
-import { Wallet, Plus, X } from "lucide-react";
+import { Wallet, Plus, X, Clock } from "lucide-react";
 
 interface WalletTransaction {
   id: number;
@@ -67,7 +67,6 @@ export default function WalletHistoryTable() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortField, setSortField] = useState<SortField>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({ transactionType: "all", status: "all" });
 
   const fetchWallet = async () => {
@@ -207,6 +206,8 @@ export default function WalletHistoryTable() {
 
   const totalCredits = allTransactions.filter(t => t.type === "credit" && t.status === "success").reduce((s, t) => s + parseFloat(String(t.amount)), 0);
   const totalDebits = allTransactions.filter(t => t.type === "debit" && t.status === "success").reduce((s, t) => s + parseFloat(String(t.amount)), 0);
+  const pendingTransactions = allTransactions.filter(t => t.status === "pending");
+  const pendingTotal = pendingTransactions.reduce((s, t) => s + parseFloat(String(t.amount)), 0);
 
   if (loading) {
     return <div className="flex items-center justify-center h-48 text-gray-500">Loading wallet...</div>;
@@ -214,8 +215,8 @@ export default function WalletHistoryTable() {
 
   return (
     <div className="space-y-4">
-      {/* Balance + Top-up */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm text-gray-500 dark:text-gray-400">Current Balance</p>
@@ -231,13 +232,24 @@ export default function WalletHistoryTable() {
             <Plus className="w-3.5 h-3.5" /> Top-up Wallet
           </button>
         </div>
+
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Credits</p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalCredits)}</p>
         </div>
+
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Debits</p>
           <p className="text-2xl font-bold text-red-500 dark:text-red-400">{formatCurrency(totalDebits)}</p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Pending Transactions</p>
+            <Clock className="w-5 h-5 text-orange-500" />
+          </div>
+          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(pendingTotal)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{pendingTransactions.length} transaction(s) pending</p>
         </div>
       </div>
 
