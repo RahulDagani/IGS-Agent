@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { UserPlus, X } from "lucide-react";
+import { UserPlus, X, CheckCircle, XCircle } from "lucide-react";
 
 interface Student {
   user_id: number;
@@ -26,6 +26,9 @@ interface Student {
   created_at: string;
   assigned_counselor_name: string | null;
   assigned_counselor_id: number | null;
+  profile_complete: 0 | 1;
+  documents_pending: 0 | 1 | null;
+  fee_pending: 0 | 1 | null;
 }
 
 interface Counselor {
@@ -499,6 +502,7 @@ export default function StudentTable() {
                     { key: "email", label: "Email" },
                     { key: "phone", label: "Phone" },
                     { key: "status", label: "Status" },
+                    { key: "profile_complete", label: "Profile · Docs · Fee" },
                     { key: "created_at", label: "Created" },
                     ...(!isCounsellor ? [{ key: "assigned_counselor_name", label: "Counselor" }] : []),
                   ].map(({ key, label }) => (
@@ -537,6 +541,29 @@ export default function StudentTable() {
                       </TableCell>
                       <TableCell className="px-5 py-4 text-start">
                         <StatusBadge status={student.status} />
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-start">
+                        <div className="flex items-center gap-3">
+                          <span title={student.profile_complete === 1 ? "Profile complete" : "Profile incomplete"}>
+                            {student.profile_complete === 1
+                              ? <CheckCircle size={17} className="text-green-500" />
+                              : <XCircle size={17} className="text-red-500" />}
+                          </span>
+                          <span title={student.documents_pending === null ? "No documents requested" : student.documents_pending === 0 ? "All documents uploaded" : "Documents pending"}>
+                            {student.documents_pending === null
+                              ? <CheckCircle size={17} className="text-gray-300 dark:text-gray-600" />
+                              : student.documents_pending === 0
+                              ? <CheckCircle size={17} className="text-green-500" />
+                              : <XCircle size={17} className="text-red-500" />}
+                          </span>
+                          <span title={student.fee_pending === null ? "No application fee" : student.fee_pending === 0 ? "Fee paid" : "Fee pending"}>
+                            {student.fee_pending === null
+                              ? <CheckCircle size={17} className="text-gray-300 dark:text-gray-600" />
+                              : student.fee_pending === 0
+                              ? <CheckCircle size={17} className="text-green-500" />
+                              : <XCircle size={17} className="text-amber-500" />}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {formatDate(student.created_at)}
