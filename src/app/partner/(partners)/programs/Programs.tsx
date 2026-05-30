@@ -41,7 +41,9 @@ interface University {
 }
 
 interface LocationCountry {
-  country_code: string;
+  country_id: number;
+  country_name: string;
+  iso_code: string;
 }
 
 interface LocationState {
@@ -145,7 +147,7 @@ interface FilterOptions {
   disciplines: number[];
   studyLevels: number[];
   universities: number[];
-  countries: string[];
+  countries: number[];
   states: string[];
   cities: string[];
   intakes: number[];
@@ -402,17 +404,17 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
                     {filterOptions.locations.countries.map((country) => (
                       <label
-                        key={country.country_code}
+                        key={country.country_id}
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                       >
                         <input
                           type="checkbox"
-                          checked={isSelected('countries', country.country_code)}
-                          onChange={(e) => handleCheckboxChange('countries', country.country_code, e.target.checked)}
+                          checked={isSelected('countries', country.country_id)}
+                          onChange={(e) => handleCheckboxChange('countries', country.country_id, e.target.checked)}
                           className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {getCountryName(country.country_code)}
+                          {country.country_name}
                         </span>
                       </label>
                     ))}
@@ -1247,9 +1249,9 @@ export default function StudentProgramsPage() {
           } else if (key === "universities") {
             params.append("university_id", val.toString());
           } else if (key === "countries") {
-            params.append("country_code", val.toString());
+            params.append("country_id", val.toString());
           } else if (key === "states") {
-            params.append("state_code", val.toString());
+            params.append("state_id", val.toString());
           } else if (key === "cities") {
             params.append("city_code", val.toString());
           } else if (key === "intakes") {
@@ -1324,8 +1326,8 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         if (key === 'studyLevels') paramKey = 'study_level_id';
         else if (key === 'disciplines') paramKey = 'discipline_id';
         else if (key === 'universities') paramKey = 'university_id';
-        else if (key === 'countries') paramKey = 'country_code';
-        else if (key === 'states') paramKey = 'state_code';
+        else if (key === 'countries') paramKey = 'country_id';
+        else if (key === 'states') paramKey = 'state_id';
         else if (key === 'cities') paramKey = 'city_code';
         else if (key === 'intakes') paramKey = 'intake_id';
         else if (key === 'intakeYears') paramKey = 'intake_year';
@@ -1624,7 +1626,8 @@ const buildCoursesQueryString = useCallback((page: number = 1, filtersToBuild: F
         const university = filtersData.universities.find(opt => opt.id === value);
         return university?.university || '';
       case 'countries':
-        return getCountryName(value.toString());
+        const countryItem = filtersData.locations.countries.find(c => c.country_id === value);
+        return countryItem?.country_name || '';
       case 'states':
         return getStateName(value.toString());
       case 'cities':
