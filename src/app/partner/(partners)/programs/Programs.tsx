@@ -194,13 +194,22 @@ const FilterModal: React.FC<FilterModalProps> = ({
     intakes: true,
     intakeYears: true,
   });
+  const [disciplineSearch, setDisciplineSearch] = useState("");
+  const [universitySearch, setUniversitySearch] = useState("");
+
+  const matchesSearch = (name: string, query: string) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return name.toLowerCase().split(/\s+/).some(word => word.startsWith(q));
+  };
 
   // Initialize local filters when modal opens
   useEffect(() => {
     if (isOpen) {
       setLocalFilters(appliedFilters);
     }
-  }, [isOpen, appliedFilters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
@@ -401,7 +410,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Countries
                   </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                     {filterOptions.locations.countries.map((country) => (
                       <label
                         key={country.country_id}
@@ -420,61 +429,11 @@ const FilterModal: React.FC<FilterModalProps> = ({
                     ))}
                   </div>
                 </div>
-
-                {/* States */}
-                <div className="space-y-2">
-                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    States
-                  </h5>
-                  <div className="grid grid-cols-2 space-y-2 max-h-32 overflow-y-auto">
-                    {filterOptions.locations.states.map((state) => (
-                      <label
-                        key={state.state_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('states', state.state_code)}
-                          onChange={(e) => handleCheckboxChange('states', state.state_code, e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                         {state.state_code}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Cities */}
-                {/* <div className="space-y-2">
-                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Cities
-                  </h5>
-                  <div className="space-y-2 max-h-32 overflow-y-auto p-2">
-                    {filterOptions.locations.cities.map((city) => (
-                      <label
-                        key={city.city_code}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected('cities', city.city_code)}
-                          onChange={(e) => handleCheckboxChange('cities', city.city_code, e.target.checked)}
-                          className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {city.city_code}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div> */}
               </div>
             )}
-            {(localFilters.countries.length > 0 || localFilters.states.length > 0 || localFilters.cities.length > 0) && (
+            {localFilters.countries.length > 0 && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Selected: {localFilters.countries.length + localFilters.states.length + localFilters.cities.length} location(s)
+                Selected: {localFilters.countries.length} country(ies)
               </p>
             )}
           </div>
@@ -535,23 +494,35 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </button>
             
             {expandedSections.disciplines && (
-              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
-                {filterOptions.disciplines.map((discipline) => (
-                  <label
-                    key={discipline.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected('disciplines', discipline.id)}
-                      onChange={(e) => handleCheckboxChange('disciplines', discipline.id, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {discipline.name}
-                    </span>
-                  </label>
-                ))}
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Search disciplines..."
+                  value={disciplineSearch}
+                  onChange={(e) => setDisciplineSearch(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder-gray-500"
+                />
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {filterOptions.disciplines
+                    .filter((d, idx, arr) => arr.findIndex(x => x.name === d.name) === idx)
+                    .filter(d => matchesSearch(d.name, disciplineSearch))
+                    .map((discipline) => (
+                      <label
+                        key={discipline.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('disciplines', discipline.id)}
+                          onChange={(e) => handleCheckboxChange('disciplines', discipline.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {discipline.name}
+                        </span>
+                      </label>
+                    ))}
+                </div>
               </div>
             )}
             {localFilters.disciplines.length > 0 && (
@@ -579,23 +550,35 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </button>
             
             {expandedSections.universities && (
-              <div className="grid grid-cols-2 space-y-2 max-h-48 overflow-y-auto">
-                {filterOptions.universities.map((university) => (
-                  <label
-                    key={university.id}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected('universities', university.id)}
-                      onChange={(e) => handleCheckboxChange('universities', university.id, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {university.university}
-                    </span>
-                  </label>
-                ))}
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Search universities..."
+                  value={universitySearch}
+                  onChange={(e) => setUniversitySearch(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring focus:ring-brand-500/10 focus:border-brand-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder-gray-500"
+                />
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {filterOptions.universities
+                    .filter((u, idx, arr) => arr.findIndex(x => x.id === u.id) === idx)
+                    .filter(u => matchesSearch(u.university, universitySearch))
+                    .map((university) => (
+                      <label
+                        key={university.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected('universities', university.id)}
+                          onChange={(e) => handleCheckboxChange('universities', university.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {university.university}
+                        </span>
+                      </label>
+                    ))}
+                </div>
               </div>
             )}
             {localFilters.universities.length > 0 && (
