@@ -1,23 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Mail, User, Phone, ChevronLeftIcon, Save, CheckCircle, X, Info, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Mail, User, ChevronLeftIcon, Save, CheckCircle, X, Info, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import countries from "country-list-with-dial-code-and-flag";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
 
 // Types for country data
 interface Country {
+  id?: number;
   name: string;
   dial_code: string;
   code: string;
   flag: string;
 }
 
-// Phone Input with Country Code
+// Phone Input with Country Code — matches admin add-student style
 const PhoneInput = ({
   value,
   onChange,
@@ -25,7 +25,8 @@ const PhoneInput = ({
   error,
   disabled = false,
   selectedCountry,
-  onCountryChange
+  onCountryChange,
+  allCountries = [],
 }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -34,88 +35,92 @@ const PhoneInput = ({
   disabled?: boolean;
   selectedCountry: Country;
   onCountryChange: (country: Country) => void;
+  allCountries?: Country[];
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  
-  // Get all countries
-  const allCountries = countries.getAll() as Country[];
-  
-  // Filter countries based on search
-  const filteredCountries = allCountries.filter(country => 
-    country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    country.dial_code.includes(searchTerm) ||
-    country.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filtered = search.trim()
+    ? allCountries.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.dial_code.includes(search) ||
+        c.code.toLowerCase().startsWith(search.toLowerCase())
+      )
+    : [];
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setTimeout(() => searchRef.current?.focus(), 0);
+  };
 
   return (
-    <div>
-      <div className="flex">
-        {/* Country Code Dropdown */}
-        <div className="relative mr-2">
+    <div ref={containerRef}>
+      <div className="flex gap-2">
+        {/* Country code button */}
+        <div className="relative">
           <button
             type="button"
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={handleOpen}
             disabled={disabled}
-            className={`flex items-center gap-2 px-3 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 ${
-              error ? "border-red-500" : ""
-            } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-50" : ""}`}
+            className={`flex items-center gap-1.5 h-11 px-3 rounded-lg border bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
+              error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+            } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.flag}</span>
-            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+            <span className="text-base leading-none">{selectedCountry?.flag}</span>
+            <span className="text-xs font-medium min-w-[36px]">{selectedCountry?.dial_code ?? "—"}</span>
+            <ChevronDown size={14} className="text-gray-400" />
           </button>
 
-          {/* Country Dropdown Menu */}
           {isOpen && (
             <>
-              {/* Overlay */}
-              <div 
-                className="fixed inset-0 z-10"
-                onClick={() => setIsOpen(false)}
-              />
-              
-              {/* Dropdown */}
-              <div className="absolute left-0 z-20 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg dark:bg-gray-800 dark:border-gray-700">
-                {/* Search Input */}
-                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+              <div className="fixed inset-0 z-10" onClick={() => { setIsOpen(false); setSearch(""); }} />
+              <div
+                className="absolute left-0 z-20 mt-1 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-2 border-b border-gray-100 dark:border-gray-700">
                   <input
+                    ref={searchRef}
                     type="text"
-                    placeholder="Search country..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    autoFocus
+                    placeholder="Search country name or code..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                   />
                 </div>
-                
-                {/* Country List */}
                 <div className="max-h-60 overflow-y-auto">
-                  {filteredCountries.map((country) => (
-                    <button
-                      key={country.code}
-                      type="button"
-                      onClick={() => {
-                        onCountryChange(country);
-                        setIsOpen(false);
-                        setSearchTerm("");
-                      }}
-                      className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <span className="text-xl mr-3">{country.flag}</span>
-                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300">
-                        {country.name}
-                      </span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {country.dial_code}
-                      </span>
-                    </button>
-                  ))}
-                  
-                  {filteredCountries.length === 0 && (
-                    <div className="px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">
-                      No countries found
+                  {!search.trim() ? (
+                    <div className="px-3 py-4 text-sm text-center text-gray-400 dark:text-gray-500">
+                      Type to search countries...
                     </div>
+                  ) : filtered.length > 0 ? filtered.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => { onCountryChange(c); setIsOpen(false); setSearch(""); }}
+                      className={`flex items-center w-full gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                        selectedCountry?.code === c.code ? "bg-brand-50 dark:bg-brand-900/20" : ""
+                      }`}
+                    >
+                      <span className="text-base w-6 text-center">{c.flag}</span>
+                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300 truncate">{c.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{c.dial_code}</span>
+                    </button>
+                  )) : (
+                    <div className="px-3 py-4 text-sm text-center text-gray-400">No countries found</div>
                   )}
                 </div>
               </div>
@@ -123,21 +128,17 @@ const PhoneInput = ({
           )}
         </div>
 
-        {/* Phone Number Input */}
-        <div className="flex-1 relative">
-          <Phone className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-            disabled ? "text-gray-300 dark:text-gray-600" : "text-gray-400"
-          }`} />
-          <input
+        {/* Phone number input */}
+        <input
             type="tel"
             name={name}
             placeholder="Phone number"
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className={`w-full px-4 py-3 pl-10 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
-              error ? "border-red-500" : ""
-            } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`}
+            className={`h-11 flex-1 rounded-lg border px-4 text-sm text-gray-700 dark:text-white bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-300 ${
+              error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+            } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           />
         </div>
       </div>
@@ -276,15 +277,15 @@ const Alert = ({ type, message, onClose }: AlertProps) => {
   );
 };
 
-// Password strength indicator
 export default function AgentRegistrationPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
-  const allCountries = countries.getAll() as Country[];
-  const defaultCountry = allCountries.find(c => c.code === "US") || allCountries[0];
-  const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry);
+  const [allCountries, setAllCountries] = useState<Country[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<Country>({
+    name: "India", dial_code: "+91", code: "IN", flag: "🇮🇳",
+  });
 
   const [formData, setFormData] = useState({ name: "", phoneNumber: "", email: "" });
   const [errors, setErrors] = useState<{
@@ -295,6 +296,25 @@ export default function AgentRegistrationPage() {
   const [googleConfigured, setGoogleConfigured] = useState(false);
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/countries`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          const list: Country[] = (d.data || []).map((c: any) => ({
+            name: c.name,
+            dial_code: c.phone_code,
+            code: c.iso_code,
+            flag: c.flag || "",
+          }));
+          setAllCountries(list);
+          const india = list.find(c => c.code === "IN") || list[0];
+          if (india) setSelectedCountry(india);
+        }
+      })
+      .catch(() => {});
+  }, [BASE_URL]);
 
   useEffect(() => {
     fetch(`${BASE_URL}/auth/google/status`)
@@ -472,6 +492,7 @@ export default function AgentRegistrationPage() {
                     error={errors.phoneNumber}
                     selectedCountry={selectedCountry}
                     onCountryChange={setSelectedCountry}
+                    allCountries={allCountries}
                   />
                 </div>
 
