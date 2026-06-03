@@ -1,9 +1,8 @@
 "use client"
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { User, Mail, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import phoneCountries from "country-list-with-dial-code-and-flag";
 
 interface StudentFormData {
   first_name: string;
@@ -27,6 +26,7 @@ const PhoneInput = ({
   error,
   selectedCountry,
   onCountryChange,
+  allCountries = [],
 }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -34,69 +34,106 @@ const PhoneInput = ({
   error?: string;
   selectedCountry: PhoneCountry;
   onCountryChange: (country: PhoneCountry) => void;
+  allCountries?: PhoneCountry[];
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const allCountries = phoneCountries.getAll() as PhoneCountry[];
-  const filtered = allCountries.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.dial_code.includes(searchTerm) ||
-    c.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filtered = search.trim()
+    ? allCountries.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.dial_code.includes(search) ||
+        c.code.toLowerCase().startsWith(search.toLowerCase())
+      )
+    : [];
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setTimeout(() => searchRef.current?.focus(), 0);
+  };
 
   return (
-    <div>
-      <div className="flex">
-        <div className="relative mr-2">
+    <div ref={containerRef}>
+      <div className="flex gap-2">
+        <div className="relative">
           <button
             type="button"
-            onClick={() => setIsOpen(!isOpen)}
-            className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-900 dark:border-gray-700 dark:hover:bg-gray-700 ${error ? "border-red-500" : ""}`}
+            onClick={handleOpen}
+            className={`flex items-center gap-1.5 h-11 px-3 rounded-lg border bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
+              error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+            }`}
           >
-            <span>{selectedCountry.flag}</span>
-            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+            <span className="text-base leading-none">{selectedCountry?.flag}</span>
+            <span className="text-xs font-medium min-w-[36px]">{selectedCountry?.dial_code ?? "—"}</span>
+            <ChevronDown size={14} className="text-gray-400" />
           </button>
+
           {isOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-              <div className="absolute left-0 z-20 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg dark:bg-gray-800 dark:border-gray-700">
-                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+              <div className="fixed inset-0 z-10" onClick={() => { setIsOpen(false); setSearch(""); }} />
+              <div
+                className="absolute left-0 z-20 mt-1 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-2 border-b border-gray-100 dark:border-gray-700">
                   <input
+                    ref={searchRef}
                     type="text"
-                    placeholder="Search country..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    autoFocus
+                    placeholder="Search country name or code..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                   />
                 </div>
                 <div className="max-h-60 overflow-y-auto">
-                  {filtered.map((c) => (
-                    <button key={c.code} type="button"
-                      onClick={() => { onCountryChange(c); setIsOpen(false); setSearchTerm(""); }}
-                      className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  {!search.trim() ? (
+                    <div className="px-3 py-4 text-sm text-center text-gray-400 dark:text-gray-500">
+                      Type to search countries...
+                    </div>
+                  ) : filtered.length > 0 ? filtered.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => { onCountryChange(c); setIsOpen(false); setSearch(""); }}
+                      className={`flex items-center w-full gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                        selectedCountry?.code === c.code ? "bg-brand-50 dark:bg-brand-900/20" : ""
+                      }`}
                     >
-                      <span className="text-xl mr-3">{c.flag}</span>
-                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300">{c.name}</span>
-                      <span className="text-gray-500 dark:text-gray-400">{c.dial_code}</span>
+                      <span className="text-base w-6 text-center">{c.flag}</span>
+                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300 truncate">{c.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{c.dial_code}</span>
                     </button>
-                  ))}
-                  {filtered.length === 0 && (
-                    <div className="px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">No countries found</div>
+                  )) : (
+                    <div className="px-3 py-4 text-sm text-center text-gray-400">No countries found</div>
                   )}
                 </div>
               </div>
             </>
           )}
         </div>
+
         <input
           type="tel"
           name={name}
           placeholder="Phone number"
           value={value}
           onChange={onChange}
-          className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 flex-1 rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 border-gray-300 dark:border-gray-700 ${error ? "border-red-500" : ""}`}
+          className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 flex-1 rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
+            error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+          }`}
         />
       </div>
       {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
@@ -112,7 +149,11 @@ export default function AddStudent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<PhoneCountry | null>(null);
+
+  const [allCountries, setAllCountries] = useState<PhoneCountry[]>([]);
+  const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<PhoneCountry>({
+    name: "India", dial_code: "+91", code: "IN", flag: "🇮🇳",
+  });
 
   const [formData, setFormData] = useState<StudentFormData>({
     first_name: "",
@@ -125,9 +166,23 @@ export default function AddStudent() {
   const [errors, setErrors] = useState<Partial<StudentFormData>>({});
 
   useEffect(() => {
-    const all = phoneCountries.getAll() as PhoneCountry[];
-    setSelectedPhoneCountry(all.find(c => c.code === "IN") || all[0]);
-  }, []);
+    fetch(`${BASE_URL}/countries`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          const list: PhoneCountry[] = (d.data || []).map((c: any) => ({
+            name: c.name,
+            dial_code: c.phone_code,
+            code: c.iso_code,
+            flag: c.flag || "",
+          }));
+          setAllCountries(list);
+          const india = list.find(c => c.code === "IN") || list[0];
+          if (india) setSelectedPhoneCountry(india);
+        }
+      })
+      .catch(() => {});
+  }, [BASE_URL]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -155,9 +210,7 @@ export default function AddStudent() {
     if (!validateForm()) return;
     setIsSubmitting(true);
     try {
-      const phone = selectedPhoneCountry
-        ? `${selectedPhoneCountry.dial_code}${formData.phone}`
-        : formData.phone;
+      const phone = `${selectedPhoneCountry.dial_code}${formData.phone}`;
 
       const response = await fetch(`${BASE_URL}/agent/student/add`, {
         method: "POST",
@@ -241,16 +294,15 @@ export default function AddStudent() {
                 {/* Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Phone Number *</label>
-                  {selectedPhoneCountry && (
-                    <PhoneInput
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      error={errors.phone}
-                      selectedCountry={selectedPhoneCountry}
-                      onCountryChange={setSelectedPhoneCountry}
-                    />
-                  )}
+                  <PhoneInput
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    error={errors.phone}
+                    selectedCountry={selectedPhoneCountry}
+                    onCountryChange={setSelectedPhoneCountry}
+                    allCountries={allCountries}
+                  />
                 </div>
 
               </div>
