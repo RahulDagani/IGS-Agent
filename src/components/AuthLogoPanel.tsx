@@ -7,7 +7,7 @@ import GridShape from "@/components/common/GridShape";
 
 export default function AuthLogoPanel() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string>("ApplyTech");
+  const [companyName, setCompanyName] = useState<string>("");
 
   useEffect(() => {
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
@@ -25,25 +25,15 @@ export default function AuthLogoPanel() {
       <div className="relative items-center justify-center flex z-1">
         <GridShape />
         <div className="flex flex-col items-center max-w-xs">
-          <Link href="/" className="block mb-4">
+          <Link href="https://indoglobalstudies.org/" className="block mb-4">
             <div className="flex justify-center items-center gap-2">
-              {logoUrl ? (
+              {logoUrl && (
                 <img
                   src={logoUrl}
                   alt={companyName}
                   className="h-11 w-auto object-contain"
                 />
-              ) : (
-                <Image
-                  src="/images/logo/logo.png"
-                  alt="Logo"
-                  width={45}
-                  height={45}
-                />
               )}
-              <span className="dark:text-white text-white font-semibold text-2xl">
-                {companyName}
-              </span>
             </div>
           </Link>
           <p className="text-center text-gray-400 dark:text-white/60">
