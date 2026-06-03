@@ -141,7 +141,6 @@ const PhoneInput = ({
             } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           />
         </div>
-      </div>
       {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
     </div>
   );
