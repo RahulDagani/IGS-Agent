@@ -587,7 +587,7 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
           <CountryAutocomplete
             value={formData.country_id}
             displayName={formData.country_name}
-            baseUrl={BASE_URL || ''}
+            baseUrl={`${BASE_URL}/agent/student`}
             token={token}
             onChange={c => setFormData(prev => ({ ...prev, country_id: c?.id ?? null, country_name: c?.name ?? "", state_id: null, state_name: "", city_id: null, city_name: "" }))}
             placeholder="Search country..."
@@ -601,7 +601,7 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
             countryId={formData.country_id}
             value={formData.state_id}
             displayName={formData.state_name}
-            baseUrl={BASE_URL || ''}
+            baseUrl={`${BASE_URL}/agent/student`}
             token={token}
             onChange={s => setFormData(prev => ({ ...prev, state_id: s?.id ?? null, state_name: s?.name ?? "", city_id: null, city_name: "" }))}
             disabled={!formData.country_id}
@@ -616,7 +616,7 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
             stateId={formData.state_id}
             value={formData.city_id}
             displayName={formData.city_name}
-            baseUrl={BASE_URL || ''}
+            baseUrl={`${BASE_URL}/agent/student`}
             token={token}
             onChange={c => setFormData(prev => ({ ...prev, city_id: c?.id ?? null, city_name: c?.name ?? "" }))}
             disabled={!formData.state_id}
