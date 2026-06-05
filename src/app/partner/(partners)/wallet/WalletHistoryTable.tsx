@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { useAuth } from "@/context/AuthContext";
-import { Wallet, Plus, X, Clock } from "lucide-react";
+import { Wallet, Plus, X, Clock, User, GraduationCap, Building2, CreditCard, Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 interface WalletTransaction {
@@ -39,6 +39,26 @@ type SortDirection = "asc" | "desc";
 interface FilterOptions {
   transactionType: string;
   status: string;
+}
+
+interface ApplicationDetail {
+  application_id: number;
+  application_date: string;
+  application_fee: string;
+  currency_code: string;
+  payment_status: string;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  student_phone: string;
+  course_name: string;
+  university_name: string;
+  university_logo: string | null;
+}
+
+interface TransactionDetail {
+  transaction: WalletTransaction;
+  application: ApplicationDetail | null;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
@@ -73,6 +93,9 @@ export default function WalletHistoryTable() {
   const [pendingFeeCount, setPendingFeeCount] = useState(0);
   const [pendingFeeTotal, setPendingFeeTotal] = useState(0);
 
+  const [selectedDetail, setSelectedDetail] = useState<TransactionDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   const fetchWallet = async () => {
     if (!token) return;
     try {
@@ -99,6 +122,23 @@ export default function WalletHistoryTable() {
   };
 
   useEffect(() => { fetchWallet(); }, [token]);
+
+  const handleRowClick = async (txn: WalletTransaction) => {
+    setSelectedDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/agent/wallet/transaction/${txn.id}/detail`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) setSelectedDetail(json.data);
+    } catch {
+      // show transaction with no application detail
+      setSelectedDetail({ transaction: txn, application: null });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleTopup = async () => {
     const amount = parseFloat(topupAmount);
@@ -380,7 +420,11 @@ export default function WalletHistoryTable() {
                 </TableRow>
               ) : (
                 filteredAndSortedData.map(txn => (
-                  <TableRow key={txn.id} className="border-b border-gray-50 dark:border-gray-800 last:border-0">
+                  <TableRow
+                    key={txn.id}
+                    onClick={() => handleRowClick(txn)}
+                    className="border-b border-gray-50 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
+                  >
                     <TableCell className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {formatDate(txn.created_at)}
                     </TableCell>
@@ -416,6 +460,133 @@ export default function WalletHistoryTable() {
           </Table>
         </div>
       </div>
+      {/* Transaction Detail Drawer */}
+      {(detailLoading || selectedDetail) && (
+        <div className="fixed inset-0 z-[99999] flex">
+          {/* Backdrop */}
+          <div className="flex-1 bg-black/40" onClick={() => setSelectedDetail(null)} />
+
+          {/* Panel */}
+          <div className="w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Transaction Details</h2>
+              <button onClick={() => setSelectedDetail(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="flex items-center justify-center flex-1 text-gray-500 dark:text-gray-400 py-20">
+                Loading details...
+              </div>
+            ) : selectedDetail && (
+              <div className="px-6 py-5 space-y-6">
+                {/* Transaction Info */}
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Transaction</h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Amount</span>
+                    <span className={`text-sm font-bold ${selectedDetail.transaction.type === 'credit' ? 'text-green-600' : 'text-red-500'}`}>
+                      {selectedDetail.transaction.type === 'credit' ? '+' : '−'}
+                      {formatCurrency(selectedDetail.transaction.amount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Type</span>
+                    <Badge color={selectedDetail.transaction.type === 'credit' ? 'success' : 'error'}>
+                      {selectedDetail.transaction.type.charAt(0).toUpperCase() + selectedDetail.transaction.type.slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
+                    <Badge color={selectedDetail.transaction.status === 'success' ? 'success' : selectedDetail.transaction.status === 'pending' ? 'warning' : 'error'}>
+                      {selectedDetail.transaction.status.charAt(0).toUpperCase() + selectedDetail.transaction.status.slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Balance After</span>
+                    <span className="text-sm font-medium text-gray-800 dark:text-white">{formatCurrency(selectedDetail.transaction.balance_after || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Date</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {formatDate(selectedDetail.transaction.created_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Ref</span>
+                    <span className="text-xs font-mono text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
+                      {selectedDetail.transaction.razorpay_payment_id || selectedDetail.transaction.transaction_ref || '—'}
+                    </span>
+                  </div>
+                  {selectedDetail.transaction.description && (
+                    <div className="pt-1 border-t border-gray-100 dark:border-gray-700">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{selectedDetail.transaction.description}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Application + Student Info */}
+                {selectedDetail.application ? (
+                  <>
+                    {/* Student */}
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Student</h3>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{selectedDetail.application.student_name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedDetail.application.student_email}</p>
+                          {selectedDetail.application.student_phone && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{selectedDetail.application.student_phone}</p>
+                          )}
+                        </div>
+                      </div>
+                      <Link
+                        href={`/partner/editProfile/${selectedDetail.application.student_id}?tab=applications&app=${selectedDetail.application.application_id}`}
+                        className="inline-flex items-center gap-1.5 text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium"
+                        onClick={() => setSelectedDetail(null)}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> View Application
+                      </Link>
+                    </div>
+
+                    {/* Application */}
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Application</h3>
+                      <div className="flex items-start gap-2">
+                        <GraduationCap className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-gray-800 dark:text-white">{selectedDetail.application.course_name}</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{selectedDetail.application.university_name}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          {selectedDetail.application.currency_code} {parseFloat(selectedDetail.application.application_fee).toFixed(2)}
+                          <span className="ml-2">
+                            <Badge color="success">Paid</Badge>
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                ) : selectedDetail.transaction.type === 'debit' && (
+                  <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-center text-sm text-gray-400 dark:text-gray-500">
+                    No application details found for this transaction.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
