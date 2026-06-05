@@ -222,8 +222,10 @@ export default function AgentCommissionsPage() {
                     <TableCell className="px-5 py-4 text-start text-gray-600 text-sm dark:text-gray-400">
                       {c.no_of_installments || "—"}
                     </TableCell>
-                    <TableCell className="px-5 py-4 text-start text-gray-500 text-sm dark:text-gray-400 max-w-[200px] truncate">
-                      {c.remark || "—"}
+                    <TableCell className="px-5 py-4 text-start text-gray-500 text-sm dark:text-gray-400 max-w-[260px]">
+                      {c.remark
+                        ? <span title={c.remark} className="block whitespace-pre-wrap break-words">{c.remark}</span>
+                        : "—"}
                     </TableCell>
                     <TableCell className="px-5 py-4 text-start text-gray-500 text-sm dark:text-gray-400">
                       {formatDate(c.created_at)}
