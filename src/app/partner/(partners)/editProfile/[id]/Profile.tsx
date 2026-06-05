@@ -10,7 +10,6 @@ import TestScores from "./TestScores";
 import AcademicInterests from "./AcademicInterests";
 import WorkExperience from "./WorkExperience";
 import AcademicQualifications from "./AcademicQualifications";
-import phoneCountries from "country-list-with-dial-code-and-flag";
 
 interface StudentFormData {
   salutation: string;
@@ -101,7 +100,7 @@ const CityAutocomplete = ({ stateId, value, displayName, onChange, baseUrl, toke
 };
 
 const PhoneInput = ({
-  value, onChange, name, error, disabled = false, selectedCountry, onCountryChange, placeholder = "Phone number"
+  value, onChange, name, error, disabled = false, selectedCountry, onCountryChange, allCountries = [], placeholder = "Phone number",
 }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -110,66 +109,88 @@ const PhoneInput = ({
   disabled?: boolean;
   selectedCountry: CountryData;
   onCountryChange: (country: CountryData) => void;
+  allCountries?: CountryData[];
   placeholder?: string;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const allCountries = phoneCountries.getAll() as CountryData[];
-  const filteredCountries = allCountries.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.dial_code.includes(searchTerm) ||
-    c.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
-    if (selectedCountry && val.startsWith(selectedCountry.dial_code)) {
-      val = val.substring(selectedCountry.dial_code.length);
-    }
-    val = val.replace(/\D/g, '');
-    onChange({ ...e, target: { ...e.target, name, value: val } });
+  const filtered = search.trim()
+    ? allCountries.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.dial_code.includes(search) ||
+        c.code.toLowerCase().startsWith(search.toLowerCase())
+      )
+    : [];
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    setIsOpen(true);
+    setTimeout(() => searchRef.current?.focus(), 0);
   };
 
   return (
-    <div>
-      <div className="flex">
-        <div className="relative mr-2">
-          <button type="button" onClick={() => setIsOpen(!isOpen)} disabled={disabled}
-            className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-900 dark:border-gray-700 dark:hover:bg-gray-700 ${error ? "border-red-500" : ""} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
-            <span className="text-xl">{selectedCountry.flag}</span>
-            <span className="text-gray-700 dark:text-gray-300">{selectedCountry.dial_code}</span>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+    <div ref={containerRef}>
+      <div className="flex gap-2">
+        <div className="relative">
+          <button type="button" onClick={handleOpen} disabled={disabled}
+            className={`flex items-center gap-1.5 h-11 px-3 rounded-lg border bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${
+              error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+            } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+            <span className="text-base leading-none">{selectedCountry?.flag}</span>
+            <span className="text-xs font-medium min-w-[36px]">{selectedCountry?.dial_code ?? "—"}</span>
+            <ChevronDown size={14} className="text-gray-400" />
           </button>
+
           {isOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-              <div className="absolute left-0 z-20 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg dark:bg-gray-800 dark:border-gray-700">
-                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-                  <input type="text" placeholder="Search country..." value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)} autoFocus
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+              <div className="fixed inset-0 z-10" onClick={() => { setIsOpen(false); setSearch(""); }} />
+              <div className="absolute left-0 z-20 mt-1 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+                onClick={e => e.stopPropagation()}>
+                <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                  <input ref={searchRef} type="text" placeholder="Search country name or code..."
+                    value={search} onChange={e => setSearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
                 </div>
                 <div className="max-h-60 overflow-y-auto">
-                  {filteredCountries.map(c => (
-                    <button key={c.code} type="button" onClick={() => { onCountryChange(c); setIsOpen(false); setSearchTerm(""); }}
-                      className="flex items-center w-full px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <span className="text-xl mr-3">{c.flag}</span>
-                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300">{c.name}</span>
-                      <span className="text-gray-500 dark:text-gray-400">{c.dial_code}</span>
+                  {!search.trim() ? (
+                    <div className="px-3 py-4 text-sm text-center text-gray-400 dark:text-gray-500">Type to search countries...</div>
+                  ) : filtered.length > 0 ? filtered.map(c => (
+                    <button key={c.code} type="button"
+                      onClick={() => { onCountryChange(c); setIsOpen(false); setSearch(""); }}
+                      className={`flex items-center w-full gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${
+                        selectedCountry?.code === c.code ? "bg-brand-50 dark:bg-brand-900/20" : ""
+                      }`}>
+                      <span className="text-base w-6 text-center">{c.flag}</span>
+                      <span className="flex-1 text-left text-gray-700 dark:text-gray-300 truncate">{c.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{c.dial_code}</span>
                     </button>
-                  ))}
-                  {filteredCountries.length === 0 && (
-                    <div className="px-3 py-4 text-sm text-center text-gray-500 dark:text-gray-400">No countries found</div>
+                  )) : (
+                    <div className="px-3 py-4 text-sm text-center text-gray-400">No countries found</div>
                   )}
                 </div>
               </div>
             </>
           )}
         </div>
-        <div className="flex-1">
-          <input type="tel" name={name} placeholder={placeholder} value={value} onChange={handlePhoneChange} disabled={disabled}
-            className={`shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-11 w-full rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${error ? "border-red-500" : "border-gray-300 dark:border-gray-700"} ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}`} />
-        </div>
+
+        <input type="tel" name={name} placeholder={placeholder} value={value} onChange={onChange} disabled={disabled}
+          className={`dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 flex-1 rounded-lg border px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
+            error ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+          } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-50" : ""}`} />
       </div>
       {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
     </div>
@@ -197,6 +218,7 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     personal: true, address: false, emergency: false,
   });
+  const [allCountries, setAllCountries] = useState<CountryData[]>([]);
   const [selectedPhoneCountry, setSelectedPhoneCountry] = useState<CountryData | null>(null);
   const [selectedEmergencyPhoneCountry, setSelectedEmergencyPhoneCountry] = useState<CountryData | null>(null);
   const [sectionStatus, setSectionStatus] = useState<Record<string, SectionStatus>>({
@@ -217,7 +239,24 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
   };
 
   useEffect(() => {
-    const fetchStudentData = async () => {
+    const init = async () => {
+      // 1. Load countries from API
+      let countriesList: CountryData[] = [];
+      try {
+        const r = await fetch(`${BASE_URL}/countries`);
+        const d = await r.json();
+        if (d.success) {
+          countriesList = (d.data || []).map((c: any) => ({
+            name: c.name,
+            dial_code: c.phone_code,
+            code: c.iso_code,
+            flag: c.flag || "",
+          }));
+          setAllCountries(countriesList);
+        }
+      } catch {}
+
+      // 2. Load student data
       try {
         setIsLoading(true);
         const response = await fetch(`${BASE_URL}/agent/student/${studentId}`, {
@@ -226,21 +265,20 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         if (response.ok) {
           const { data } = await response.json();
           if (data) {
-            const allCountries = phoneCountries.getAll() as CountryData[];
             const originalPhone = data.phone || '';
             const originalEmergencyPhone = data.emergency_c_phone || '';
 
-            let detectedPhoneCountry = allCountries.find(c => originalPhone.startsWith(c.dial_code));
-            let phoneWithoutCode = detectedPhoneCountry
+            let detectedPhoneCountry = countriesList.find(c => originalPhone.startsWith(c.dial_code));
+            const phoneWithoutCode = detectedPhoneCountry
               ? originalPhone.substring(detectedPhoneCountry.dial_code.length)
               : originalPhone;
-            if (!detectedPhoneCountry) detectedPhoneCountry = allCountries.find(c => c.code === "US") || allCountries[0];
+            if (!detectedPhoneCountry) detectedPhoneCountry = countriesList.find(c => c.code === "IN") || countriesList[0];
 
-            let detectedEmergencyCountry = allCountries.find(c => originalEmergencyPhone.startsWith(c.dial_code));
-            let emergencyWithoutCode = detectedEmergencyCountry
+            let detectedEmergencyCountry = countriesList.find(c => originalEmergencyPhone.startsWith(c.dial_code));
+            const emergencyWithoutCode = detectedEmergencyCountry
               ? originalEmergencyPhone.substring(detectedEmergencyCountry.dial_code.length)
               : originalEmergencyPhone;
-            if (!detectedEmergencyCountry) detectedEmergencyCountry = allCountries.find(c => c.code === "US") || allCountries[0];
+            if (!detectedEmergencyCountry) detectedEmergencyCountry = countriesList.find(c => c.code === "IN") || countriesList[0];
 
             setFormData(prev => ({
               ...prev,
@@ -267,8 +305,8 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
               emergency_c_email: data.emergency_c_email || "",
               emergency_c_phone: emergencyWithoutCode,
             }));
-            setSelectedPhoneCountry(detectedPhoneCountry);
-            setSelectedEmergencyPhoneCountry(detectedEmergencyCountry);
+            setSelectedPhoneCountry(detectedPhoneCountry ?? null);
+            setSelectedEmergencyPhoneCountry(detectedEmergencyCountry ?? null);
           }
         } else {
           setError('Failed to fetch student data');
@@ -279,7 +317,7 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         setIsLoading(false);
       }
     };
-    fetchStudentData();
+    init();
   }, []);
 
   const toggleSection = (sectionId: string) => {
@@ -554,10 +592,10 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Phone Number *</label>
           {selectedPhoneCountry && (
-            <PhoneInput name="phone" value={formData.phone.replace(selectedPhoneCountry.dial_code, '')}
+            <PhoneInput name="phone" value={formData.phone}
               onChange={handleInputChange} error={fieldErrors.phone}
               selectedCountry={selectedPhoneCountry} onCountryChange={setSelectedPhoneCountry}
-              placeholder="Enter phone number" />
+              allCountries={allCountries} placeholder="Enter phone number" />
           )}
         </div>
         <div>
@@ -669,10 +707,10 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Phone Number *</label>
           {selectedEmergencyPhoneCountry && (
-            <PhoneInput name="emergency_c_phone" value={formData.emergency_c_phone.replace(selectedEmergencyPhoneCountry.dial_code, '')}
+            <PhoneInput name="emergency_c_phone" value={formData.emergency_c_phone}
               onChange={handleInputChange} error={fieldErrors.emergency_c_phone}
               selectedCountry={selectedEmergencyPhoneCountry} onCountryChange={setSelectedEmergencyPhoneCountry}
-              placeholder="Emergency contact phone" />
+              allCountries={allCountries} placeholder="Emergency contact phone" />
           )}
         </div>
         <div>
