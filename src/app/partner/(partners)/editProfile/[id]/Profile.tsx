@@ -1,11 +1,11 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { User, Calendar, Phone, Mail, MapPin, Globe, Users, Award, BookOpen, ChevronDown, ChevronUp, Briefcase, GraduationCap, CheckCircle, XCircle, AlertTriangle, Search, X } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { Country, State, City } from "country-state-city";
 import { useAuth } from "@/context/AuthContext";
+import { useCallback, useRef } from "react";
 import TestScores from "./TestScores";
 import AcademicInterests from "./AcademicInterests";
 import WorkExperience from "./WorkExperience";
@@ -23,9 +23,12 @@ interface StudentFormData {
   dob: Date | null;
   gender: string;
   citizenship: string;
-  country_code: string;
-  state_code: string;
-  city_code: string;
+  country_id: number | null;
+  country_name: string;
+  state_id: number | null;
+  state_name: string;
+  city_id: number | null;
+  city_name: string;
   address: string;
   postal_code: string;
   emergency_c_name: string;
@@ -57,6 +60,45 @@ interface CountryData {
   code: string;
   flag: string;
 }
+
+// ── Location autocomplete components ─────────────────────────────────────────
+interface LocationCountry { id: number; name: string; iso_code: string; flag?: string; }
+interface LocationState { id: number; name: string; state_code: string; country_id: number; }
+interface LocationCity { id: number; name: string; state_id: number; country_id: number; }
+
+const CountryAutocomplete = ({ value, displayName, onChange, baseUrl, token, placeholder = "Search country..." }: { value: number | null; displayName: string; onChange: (c: LocationCountry | null) => void; baseUrl: string; token: string | null; placeholder?: string; }) => {
+  const [query, setQuery] = useState(""); const [suggestions, setSuggestions] = useState<LocationCountry[]>([]); const [fetching, setFetching] = useState(false); const [open, setOpen] = useState(false);
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null); const containerRef = useRef<HTMLDivElement>(null);
+  const fetchSuggestions = useCallback(async (q: string) => { if (!q.trim()) { setSuggestions([]); return; } setFetching(true); try { const res = await fetch(`${baseUrl}/location/countries?search=${encodeURIComponent(q)}&limit=10`, { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); if (data.success) setSuggestions(data.data); } finally { setFetching(false); } }, [baseUrl, token]);
+  useEffect(() => { if (debRef.current) clearTimeout(debRef.current); debRef.current = setTimeout(() => fetchSuggestions(query), 300); return () => { if (debRef.current) clearTimeout(debRef.current); }; }, [query, fetchSuggestions]);
+  useEffect(() => { const h = (e: MouseEvent) => { if (containerRef.current && !containerRef.current.contains(e.target as Node)) { setOpen(false); setQuery(""); } }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
+  const label = value && displayName ? displayName : null;
+  return (<div ref={containerRef} className="relative"><div className="h-11 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent dark:bg-gray-900 px-4 flex items-center gap-2 cursor-text" onClick={() => setOpen(true)}>{open ? <input autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={label ?? placeholder} className="flex-1 bg-transparent text-sm text-gray-800 dark:text-white/90 placeholder:text-gray-400 focus:outline-none" /> : <span className={`flex-1 text-sm truncate ${label ? "text-gray-800 dark:text-white/90" : "text-gray-400 dark:text-white/30"}`}>{label ?? placeholder}</span>}{value ? <button type="button" onClick={e => { e.stopPropagation(); onChange(null); setQuery(""); setSuggestions([]); setOpen(false); }} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={14} /></button> : <Search size={14} className="text-gray-400 flex-shrink-0 pointer-events-none" />}</div>{open && <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg">{fetching ? <div className="px-4 py-3 text-sm text-gray-400">Searching...</div> : !query.trim() ? <div className="px-4 py-3 text-sm text-gray-400">Type to search countries...</div> : suggestions.length === 0 ? <div className="px-4 py-3 text-sm text-gray-400">No countries found</div> : suggestions.map(c => <button key={c.id} type="button" onClick={() => { onChange(c); setOpen(false); setQuery(""); setSuggestions([]); }} className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 ${c.id === value ? "bg-blue-50 text-blue-600" : "text-gray-800 dark:text-white/90"}`}>{c.flag && <span>{c.flag}</span>}<span>{c.name}</span><span className="ml-auto text-xs text-gray-400">{c.iso_code}</span></button>)}</div>}</div>);
+};
+
+const StateAutocomplete = ({ countryId, value, displayName, onChange, baseUrl, token, placeholder = "Search state...", disabled = false }: { countryId: number | null; value: number | null; displayName: string; onChange: (s: LocationState | null) => void; baseUrl: string; token: string | null; placeholder?: string; disabled?: boolean; }) => {
+  const [query, setQuery] = useState(""); const [suggestions, setSuggestions] = useState<LocationState[]>([]); const [fetching, setFetching] = useState(false); const [open, setOpen] = useState(false);
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null); const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setQuery(""); setSuggestions([]); setOpen(false); }, [countryId]);
+  const fetchSuggestions = useCallback(async (q: string) => { if (!countryId || !q.trim()) { setSuggestions([]); return; } setFetching(true); try { const res = await fetch(`${baseUrl}/location/states?country_id=${countryId}&search=${encodeURIComponent(q)}&limit=10`, { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); if (data.success) setSuggestions(data.data); } finally { setFetching(false); } }, [baseUrl, token, countryId]);
+  useEffect(() => { if (debRef.current) clearTimeout(debRef.current); debRef.current = setTimeout(() => fetchSuggestions(query), 300); return () => { if (debRef.current) clearTimeout(debRef.current); }; }, [query, fetchSuggestions]);
+  useEffect(() => { const h = (e: MouseEvent) => { if (containerRef.current && !containerRef.current.contains(e.target as Node)) { setOpen(false); setQuery(""); } }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
+  const label = value && displayName ? displayName : null;
+  if (disabled) return <div className="h-11 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-4 flex items-center opacity-50 cursor-not-allowed"><span className="text-sm text-gray-400">{placeholder}</span></div>;
+  return (<div ref={containerRef} className="relative"><div className="h-11 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent dark:bg-gray-900 px-4 flex items-center gap-2 cursor-text" onClick={() => setOpen(true)}>{open ? <input autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={label ?? placeholder} className="flex-1 bg-transparent text-sm text-gray-800 dark:text-white/90 placeholder:text-gray-400 focus:outline-none" /> : <span className={`flex-1 text-sm truncate ${label ? "text-gray-800 dark:text-white/90" : "text-gray-400 dark:text-white/30"}`}>{label ?? placeholder}</span>}{value ? <button type="button" onClick={e => { e.stopPropagation(); onChange(null); setQuery(""); setSuggestions([]); setOpen(false); }} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={14} /></button> : <Search size={14} className="text-gray-400 flex-shrink-0 pointer-events-none" />}</div>{open && <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg">{fetching ? <div className="px-4 py-3 text-sm text-gray-400">Searching...</div> : !query.trim() ? <div className="px-4 py-3 text-sm text-gray-400">Type to search states...</div> : suggestions.length === 0 ? <div className="px-4 py-3 text-sm text-gray-400">No states found</div> : suggestions.map(s => <button key={s.id} type="button" onClick={() => { onChange(s); setOpen(false); setQuery(""); setSuggestions([]); }} className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 ${s.id === value ? "bg-blue-50 text-blue-600" : "text-gray-800 dark:text-white/90"}`}><span>{s.name}</span>{s.state_code && <span className="ml-auto text-xs text-gray-400">{s.state_code}</span>}</button>)}</div>}</div>);
+};
+
+const CityAutocomplete = ({ stateId, value, displayName, onChange, baseUrl, token, placeholder = "Search city...", disabled = false }: { stateId: number | null; value: number | null; displayName: string; onChange: (c: LocationCity | null) => void; baseUrl: string; token: string | null; placeholder?: string; disabled?: boolean; }) => {
+  const [query, setQuery] = useState(""); const [suggestions, setSuggestions] = useState<LocationCity[]>([]); const [fetching, setFetching] = useState(false); const [open, setOpen] = useState(false);
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null); const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setQuery(""); setSuggestions([]); setOpen(false); }, [stateId]);
+  const fetchSuggestions = useCallback(async (q: string) => { if (!stateId || !q.trim()) { setSuggestions([]); return; } setFetching(true); try { const res = await fetch(`${baseUrl}/location/cities?state_id=${stateId}&search=${encodeURIComponent(q)}&limit=10`, { headers: { Authorization: `Bearer ${token}` } }); const data = await res.json(); if (data.success) setSuggestions(data.data); } finally { setFetching(false); } }, [baseUrl, token, stateId]);
+  useEffect(() => { if (debRef.current) clearTimeout(debRef.current); debRef.current = setTimeout(() => fetchSuggestions(query), 300); return () => { if (debRef.current) clearTimeout(debRef.current); }; }, [query, fetchSuggestions]);
+  useEffect(() => { const h = (e: MouseEvent) => { if (containerRef.current && !containerRef.current.contains(e.target as Node)) { setOpen(false); setQuery(""); } }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
+  const label = value && displayName ? displayName : null;
+  if (disabled) return <div className="h-11 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-4 flex items-center opacity-50 cursor-not-allowed"><span className="text-sm text-gray-400">{placeholder}</span></div>;
+  return (<div ref={containerRef} className="relative"><div className="h-11 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent dark:bg-gray-900 px-4 flex items-center gap-2 cursor-text" onClick={() => setOpen(true)}>{open ? <input autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder={label ?? placeholder} className="flex-1 bg-transparent text-sm text-gray-800 dark:text-white/90 placeholder:text-gray-400 focus:outline-none" /> : <span className={`flex-1 text-sm truncate ${label ? "text-gray-800 dark:text-white/90" : "text-gray-400 dark:text-white/30"}`}>{label ?? placeholder}</span>}{value ? <button type="button" onClick={e => { e.stopPropagation(); onChange(null); setQuery(""); setSuggestions([]); setOpen(false); }} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={14} /></button> : <Search size={14} className="text-gray-400 flex-shrink-0 pointer-events-none" />}</div>{open && <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg">{fetching ? <div className="px-4 py-3 text-sm text-gray-400">Searching...</div> : !query.trim() ? <div className="px-4 py-3 text-sm text-gray-400">Type to search cities...</div> : suggestions.length === 0 ? <div className="px-4 py-3 text-sm text-gray-400">No cities found</div> : suggestions.map(c => <button key={c.id} type="button" onClick={() => { onChange(c); setOpen(false); setQuery(""); setSuggestions([]); }} className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 ${c.id === value ? "bg-blue-50 text-blue-600" : "text-gray-800 dark:text-white/90"}`}><span>{c.name}</span></button>)}</div>}</div>);
+};
 
 const PhoneInput = ({
   value, onChange, name, error, disabled = false, selectedCountry, onCountryChange, placeholder = "Phone number"
@@ -146,12 +188,10 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
   const [formData, setFormData] = useState<StudentFormData>({
     salutation: "", first_name: "", middle_name: "", last_name: "",
     email: "", phone: "", passport_number: "", dob: null, gender: "", citizenship: "",
-    country_code: "", state_code: "", city_code: "", address: "", postal_code: "",
+    country_id: null, country_name: "", state_id: null, state_name: "", city_id: null, city_name: "", address: "", postal_code: "",
     emergency_c_name: "", emergency_c_relation: "", emergency_c_email: "", emergency_c_phone: "",
   });
 
-  const [selectedCountry, setSelectedCountry] = useState<string>("");
-  const [selectedState, setSelectedState] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -214,9 +254,12 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
               dob: data.dob ? new Date(data.dob) : null,
               gender: data.gender || "",
               citizenship: data.citizenship || "",
-              country_code: data.country_code || "",
-              state_code: data.state_code || "",
-              city_code: data.city_code || "",
+              country_id: data.country_id || null,
+              country_name: data.country_name || "",
+              state_id: data.state_id || null,
+              state_name: data.state_name || "",
+              city_id: data.city_id || null,
+              city_name: data.city_name || "",
               address: data.address || "",
               postal_code: data.postal_code || "",
               emergency_c_name: data.emergency_c_name || "",
@@ -224,8 +267,6 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
               emergency_c_email: data.emergency_c_email || "",
               emergency_c_phone: emergencyWithoutCode,
             }));
-            setSelectedCountry(data.country_code || "");
-            setSelectedState(data.state_code || "");
             setSelectedPhoneCountry(detectedPhoneCountry);
             setSelectedEmergencyPhoneCountry(detectedEmergencyCountry);
           }
@@ -261,9 +302,9 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         break;
       case "address":
         if (!formData.address.trim()) errors.address = "Address is required";
-        if (!formData.country_code) errors.country_code = "Country is required";
-        if (!formData.state_code) errors.state_code = "State/Province is required";
-        if (!formData.city_code) errors.city_code = "City is required";
+        if (!formData.country_id) errors.country_id = "Country is required";
+        if (!formData.state_id) errors.state_id = "State/Province is required";
+        if (!formData.city_id) errors.city_id = "City is required";
         if (!formData.postal_code.trim()) errors.postal_code = "Postal code is required";
         if (!formData.citizenship) errors.citizenship = "Citizenship is required";
         break;
@@ -290,14 +331,6 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
       setFormData(prev => ({ ...prev, [name]: value }));
     }
 
-    if (name === 'country_code') {
-      setSelectedCountry(value);
-      setSelectedState("");
-      setFormData(prev => ({ ...prev, state_code: "", city_code: "" }));
-    } else if (name === 'state_code') {
-      setSelectedState(value);
-      setFormData(prev => ({ ...prev, city_code: "" }));
-    }
   };
 
   const handleDateChange = (date: Date | null) => {
@@ -344,9 +377,9 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         case 'address':
           endpoint = `/${studentId}/address`;
           apiData = {
-            country_code: formData.country_code,
-            state_code: formData.state_code,
-            city_code: formData.city_code,
+            country_id: formData.country_id,
+            state_id: formData.state_id,
+            city_id: formData.city_id,
             address: formData.address,
             postal_code: formData.postal_code,
             citizenship: formData.citizenship,
@@ -409,8 +442,8 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
           formData.email.trim() && /^\S+@\S+\.\S+$/.test(formData.email) &&
           formData.phone.trim() && formData.passport_number.trim() && formData.dob && formData.gender);
       case "address":
-        return !!(formData.address.trim() && formData.country_code && formData.state_code &&
-          formData.city_code && formData.postal_code.trim() && formData.citizenship);
+        return !!(formData.address.trim() && formData.country_id && formData.state_id &&
+          formData.city_id && formData.postal_code.trim() && formData.citizenship);
       case "emergency":
         return !!(formData.emergency_c_name.trim() && formData.emergency_c_relation &&
           formData.emergency_c_phone.trim() &&
@@ -419,10 +452,6 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         return false;
     }
   };
-
-  const countries = Country.getAllCountries();
-  const states = selectedCountry ? State.getStatesOfCountry(selectedCountry) : [];
-  const cities = selectedState ? City.getCitiesOfState(selectedCountry, selectedState) : [];
 
   const salutations = ["Mr.", "Ms.", "Mrs.", "Dr.", "Prof."];
   const genders = ["Male", "Female", "Other", "Prefer not to say"];
@@ -552,32 +581,48 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         {fieldErrors.address && <p className="mt-1 text-sm text-red-500">{fieldErrors.address}</p>}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Country */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Country *</label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400"><Globe size={18} /></span>
-            <select name="country_code" value={formData.country_code} onChange={handleInputChange} className={`${selectCls("country_code")} pl-11`}>
-              <option value="">Select Country</option>
-              {countries.map(c => <option key={c.isoCode} value={c.isoCode}>{c.name}</option>)}
-            </select>
-          </div>
-          {fieldErrors.country_code && <p className="mt-1 text-sm text-red-500">{fieldErrors.country_code}</p>}
+          <CountryAutocomplete
+            value={formData.country_id}
+            displayName={formData.country_name}
+            baseUrl={BASE_URL || ''}
+            token={token}
+            onChange={c => setFormData(prev => ({ ...prev, country_id: c?.id ?? null, country_name: c?.name ?? "", state_id: null, state_name: "", city_id: null, city_name: "" }))}
+            placeholder="Search country..."
+          />
+          {fieldErrors.country_id && <p className="mt-1 text-sm text-red-500">{fieldErrors.country_id}</p>}
         </div>
+        {/* State */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">State/Province *</label>
-          <select name="state_code" value={formData.state_code} onChange={handleInputChange} className={selectCls("state_code")}>
-            <option value="">Select State</option>
-            {states.map(s => <option key={s.isoCode} value={s.isoCode}>{s.name}</option>)}
-          </select>
-          {fieldErrors.state_code && <p className="mt-1 text-sm text-red-500">{fieldErrors.state_code}</p>}
+          <StateAutocomplete
+            countryId={formData.country_id}
+            value={formData.state_id}
+            displayName={formData.state_name}
+            baseUrl={BASE_URL || ''}
+            token={token}
+            onChange={s => setFormData(prev => ({ ...prev, state_id: s?.id ?? null, state_name: s?.name ?? "", city_id: null, city_name: "" }))}
+            disabled={!formData.country_id}
+            placeholder="Search state..."
+          />
+          {fieldErrors.state_id && <p className="mt-1 text-sm text-red-500">{fieldErrors.state_id}</p>}
         </div>
+        {/* City */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">City *</label>
-          <select name="city_code" value={formData.city_code} onChange={handleInputChange} className={selectCls("city_code")}>
-            <option value="">Select City</option>
-            {cities.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-          </select>
-          {fieldErrors.city_code && <p className="mt-1 text-sm text-red-500">{fieldErrors.city_code}</p>}
+          <CityAutocomplete
+            stateId={formData.state_id}
+            value={formData.city_id}
+            displayName={formData.city_name}
+            baseUrl={BASE_URL || ''}
+            token={token}
+            onChange={c => setFormData(prev => ({ ...prev, city_id: c?.id ?? null, city_name: c?.name ?? "" }))}
+            disabled={!formData.state_id}
+            placeholder="Search city..."
+          />
+          {fieldErrors.city_id && <p className="mt-1 text-sm text-red-500">{fieldErrors.city_id}</p>}
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -588,13 +633,14 @@ export default function ProfileForm({ onProfileSave }: { onProfileSave?: () => v
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">Citizenship *</label>
-          <div className="relative">
-            <span className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-500 dark:text-gray-400"><Globe size={18} /></span>
-            <select name="citizenship" value={formData.citizenship} onChange={handleInputChange} className={`${selectCls("citizenship")} pl-11`}>
-              <option value="">Select Citizenship</option>
-              {countries.map(c => <option key={c.isoCode} value={c.name}>{c.name}</option>)}
-            </select>
-          </div>
+          <input
+            type="text"
+            name="citizenship"
+            value={formData.citizenship}
+            onChange={handleInputChange}
+            placeholder="Enter your citizenship"
+            className={inputCls("citizenship")}
+          />
           {fieldErrors.citizenship && <p className="mt-1 text-sm text-red-500">{fieldErrors.citizenship}</p>}
         </div>
       </div>
