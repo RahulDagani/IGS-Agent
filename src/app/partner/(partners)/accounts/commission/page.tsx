@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -25,91 +25,87 @@ interface Commission {
   no_of_installments: string;
 }
 
-type SortField = keyof Commission | "";
-type SortDirection = "asc" | "desc";
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
 export default function AgentCommissionsPage() {
   const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState<SortField>("");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [universityFilter, setUniversityFilter] = useState("all");
   const [studyLevelFilter, setStudyLevelFilter] = useState("all");
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+
+  // For filter dropdowns — fetched once from first full load
+  const [allUniversities, setAllUniversities] = useState<string[]>([]);
+  const [allStudyLevels, setAllStudyLevels] = useState<string[]>([]);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   const { token } = useAuth();
-  const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
-  useEffect(() => {
-    const fetchCommissions = async () => {
-      try {
-        setIsLoading(true);
-        const res = await fetch(`${BASE_URL}/agent/commission-rates`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.success) setCommissions(data.data);
-        else setError("Failed to load commissions.");
-      } catch {
-        setError("Failed to load commissions. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    if (token) fetchCommissions();
-  }, [token, BASE_URL]);
+  const fetchCommissions = useCallback(async (p: number) => {
+    if (!token) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: String(limit) });
+      if (searchTerm)                      params.set("search", searchTerm);
+      if (universityFilter !== "all")      params.set("university_id", universityFilter);
+      if (studyLevelFilter !== "all")      params.set("study_level_id", studyLevelFilter);
 
-  const universityNames = useMemo(
-    () => Array.from(new Set(commissions.map((c) => c.university_name))),
-    [commissions]
-  );
-  const studyLevels = useMemo(
-    () => Array.from(new Set(commissions.map((c) => c.study_level_name))),
-    [commissions]
-  );
-
-  const filtered = useMemo(() => {
-    let data = commissions.filter((c) => {
-      const q = searchTerm.toLowerCase();
-      return (
-        c.university_name.toLowerCase().includes(q) ||
-        c.study_level_name.toLowerCase().includes(q) ||
-        c.commission_value.toLowerCase().includes(q) ||
-        c.commission_type.toLowerCase().includes(q)
-      );
-    });
-    if (universityFilter !== "all") data = data.filter((c) => c.university_name === universityFilter);
-    if (studyLevelFilter !== "all") data = data.filter((c) => c.study_level_name === studyLevelFilter);
-    if (sortField) {
-      data = [...data].sort((a, b) => {
-        let av = a[sortField] as string;
-        let bv = b[sortField] as string;
-        av = av?.toLowerCase?.() ?? av;
-        bv = bv?.toLowerCase?.() ?? bv;
-        if (av < bv) return sortDirection === "asc" ? -1 : 1;
-        if (av > bv) return sortDirection === "asc" ? 1 : -1;
-        return 0;
+      const res = await fetch(`${BASE_URL}/agent/commission-rates?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      const data = await res.json();
+      if (data.success) {
+        setCommissions(data.data);
+        setPagination(data.pagination);
+      } else {
+        setError("Failed to load commissions.");
+      }
+    } catch {
+      setError("Failed to load commissions. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    return data;
-  }, [commissions, searchTerm, universityFilter, studyLevelFilter, sortField, sortDirection]);
+  }, [token, searchTerm, universityFilter, studyLevelFilter, limit]);
 
-  const handleSort = (field: keyof Commission) => {
-    if (sortField === field) setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    else { setSortField(field); setSortDirection("asc"); }
-  };
+  // Load filter dropdown options once (all universities/study levels, no filters)
+  useEffect(() => {
+    if (!token || filtersLoaded) return;
+    fetch(`${BASE_URL}/agent/commission-rates?limit=1000`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setAllUniversities([...new Set<string>(data.data.map((c: Commission) => c.university_name))]);
+          setAllStudyLevels([...new Set<string>(data.data.map((c: Commission) => c.study_level_name))]);
+          setFiltersLoaded(true);
+        }
+      })
+      .catch(() => {});
+  }, [token, filtersLoaded]);
 
-  const sortIcon = (field: keyof Commission) => {
-    if (sortField !== field) return "↕";
-    return sortDirection === "asc" ? "↑" : "↓";
-  };
+  // Reset to page 1 when filters/search change
+  useEffect(() => { setPage(1); }, [searchTerm, universityFilter, studyLevelFilter]);
+
+  useEffect(() => { fetchCommissions(page); }, [fetchCommissions, page]);
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
-  if (isLoading) {
+  const { page: currentPage, totalPages, total } = pagination;
+
+  if (isLoading && commissions.length === 0) {
     return (
       <div className="flex items-center justify-center p-12">
         <svg className="animate-spin h-8 w-8 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -155,7 +151,7 @@ export default function AgentCommissionsPage() {
           className="h-10 rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
         >
           <option value="all">All Universities</option>
-          {universityNames.map((u) => <option key={u} value={u}>{u}</option>)}
+          {allUniversities.map((u) => <option key={u} value={u}>{u}</option>)}
         </select>
         <select
           value={studyLevelFilter}
@@ -163,7 +159,7 @@ export default function AgentCommissionsPage() {
           className="h-10 rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white"
         >
           <option value="all">All Study Levels</option>
-          {studyLevels.map((s) => <option key={s} value={s}>{s}</option>)}
+          {allStudyLevels.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
@@ -174,30 +170,26 @@ export default function AgentCommissionsPage() {
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
               <TableRow>
                 {[
-                  { key: "university_name", label: "University" },
-                  { key: "study_level_name", label: "Study Level" },
-                  { key: "commission_value", label: "Commission" },
-                  { key: "currency", label: "Currency" },
-                  { key: "remark", label: "Remark" },
-                  { key: "created_at", label: "Added" },
-                ].map(({ key, label }) => (
+                  { label: "University" },
+                  { label: "Study Level" },
+                  { label: "Commission" },
+                  { label: "Currency" },
+                  { label: "Remark" },
+                  { label: "Added" },
+                ].map(({ label }) => (
                   <TableCell
-                    key={key}
+                    key={label}
                     isHeader
-                    className="px-5 py-3 font-medium text-gray-500 text-start text-xs dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                    onClick={() => handleSort(key as keyof Commission)}
+                    className="px-5 py-3 font-medium text-gray-500 text-start text-xs dark:text-gray-400"
                   >
-                    <div className="flex items-center gap-1">
-                      {label}
-                      <span className="text-xs">{sortIcon(key as keyof Commission)}</span>
-                    </div>
+                    {label}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {filtered.length > 0 ? (
-                filtered.map((c) => (
+              {commissions.length > 0 ? (
+                commissions.map((c) => (
                   <TableRow
                     key={c.id}
                     onClick={() => setSelectedCommission(c)}
@@ -237,16 +229,52 @@ export default function AgentCommissionsPage() {
         </div>
       </div>
 
-      <p className="text-sm text-gray-400 dark:text-gray-500">
-        Showing {filtered.length} of {commissions.length} rates
-      </p>
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+        <p className="text-sm text-gray-400 dark:text-gray-500">
+          Showing {total === 0 ? 0 : (currentPage - 1) * limit + 1}–{Math.min(currentPage * limit, total)} of {total} rates
+        </p>
+
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage(1)} disabled={currentPage === 1}
+              className="h-8 w-8 flex items-center justify-center rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">«</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+              className="h-8 w-8 flex items-center justify-center rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">‹</button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) acc.push("...");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "..." ? (
+                  <span key={`e-${idx}`} className="h-8 w-8 flex items-center justify-center text-sm text-gray-400">…</span>
+                ) : (
+                  <button key={p} onClick={() => setPage(p as number)}
+                    className={`h-8 w-8 flex items-center justify-center rounded border text-sm transition-colors ${
+                      currentPage === p
+                        ? "border-brand-500 bg-brand-500 text-white"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                    }`}>{p}</button>
+                )
+              )}
+
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+              className="h-8 w-8 flex items-center justify-center rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">›</button>
+            <button onClick={() => setPage(totalPages)} disabled={currentPage === totalPages}
+              className="h-8 w-8 flex items-center justify-center rounded border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">»</button>
+          </div>
+        )}
+      </div>
 
       {/* Detail Drawer */}
       {selectedCommission && (
         <div className="fixed inset-0 z-[99999] flex">
           <div className="flex-1 bg-black/40" onClick={() => setSelectedCommission(null)} />
           <div className="w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-y-auto">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Commission Details</h2>
               <button onClick={() => setSelectedCommission(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -255,7 +283,6 @@ export default function AgentCommissionsPage() {
             </div>
 
             <div className="px-6 py-5 space-y-5">
-              {/* University & Level */}
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <Building2 className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
@@ -273,7 +300,6 @@ export default function AgentCommissionsPage() {
                 </div>
               </div>
 
-              {/* Commission Info */}
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Commission</h3>
                 <div className="flex items-center justify-between">
@@ -307,7 +333,6 @@ export default function AgentCommissionsPage() {
                 </div>
               </div>
 
-              {/* Remark */}
               <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageSquare className="w-4 h-4 text-gray-400" />
