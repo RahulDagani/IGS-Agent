@@ -359,7 +359,7 @@ function DocumentCard({
           </div>
         </div>
 
-        {activeTab !== 'Igs' && (
+        {activeTab !== 'Igs' && doc.status !== 'verified' && (
           <div className="ml-4">
             <FileInput
               documentId={doc.id}
