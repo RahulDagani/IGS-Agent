@@ -778,7 +778,7 @@ const updateCredentials = async () => {
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                           <CheckCircle size={11} /> Paid
                         </span>
-                        {applicationDetail.payment_id && (
+                        {applicationDetail.payment_id?.startsWith('http') && (
                           <a href={applicationDetail.payment_id} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline">
                             <Receipt size={11} /> View Proof
