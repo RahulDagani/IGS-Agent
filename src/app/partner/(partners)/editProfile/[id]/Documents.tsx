@@ -233,7 +233,13 @@ interface DocumentCardProps {
 }
 
 function getStatusIcon(status: string, isMandatory: number) {
-  if (status === 'uploaded') {
+  if (status === 'verified') {
+    return {
+      icon: <CheckCircle className="text-blue-600 dark:text-blue-400" />,
+      borderColor: 'border-blue-500 dark:border-blue-400',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    };
+  } else if (status === 'uploaded') {
     return {
       icon: <CheckCircle className="text-green-600 dark:text-green-400" />,
       borderColor: 'border-green-500 dark:border-green-400',
@@ -622,11 +628,11 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
             <FileText />
             Mandatory Documents ({mandatoryDocuments.length})
             <span className={`text-sm font-normal ${
-              mandatoryDocuments.every(d => d.status === 'uploaded')
+              mandatoryDocuments.every(d => d.status === 'uploaded' || d.status === 'verified')
                 ? 'text-green-600 dark:text-green-400'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              ({mandatoryDocuments.filter(d => d.status === 'uploaded').length}/{mandatoryDocuments.length} uploaded)
+              ({mandatoryDocuments.filter(d => d.status === 'uploaded' || d.status === 'verified').length}/{mandatoryDocuments.length} uploaded)
             </span>
           </div>
           {mandatoryOpen ? <Minus className="dark:text-gray-300" /> : <Plus className="dark:text-gray-300" />}
@@ -653,7 +659,7 @@ export default function DocumentsPage({ onDocumentUpload }: DocumentsPageProps) 
             <FileText />
             Non-Mandatory Documents ({nonMandatoryDocuments.length})
             <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-              ({nonMandatoryDocuments.filter(d => d.status === 'uploaded').length}/{nonMandatoryDocuments.length} uploaded)
+              ({nonMandatoryDocuments.filter(d => d.status === 'uploaded' || d.status === 'verified').length}/{nonMandatoryDocuments.length} uploaded)
             </span>
           </div>
           {nonMandatoryOpen ? <Minus className="dark:text-gray-300" /> : <Plus className="dark:text-gray-300" />}
