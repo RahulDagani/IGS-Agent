@@ -176,10 +176,8 @@ export default function AgentCommissionsPage() {
                 {[
                   { key: "university_name", label: "University" },
                   { key: "study_level_name", label: "Study Level" },
-                  { key: "commission_type", label: "Type" },
                   { key: "commission_value", label: "Commission" },
                   { key: "currency", label: "Currency" },
-                  { key: "no_of_installments", label: "Installments" },
                   { key: "remark", label: "Remark" },
                   { key: "created_at", label: "Added" },
                 ].map(({ key, label }) => (
@@ -212,20 +210,12 @@ export default function AgentCommissionsPage() {
                       <Badge size="sm" color="info">{c.study_level_name}</Badge>
                     </TableCell>
                     <TableCell className="px-5 py-4 text-start">
-                      <Badge size="sm" color={c.commission_type === "percentage" ? "info" : "primary"}>
-                        {c.commission_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-start">
                       <span className="font-semibold text-gray-800 dark:text-white text-sm">
                         {c.commission_value}{c.commission_type === "percentage" ? "%" : ""}
                       </span>
                     </TableCell>
                     <TableCell className="px-5 py-4 text-start text-gray-600 text-sm dark:text-gray-400">
                       {c.currency || "—"}
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-start text-gray-600 text-sm dark:text-gray-400">
-                      {c.no_of_installments || "—"}
                     </TableCell>
                     <TableCell className="px-5 py-4 text-start text-gray-500 text-sm dark:text-gray-400 max-w-[180px] truncate">
                       {c.remark || "—"}
