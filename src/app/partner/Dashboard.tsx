@@ -4,6 +4,8 @@ import Badge from "@/components/ui/badge/Badge";
 import { ArrowDownIcon, ArrowUpIcon, BoxIconLine } from "@/icons";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { AlertTriangle, FileText } from "lucide-react";
+import AgreementModal from "@/components/agreement/AgreementModal";
 import {
   AlertCircle,
   CalendarClock,
@@ -99,8 +101,9 @@ function daysUntil(dateStr: string) {
 }
 
 export default function PartnerDashboard() {
-  const { token, user } = useAuth();
+  const { token, user, agreement } = useAuth();
   const isCounsellor = user?.role_key === 'counsellor';
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
@@ -140,8 +143,44 @@ export default function PartnerDashboard() {
   const trendUp = trend && trend.change_pct >= 0;
   const s = data?.application_status_summary;
 
+  const AgreementBanner = () => {
+    if (!agreement || agreement.signed || user?.role_key !== 'agent') return null;
+    const daysLeft = agreement.grace_end
+      ? Math.max(0, Math.ceil((new Date(agreement.grace_end).getTime() - Date.now()) / 86400000))
+      : 0;
+    return (
+      <div className="col-span-12">
+        <div className={`rounded-2xl p-4 flex items-start gap-4 ${daysLeft <= 2 ? 'bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-700' : 'bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'}`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${daysLeft <= 2 ? 'bg-red-100 dark:bg-red-800/40' : 'bg-amber-100 dark:bg-amber-800/40'}`}>
+            <AlertTriangle className={`w-5 h-5 ${daysLeft <= 2 ? 'text-red-600' : 'text-amber-600'}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`font-semibold text-sm ${daysLeft <= 2 ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}`}>
+              {daysLeft === 0 ? 'Agreement expires today!' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left to sign the IGS Associate Agreement`}
+            </p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+              You cannot create students or submit applications until you sign the agreement.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAgreementModal(true)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Sign Now
+          </button>
+        </div>
+        {showAgreementModal && (
+          <AgreementModal onClose={() => setShowAgreementModal(false)} />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-6">
+      <AgreementBanner />
+
       {/* ── Left column ── */}
       <div className="col-span-12 xl:col-span-8 space-y-6">
 

@@ -147,17 +147,15 @@ function AgentLoginContent() {
 
       if (data.success) {
         const { user, token } = data.data;
+        const agreement = data.data?.agreement || null;
 
-        if(user && token){
-          login(user, token);
-        
+        if (user && token) {
+          login(user, token, agreement);
           router.push(callbackUrl);
-          
-        }else{
+        } else {
           throw new Error(data.message || "Login failed");
         }
-        
-      }else{
+      } else {
         throw new Error(data.message || "Login failed");
       }
 

@@ -120,6 +120,7 @@ function AgentLoginContent() {
   };
 
   const { login } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,30 +148,29 @@ function AgentLoginContent() {
 
       if (data.success) {
         const { user, token } = data.data;
-       
-        const {status} = data;
-        if(user && token){
-          login(user, token);
+        const agreement = data.agreement || data.data?.agreement || null;
+        const { status } = data;
+        if (user && token) {
+          login(user, token, agreement);
 
-          if(user.email_verified != 1){
+          if (user.email_verified != 1) {
             router.push('/signin/verify');
             return;
           }
 
-          if(status === "business_pending"){
+          if (status === "business_pending") {
             router.push('/signup/agent/onboarding/business');
-          }else if(status === "under_review"){
+          } else if (status === "under_review") {
             router.push('/signup/agent/pending-verification');
-          }else if(status === "verification_failed"){
+          } else if (status === "verification_failed") {
             router.push('/signup/agent/verification-failed');
-          }else{
+          } else {
             router.push(callbackUrl !== '/' ? callbackUrl : '/partner');
           }
-        }else{
+        } else {
           throw new Error(data.message || "Login failed");
         }
-        
-      }else{
+      } else {
         throw new Error(data.message || "Login failed");
       }
 
