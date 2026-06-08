@@ -49,7 +49,7 @@ interface CommissionNoteDetail {
     student: string;
     course: string;
     intake: string;
-    installment: number;
+    installment: string;
     commissionable_tuition_fee: string;
     commission_amount_invoice_currency: string;
     bank_charges: string;
