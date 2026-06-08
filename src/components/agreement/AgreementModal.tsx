@@ -14,7 +14,7 @@ interface Props {
 }
 
 export default function AgreementModal({ onClose, forceOpen }: Props) {
-  const { token, setAgreement } = useAuth();
+  const { token, agreement, setAgreement } = useAuth();
   const [page, setPage] = useState(1);
   const [content, setContent] = useState<string>("");
   const [loadingContent, setLoadingContent] = useState(false);
