@@ -498,9 +498,14 @@ export default function PaymentsTable() {
           pages: data.pages || Math.ceil((data.total || data.data.length) / pagination.limit)
         }));
         
-        // Set first note as active if available and no active note
-        if (data.data.length > 0 && !activeNoteId) {
-          setActiveNoteId(data.data[0].id);
+        if (data.data.length > 0) {
+          const stillVisible = data.data.some((note: CommissionNote) => note.id === activeNoteId);
+          if (!stillVisible) {
+            setActiveNoteId(data.data[0].id);
+          }
+        } else {
+          setActiveNoteId(null);
+          setActiveNoteDetail(null);
         }
       } else {
         throw new Error(data.message || "Failed to fetch commission notes");
@@ -1190,7 +1195,7 @@ export default function PaymentsTable() {
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => { setActive('progress'); setActiveNoteId(null); }}
+          onClick={() => { setActive('progress'); setActiveNoteId(null); setActiveNoteDetail(null); }}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             active === 'progress'
               ? 'bg-blue-600 text-white'
@@ -1200,7 +1205,7 @@ export default function PaymentsTable() {
           In Progress
         </button>
         <button
-          onClick={() => { setActive('paid'); setActiveNoteId(null); }}
+          onClick={() => { setActive('paid'); setActiveNoteId(null); setActiveNoteDetail(null); }}
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             active === 'paid'
               ? 'bg-blue-600 text-white'
