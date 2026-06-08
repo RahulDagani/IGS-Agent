@@ -16,11 +16,34 @@ interface PartnerLayoutProps {
   children: React.ReactNode;
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
 function AgreementGuard({ children }: { children: React.ReactNode }) {
-  const { agreement, user } = useAuth();
+  const { agreement, setAgreement, user, token } = useAuth();
   const [showModal, setShowModal] = useState(false);
 
   const isAgentRole = user?.role_key === "agent";
+
+  // Fetch agreement status for already-logged-in agents who have no cookie data
+  useEffect(() => {
+    if (!isAgentRole || !token || agreement !== null) return;
+    fetch(`${BASE_URL}/agent/agreement/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setAgreement({
+            signed: d.data.signed,
+            status: d.data.status,
+            grace_start: d.data.grace_start,
+            grace_end: d.data.grace_end,
+            is_blocked: d.data.is_blocked,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [isAgentRole, token, agreement, setAgreement]);
 
   useEffect(() => {
     if (!agreement || !isAgentRole) return;

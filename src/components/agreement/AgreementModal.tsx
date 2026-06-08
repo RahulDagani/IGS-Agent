@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, FileText, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, Loader2, X } from "lucide-react";
 import SignaturePad from "./SignaturePad";
 import { useAuth } from "@/context/AuthContext";
 import type { AgreementState } from "@/context/AuthContext";
@@ -32,7 +32,7 @@ export default function AgreementModal({ onClose, forceOpen }: Props) {
       })
         .then((r) => r.json())
         .then((d) => {
-          if (d.success) setContent(d.html || "");
+          if (d.success) setContent(d.data?.content || "");
         })
         .finally(() => setLoadingContent(false));
     }
@@ -56,7 +56,7 @@ export default function AgreementModal({ onClose, forceOpen }: Props) {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ full_name: fullName, signature }),
+        body: JSON.stringify({ agent_full_name: fullName, agent_signature: signature }),
       });
       const data = await res.json();
       if (data.success) {
@@ -78,6 +78,63 @@ export default function AgreementModal({ onClose, forceOpen }: Props) {
       setSubmitting(false);
     }
   };
+
+  const alreadySigned = !done && agreement?.signed && agreement.status !== "pending";
+
+  const handleDownload = async () => {
+    const res = await fetch(`${BASE_URL}/agent/agreement/download`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "IGS_Associate_Agreement.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (alreadySigned) {
+    return (
+      <ModalShell forceOpen={forceOpen} onClose={onClose}>
+        <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
+          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Agreement Signed</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm">
+              {agreement?.status === "completed"
+                ? "Your agreement is fully executed. You can download the PDF below."
+                : "Your signature has been submitted. Waiting for admin to countersign."}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            {agreement?.status === "completed" && (
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg font-semibold text-sm transition-colors"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
 
   if (done) {
     return (

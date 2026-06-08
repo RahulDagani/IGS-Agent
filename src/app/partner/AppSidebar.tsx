@@ -19,9 +19,12 @@ import {
   Settings,
   ArrowLeft,
   Percent,
+  PenLine,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenantLogo } from "@/hooks/useTenantLogo";
+import AgreementModal from "@/components/agreement/AgreementModal";
 
 // Types for API response
 interface ChildModule {
@@ -128,6 +131,9 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const { logoUrl, companyName } = useTenantLogo();
+  const { agreement, user: authUser } = useAuth();
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const isAgent = authUser?.role_key === "agent";
 
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -567,6 +573,42 @@ const AppSidebar: React.FC = () => {
           </div>
         </nav>
       </div>
+
+      {/* Agreement button — pinned at bottom for agents */}
+      {isAgent && (
+        <div className="mt-auto pb-6 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setShowAgreementModal(true)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+              agreement && !agreement.signed
+                ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            <span className="flex-shrink-0 flex items-center justify-center w-5 h-5">
+              {agreement?.signed ? (
+                <CheckCircle2 size={18} className="text-green-500" />
+              ) : (
+                <PenLine size={18} />
+              )}
+            </span>
+            {(isExpanded || isHovered || isMobileOpen) && (
+              <span className="text-sm font-medium leading-tight flex items-center gap-2">
+                Associate Agreement
+                {agreement && !agreement.signed && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full leading-none">
+                    Sign
+                  </span>
+                )}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {showAgreementModal && (
+        <AgreementModal onClose={() => setShowAgreementModal(false)} />
+      )}
     </aside>
   );
 };
