@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Select from "react-select";
 import DatePicker from "react-datepicker";
@@ -351,6 +352,7 @@ const PDFViewModal: React.FC<PDFModalProps> = ({
 };
 
 export default function PaymentsTable() {
+  const searchParams = useSearchParams();
   const [notes, setNotes] = useState<CommissionNote[]>([]);
   const [activeNoteDetail, setActiveNoteDetail] = useState<CommissionNoteDetail & { comments?: Comment[] } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1015,9 +1017,24 @@ export default function PaymentsTable() {
       setLoading(false);
       isInitialMount.current = false;
     };
-    
+
     fetchInitialData();
   }, [fetchCommissionNotes]);
+
+  // Auto-select note from URL ?id= param (notification deep-link)
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (!idParam || notes.length === 0) return;
+    const noteId = parseInt(idParam, 10);
+    if (isNaN(noteId)) return;
+    const exists = notes.find(n => n.id === noteId);
+    if (exists) {
+      setActiveNoteId(noteId);
+    } else {
+      // Note may be in a different tab; the detail fetch effect will load it
+      setActiveNoteId(noteId);
+    }
+  }, [searchParams, notes]);
 
   // Fetch detail when active note changes
   useEffect(() => {
