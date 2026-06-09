@@ -18,7 +18,7 @@ interface User {
 
 export interface AgreementState {
   signed: boolean;
-  status: "pending" | "agent_signed" | "completed";
+  status: "pending" | "agent_signed" | "completed" | "expired";
   grace_start: string | null;
   grace_end: string | null;
   is_blocked: boolean;
