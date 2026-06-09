@@ -109,6 +109,8 @@ export default function AgreementModal({ onClose, forceOpen }: Props) {
             <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm">
               {agreement?.status === "completed"
                 ? "Your agreement is fully executed. You can download the PDF below."
+                : agreement?.status === "expired"
+                ? "Your agreement term has ended. Please review and sign the renewed agreement."
                 : "Your signature has been submitted. Waiting for admin to countersign."}
             </p>
           </div>
