@@ -1021,19 +1021,25 @@ export default function PaymentsTable() {
     fetchInitialData();
   }, [fetchCommissionNotes]);
 
-  // Auto-select note from URL ?id= param (notification deep-link)
+  // Auto-select note from URL ?id= + ?status= params (notification deep-link)
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    const statusParam = searchParams.get('status');
+    if (!idParam) return;
+    const noteId = parseInt(idParam, 10);
+    if (isNaN(noteId)) return;
+    // Switch to the correct tab based on status before notes load
+    const targetTab = statusParam === 'commission_payment_done' ? 'paid' : 'progress';
+    setActive(targetTab);
+  }, [searchParams]);
+
+  // Select the note once the correct tab's notes are loaded
   useEffect(() => {
     const idParam = searchParams.get('id');
     if (!idParam || notes.length === 0) return;
     const noteId = parseInt(idParam, 10);
     if (isNaN(noteId)) return;
-    const exists = notes.find(n => n.id === noteId);
-    if (exists) {
-      setActiveNoteId(noteId);
-    } else {
-      // Note may be in a different tab; the detail fetch effect will load it
-      setActiveNoteId(noteId);
-    }
+    setActiveNoteId(noteId);
   }, [searchParams, notes]);
 
   // Fetch detail when active note changes
