@@ -64,7 +64,7 @@ function AgreementGuard({ children }: { children: React.ReactNode }) {
     return (
       <>
         {/* Full-screen block overlay */}
-        <div className="fixed inset-0 z-[9998] bg-gray-900/95 flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[100000] bg-gray-900/95 flex items-center justify-center p-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center space-y-5">
             <div className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-7 h-7 text-red-600" />
@@ -117,7 +117,7 @@ function GracePeriodBanner({
 
   return (
     <div
-      className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[9990] w-full max-w-xl px-4 pointer-events-none`}
+      className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[100000] w-full max-w-xl px-4 pointer-events-none`}
     >
       <div
         className={`pointer-events-auto rounded-2xl shadow-lg px-5 py-3.5 flex items-center gap-3 ${
