@@ -46,7 +46,7 @@ export default function NotificationDropdown() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/notifications?limit=15`, {
+      const res = await fetch(`${BASE_URL}/notifications?limit=20&is_read=0`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -121,20 +121,16 @@ export default function NotificationDropdown() {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+      setNotifications([]);
       setUnreadCount(0);
     } catch (_) {}
   };
 
   const handleNotificationClick = async (notification: Notification) => {
     handleClose();
-    if (!notification.is_read) {
-      await markAsRead(notification.id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, is_read: 1 } : n))
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
-    }
+    await markAsRead(notification.id);
+    setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+    setUnreadCount((c) => Math.max(0, c - 1));
     if (notification.path) {
       router.push(notification.path);
     }
@@ -224,9 +220,7 @@ export default function NotificationDropdown() {
             <li key={n.id}>
               <button
                 onClick={() => handleNotificationClick(n)}
-                className={`w-full text-left flex gap-3 rounded-lg border-b border-gray-100 px-3 py-3 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5 ${
-                  !n.is_read ? "bg-blue-50/60 dark:bg-blue-900/10" : ""
-                }`}
+                className="w-full text-left flex gap-3 rounded-lg border-b border-gray-100 px-3 py-3 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5"
               >
                 {/* Type icon */}
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-base">
@@ -249,9 +243,6 @@ export default function NotificationDropdown() {
                     </span>
                     <span>·</span>
                     <span>{timeAgo(n.created_at)}</span>
-                    {!n.is_read && (
-                      <span className="ml-auto h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
-                    )}
                   </span>
                 </span>
               </button>
