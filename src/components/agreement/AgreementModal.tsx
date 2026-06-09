@@ -206,7 +206,12 @@ export default function AgreementModal({ onClose, forceOpen }: Props) {
             </div>
           ) : (
             <div
-              className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
+              className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed
+                [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-center [&_h2]:uppercase [&_h2]:mb-4 [&_h2]:text-gray-900 dark:[&_h2]:text-white
+                [&_h3]:text-xs [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:text-blue-700 dark:[&_h3]:text-blue-400 [&_h3]:mt-5 [&_h3]:mb-2
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5
+                [&_li]:leading-relaxed
+                [&_p]:mb-3 [&_strong]:font-semibold [&_em]:italic"
               dangerouslySetInnerHTML={{ __html: content }}
             />
           )
