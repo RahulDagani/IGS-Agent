@@ -60,6 +60,19 @@ export default function NotificationDropdown() {
     }
   }, [token]);
 
+  const pollUnreadCount = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${BASE_URL}/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUnreadCount(data.data.total ?? 0);
+      }
+    } catch (_) {}
+  }, [token]);
+
   // Fetch on mount
   useEffect(() => {
     if (!hasFetched.current && token) {
@@ -67,6 +80,13 @@ export default function NotificationDropdown() {
       fetchNotifications();
     }
   }, [token, fetchNotifications]);
+
+  // Poll unread count every 30 seconds
+  useEffect(() => {
+    if (!token) return;
+    const interval = setInterval(pollUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [token, pollUnreadCount]);
 
   // Re-fetch when dropdown opens
   const handleOpen = () => {
