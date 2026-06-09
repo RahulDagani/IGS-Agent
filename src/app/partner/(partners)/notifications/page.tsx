@@ -63,7 +63,7 @@ export default function NotificationsPage() {
     try {
       const params = new URLSearchParams({ page: String(pg), limit: "20" });
       if (onlyUnread) params.set("is_read", "false");
-      const res = await fetch(`${BASE_URL}/api/notifications?${params}`, {
+      const res = await fetch(`${BASE_URL}/notifications?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -85,7 +85,7 @@ export default function NotificationsPage() {
   const markAsRead = async (id: number) => {
     if (!token) return;
     try {
-      await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
+      await fetch(`${BASE_URL}/notifications/${id}/read`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -95,7 +95,7 @@ export default function NotificationsPage() {
   const markAllAsRead = async () => {
     if (!token) return;
     try {
-      await fetch(`${BASE_URL}/api/notifications/mark-all-read`, {
+      await fetch(`${BASE_URL}/notifications/mark-all-read`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });

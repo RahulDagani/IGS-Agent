@@ -46,7 +46,7 @@ export default function NotificationDropdown() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/notifications?limit=15`, {
+      const res = await fetch(`${BASE_URL}/notifications?limit=15`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -87,7 +87,7 @@ export default function NotificationDropdown() {
   const markAsRead = async (id: number) => {
     if (!token) return;
     try {
-      await fetch(`${BASE_URL}/api/notifications/${id}/read`, {
+      await fetch(`${BASE_URL}/notifications/${id}/read`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -97,7 +97,7 @@ export default function NotificationDropdown() {
   const markAllAsRead = async () => {
     if (!token) return;
     try {
-      await fetch(`${BASE_URL}/api/notifications/mark-all-read`, {
+      await fetch(`${BASE_URL}/notifications/mark-all-read`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
