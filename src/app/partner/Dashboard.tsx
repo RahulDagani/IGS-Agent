@@ -381,6 +381,27 @@ export default function PartnerDashboard() {
       {/* ── Right sidebar ── */}
       <div className="col-span-12 xl:col-span-4 space-y-6">
 
+        {/* Flywire */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-center">
+          <div className="text-center">
+            <a
+              href="https://agents.demo.flywire.com/services/C4W3RQ/edu-payments?referrer=fe4bec9d-469f-c0bf-9ae2-c95bc4e0baf7"
+              className="flywire-button flex px-4 py-2 border-2 border-blue-600 rounded-sm"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="text-black dark:text-white mr-2">Pay Fees via</span>
+              <img
+                src="https://payment.flywire.com/assets/media/defaultLogo.964f0bfc5c799f25ebae43430aee0506.svg"
+                alt="Flywire"
+                width={74}
+                height={36}
+                className="flywire-logo"
+              />
+            </a>
+          </div>
+        </div>
+
         {/* Recent students */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between mb-4">
