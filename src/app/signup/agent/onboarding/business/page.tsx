@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, ChevronLeftIcon, Building } from "lucide-react";
+import { Save, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
 
@@ -319,14 +318,14 @@ export default function BusinessDetailsPage() {
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       {/* Left Side - Form Content */}
       <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
-        <div className="w-full max-w-md sm:pt-10 mx-auto mb-5 px-4 sm:px-0">
-          <Link
-            href="/partner/dashboard"
+        <div className="w-full max-w-md sm:pt-10 mx-auto mb-5 px-4 sm:px-0 flex justify-end">
+          <button
+            onClick={() => logout("partner")}
             className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
-            <ChevronLeftIcon className="w-4 h-4 mr-1" />
-            Back to Dashboard
-          </Link>
+            <LogOut className="w-4 h-4 mr-1" />
+            Logout
+          </button>
         </div>
 
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">

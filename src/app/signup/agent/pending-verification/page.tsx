@@ -1,10 +1,12 @@
 "use client";
 
-import { Clock } from "lucide-react";
+import { Clock, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function VerificationPendingPage() {
+  const { logout } = useAuth();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>("ApplyTech");
   const [supportEmail, setSupportEmail] = useState<string | null>(null);
@@ -24,6 +26,15 @@ export default function VerificationPendingPage() {
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       <div className="flex flex-col flex-1 bg-white dark:bg-gray-900">
+        <div className="w-full max-w-md sm:pt-10 mx-auto px-4 sm:px-0 flex justify-end">
+          <button
+            onClick={() => logout("partner")}
+            className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+          >
+            <LogOut className="w-4 h-4 mr-1" />
+            Logout
+          </button>
+        </div>
 
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-4 sm:px-0">
           <div className="text-center">
