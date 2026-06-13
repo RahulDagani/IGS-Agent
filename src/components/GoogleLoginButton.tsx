@@ -53,32 +53,30 @@ export const GoogleLoginButton = ({
             const {status} = data;
             
             if (user && token) {
-              
-              login(user, token);
+              login(user, token, undefined, status);
 
-              console.log(status)
-              if(user.email_verified != 1){
-                  router.push('/signin/verify');
+              if (user.email_verified != 1) {
+                router.push('/signin/verify');
+                return;
+              }
+
+              if (status === "business_pending") {
+                if (!user.phone_number) {
+                  router.push('/signup/agent/onboarding/phone');
+                } else {
+                  router.push('/signup/agent/onboarding/business');
                 }
-              
-                if(status === "business_pending"){
-                  if(!user.phone_number) {
-                    router.push('/signup/agent/onboarding/phone');
-                  } else {
-                    router.push('/signup/agent/onboarding/business');
-                  }
-                }else if(status === "under_review"){
-                  if(!user.phone_number) {
-                    router.push('/signup/agent/onboarding/phone?next=pending');
-                  } else {
-                    router.push('/signup/agent/pending-verification');
-                  }
-                }else if(status === "verification_failed"){
-                  router.push('/signup/agent/verification-failed');
-                }else if(status === "verified"){
-                  // Redirect to intended page or partner dashboard
-                  router.push("/");
+              } else if (status === "under_review") {
+                if (!user.phone_number) {
+                  router.push('/signup/agent/onboarding/phone?next=pending');
+                } else {
+                  router.push('/signup/agent/pending-verification');
                 }
+              } else if (status === "verification_failed") {
+                router.push('/signup/agent/verification-failed');
+              } else {
+                router.push('/partner');
+              }
             }
 
             if (onSuccess) onSuccess();
