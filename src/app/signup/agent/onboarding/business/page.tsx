@@ -129,7 +129,7 @@ export default function BusinessDetailsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
   
   const [formData, setFormData] = useState<BusinessFormData>({
     business_name: "",
