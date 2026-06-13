@@ -28,7 +28,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   agreement: AgreementState | null;
-  login: (user: User, token: string, agreement?: AgreementState) => void;
+  login: (user: User, token: string, agreement?: AgreementState, agentStatus?: string) => void;
   setAgreement: (agreement: AgreementState) => void;
   updateUser: (fields: Partial<User>) => void;
   adminAgentLogin: (user: User, token: string, adminToken: string) => void;
