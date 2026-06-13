@@ -8,15 +8,15 @@ export function middleware(request: NextRequest) {
 
   const isAuthenticated = !!token;
 
-  // Public paths — always allow
-  const publicPaths = [
-    "/signin",
-    "/signup/agent",
-    "/reset",
-  ];
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
-    // If already authenticated and verified, redirect away from signin/signup
-    if (isAuthenticated && agentStatus === "verified" && pathname.startsWith("/signin")) {
+  // Public paths — always allow (exact or prefix match only for true public pages)
+  const isPublicSignin = pathname.startsWith("/signin");
+  const isPublicReset = pathname.startsWith("/reset");
+  // Only the signup registration page itself is public, NOT sub-paths like onboarding/*
+  const isPublicSignup = pathname === "/signup/agent" || pathname === "/signup/agent/";
+
+  if (isPublicSignin || isPublicReset || isPublicSignup) {
+    // If already authenticated and verified, redirect away from signin
+    if (isAuthenticated && !agentStatus && isPublicSignin) {
       return NextResponse.redirect(new URL("/partner", request.url));
     }
     return NextResponse.next();
@@ -89,9 +89,8 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/partner/:path*",
-    "/signup/agent/onboarding/:path*",
-    "/signup/agent/pending-verification",
-    "/signup/agent/verification-failed",
+    "/signup/agent/:path*",
     "/signin/:path*",
+    "/reset/:path*",
   ],
 };
