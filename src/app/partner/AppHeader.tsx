@@ -8,6 +8,7 @@ import React, { useState ,useEffect,useRef} from "react";
 import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { useAuth } from '@/context/AuthContext';
+import { useTenantLogo } from "@/hooks/useTenantLogo";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
@@ -15,6 +16,7 @@ const AppHeader: React.FC = () => {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
   const { logout, user } = useAuth();
+  const { logoUrl, companyName } = useTenantLogo();
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -98,21 +100,17 @@ const AppHeader: React.FC = () => {
             {/* Cross Icon */}
           </button>
 
-          <Link href="/" className="lg:hidden">
-            <Image
-              width={154}
-              height={32}
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <Image
-              width={154}
-              height={32}
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+          <Link href="/partner" className="lg:hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt={companyName} className="h-8 w-auto object-contain" />
+            ) : (
+              <Image
+                width={154}
+                height={32}
+                src="/images/logo/logo.svg"
+                alt="Logo"
+              />
+            )}
           </Link>
 
           <button

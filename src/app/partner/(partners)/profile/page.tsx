@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle } from "lucide-react";
+import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle, ImageIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
 import { openSecureFile } from "@/utils/fileUrl";
@@ -75,7 +75,7 @@ interface AgentProfileResponse {
   };
 }
 
-type Tab = "business" | "payment" | "social" | "signature";
+type Tab = "business" | "payment" | "social" | "signature" | "logo";
 
 const BASE_URL = "https://api.applystore.org/api";
 const STATIC_URL = "https://api.applystore.org";
@@ -220,6 +220,11 @@ export default function AgentAccountDetails() {
   const [signatureBlobUrl, setSignatureBlobUrl] = useState<string | null>(null);
   const [uploadingSignature, setUploadingSignature] = useState(false);
 
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [existingLogoUrl, setExistingLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !authUser) {
       router.push('/signin/agent');
@@ -289,6 +294,9 @@ export default function AgentAccountDetails() {
 
       if (profileData.profile.signature_url) {
         setSignatureUrl(profileData.profile.signature_url);
+      }
+      if (profileData.profile.agency_logo) {
+        setExistingLogoUrl(profileData.profile.agency_logo);
       }
       
     } catch (error) {
@@ -411,10 +419,60 @@ export default function AgentAccountDetails() {
 
   const countries = Country.getAllCountries().map(country => country.name);
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files are accepted (PNG, JPG, SVG, WEBP)");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Logo must be under 2 MB");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setLogoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoUpload = async () => {
+    if (!logoFile || !token) return;
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("agency_logo", logoFile);
+      const response = await fetch(`${BASE_URL}/agent/business`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success || response.ok) {
+        setExistingLogoUrl(logoPreview);
+        setLogoFile(null);
+        setLogoPreview(null);
+        setSuccess("Agency logo updated successfully!");
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(data.message || "Failed to upload logo");
+        setTimeout(() => setError(""), 3000);
+      }
+    } catch {
+      setError("Failed to upload logo");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const tabs = [
     { id: "business", label: "Business", icon: Building },
     { id: "payment", label: "Payment", icon: CreditCard },
     { id: "social", label: "Social", icon: MessageCircle },
+    { id: "logo", label: "Logo", icon: ImageIcon },
     { id: "signature", label: "Signature", icon: PenLine },
   ];
 
@@ -456,6 +514,82 @@ export default function AgentAccountDetails() {
       setUploadingSignature(false);
     }
   };
+
+  const renderLogoTab = () => (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+          Upload your agency logo. It will appear on your partner portal and documents.
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          Recommended: PNG or SVG with transparent background &mdash; 400&times;400 px minimum, max 2 MB.
+        </p>
+
+        {/* Current Logo */}
+        {existingLogoUrl && (
+          <div className="mb-6">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Logo</p>
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 inline-block">
+              <img
+                src={existingLogoUrl.startsWith("data:") ? existingLogoUrl : `${STATIC_URL}/${existingLogoUrl}`}
+                alt="Agency Logo"
+                className="max-h-20 max-w-[200px] object-contain"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Upload */}
+        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+          {logoPreview ? (
+            <div className="space-y-4">
+              <img src={logoPreview} alt="Logo Preview" className="max-h-20 max-w-[200px] object-contain mx-auto" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">{logoFile?.name}</p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => { setLogoFile(null); setLogoPreview(null); }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Remove
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogoUpload}
+                  disabled={uploadingLogo}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg text-sm hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {uploadingLogo ? (
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                  ) : <Upload size={14} />}
+                  {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="cursor-pointer">
+              <ImageIcon size={32} className="mx-auto text-gray-400 mb-3" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Agency Logo</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, SVG or WEBP &mdash; max 2 MB</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Recommended size: 400 &times; 400 px</p>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                onChange={handleLogoChange}
+                className="hidden"
+              />
+              <div className="mt-4 px-4 py-2 border border-brand-500 text-brand-600 rounded-lg text-sm inline-block hover:bg-brand-50">
+                Choose File
+              </div>
+            </label>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderSignatureTab = () => (
     <div className="space-y-6">
@@ -1204,6 +1338,7 @@ export default function AgentAccountDetails() {
           {activeTab === "business" && renderBusinessTab()}
           {activeTab === "payment" && renderPaymentTab()}
           {activeTab === "social" && renderSocialTab()}
+          {activeTab === "logo" && renderLogoTab()}
           {activeTab === "signature" && renderSignatureTab()}
         </div>
 
@@ -1214,7 +1349,8 @@ export default function AgentAccountDetails() {
             onClick={() => {
               if (activeTab === "payment") setActiveTab("business");
               if (activeTab === "social") setActiveTab("payment");
-              if (activeTab === "signature") setActiveTab("social");
+              if (activeTab === "logo") setActiveTab("social");
+              if (activeTab === "signature") setActiveTab("logo");
             }}
             disabled={activeTab === "business"}
             className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
