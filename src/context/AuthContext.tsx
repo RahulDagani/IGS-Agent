@@ -75,11 +75,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const login = (userData: User, jwt: string, agreementData?: AgreementState) => {
+  const login = (userData: User, jwt: string, agreementData?: AgreementState, agentStatus?: string) => {
     setUser(userData);
     setToken(jwt);
     Cookies.set("user", JSON.stringify(userData), { expires: 7 });
     Cookies.set("token", jwt, { expires: 7 });
+    if (agentStatus) {
+      Cookies.set("agent_status", agentStatus, { expires: 7 });
+    }
     if (agreementData) {
       setAgreementState(agreementData);
       Cookies.set("agreement", JSON.stringify(agreementData), { expires: 1 });
@@ -137,6 +140,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     Cookies.remove("token");
     Cookies.remove("adminToken");
     Cookies.remove("agreement");
+    Cookies.remove("agent_status");
 
     window.location.href = "/signin/agent";
   };

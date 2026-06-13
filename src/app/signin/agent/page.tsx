@@ -151,7 +151,7 @@ function AgentLoginContent() {
         const agreement = data.agreement || data.data?.agreement || null;
         const { status } = data;
         if (user && token) {
-          login(user, token, agreement);
+          login(user, token, agreement, status);
 
           if (user.email_verified != 1) {
             router.push('/signin/verify');

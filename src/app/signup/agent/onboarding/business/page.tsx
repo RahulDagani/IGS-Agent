@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Save, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
 
@@ -267,7 +268,7 @@ export default function BusinessDetailsPage() {
 
       // Handle successful submission
       if (data.success) {
-        // Redirect to dashboard or next step
+        Cookies.set("agent_status", "under_review", { expires: 7 });
         router.push("/signup/agent/pending-verification");
       } else {
         throw new Error(data.message || "Submission failed");
