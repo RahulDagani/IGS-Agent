@@ -531,7 +531,7 @@ export default function AgentAccountDetails() {
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Logo</p>
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 inline-block">
               <img
-                src={existingLogoUrl.startsWith("data:") ? existingLogoUrl : `${STATIC_URL}/${existingLogoUrl}`}
+                src={existingLogoUrl.startsWith("data:") || existingLogoUrl.startsWith("http") ? existingLogoUrl : `${STATIC_URL}/${existingLogoUrl}`}
                 alt="Agency Logo"
                 className="max-h-20 max-w-[200px] object-contain"
               />

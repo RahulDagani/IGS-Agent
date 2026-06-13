@@ -9,6 +9,7 @@ import { Dropdown } from "@/components/ui/dropdown/Dropdown";
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { useAuth } from '@/context/AuthContext';
 import { useTenantLogo } from "@/hooks/useTenantLogo";
+import { useAgentLogo } from "@/hooks/useAgentLogo";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
@@ -17,6 +18,8 @@ const AppHeader: React.FC = () => {
 
   const { logout, user } = useAuth();
   const { logoUrl, companyName } = useTenantLogo();
+  const { agentLogoUrl } = useAgentLogo();
+  const displayLogoUrl = agentLogoUrl || logoUrl;
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -101,8 +104,8 @@ const AppHeader: React.FC = () => {
           </button>
 
           <Link href="/partner" className="lg:hidden">
-            {logoUrl ? (
-              <img src={logoUrl} alt={companyName} className="h-8 w-auto object-contain" />
+            {displayLogoUrl ? (
+              <img src={displayLogoUrl} alt={companyName} className="h-8 w-auto object-contain" />
             ) : (
               <Image
                 width={154}
