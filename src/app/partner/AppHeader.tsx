@@ -10,6 +10,7 @@ import { DropdownItem } from "@/components/ui/dropdown/DropdownItem";
 import { useAuth } from '@/context/AuthContext';
 import { useTenantLogo } from "@/hooks/useTenantLogo";
 import { useAgentLogo } from "@/hooks/useAgentLogo";
+import { useAgentProfilePic } from "@/hooks/useAgentProfilePic";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
@@ -20,6 +21,7 @@ const AppHeader: React.FC = () => {
   const { logoUrl, companyName } = useTenantLogo();
   const { agentLogoUrl } = useAgentLogo();
   const displayLogoUrl = agentLogoUrl || logoUrl;
+  const { profilePicUrl } = useAgentProfilePic();
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -190,13 +192,14 @@ const AppHeader: React.FC = () => {
         onClick={toggleDropdown} 
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <Image
-            width={44}
-            height={44}
-            src="/images/user/owner.jpg"
-            alt="User"
-          />
+        <span className="mr-3 overflow-hidden rounded-full h-11 w-11 bg-brand-100 dark:bg-brand-900 flex items-center justify-center flex-shrink-0">
+          {profilePicUrl ? (
+            <img src={profilePicUrl} alt="User" className="w-full h-full object-cover rounded-full" />
+          ) : (
+            <span className="text-sm font-semibold text-brand-600 dark:text-brand-300">
+              {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
+            </span>
+          )}
         </span>
 
         <span className="block mr-1 font-medium text-theme-sm">{user ? user.name || user.email : "Agent"}</span>

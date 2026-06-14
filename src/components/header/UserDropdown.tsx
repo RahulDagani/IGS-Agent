@@ -1,9 +1,9 @@
 "use client";
-import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useAuth } from "@/context/AuthContext";
+import { useAgentProfilePic } from "@/hooks/useAgentProfilePic";
 import Link from "next/link";
 
 interface ProfileData {
@@ -11,90 +11,61 @@ interface ProfileData {
   email: string;
   name: string;
   phone_number: string;
-  profile: string;
-  profile_pic: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-
-function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
-  e.stopPropagation();
-  setIsOpen((prev) => !prev);
-}
-
-  const [loading, setLoading] = useState(true);
-    const {logout, token} = useAuth();
-  function closeDropdown() {
-    setIsOpen(false);
-  }
+  const { logout, token } = useAuth();
+  const { profilePicUrl } = useAgentProfilePic();
 
   const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
 
   const [profileData, setProfileData] = useState<ProfileData>({
-        id: 0,
-        email: "",
-        name: "",
-        phone_number: "",
-        profile: "",
-        profile_pic: "",
-        created_at: "",
-        updated_at: ""
-      });
+    id: 0,
+    email: "",
+    name: "",
+    phone_number: "",
+  });
 
-      // Fetch profile data
-    useEffect(() => {
-      const fetchProfile = async () => {
-        try {
-          setLoading(true);
-          
-          const response = await fetch(`${BASE_URL}/agent/profile`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${BASE_URL}/agent/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((result) => {
+        if (result.success && result.profile) {
+          setProfileData({
+            id: result.profile.id,
+            email: result.profile.email,
+            name: result.profile.name,
+            phone_number: result.profile.phone_number,
           });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch profile: ${response.status}`);
-          }
-          
-          const result = await response.json();
-          
-          if (result.success) {
-            setProfileData(result.data);
-          } else {
-            throw new Error(result.message || "Failed to fetch profile data");
-          }
-        } catch (err) {
-          console.error("Error fetching profile:", err);
-        } finally {
-          setLoading(false);
         }
-      };
-  
-      fetchProfile();
-    }, [BASE_URL, token]);
+      })
+      .catch(() => {});
+  }, [BASE_URL, token]);
+
+  function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
+    e.stopPropagation();
+    setIsOpen((prev) => !prev);
+  }
+
+  function closeDropdown() {
+    setIsOpen(false);
+  }
 
   return (
     <div className="relative">
       <button
-        onClick={toggleDropdown} 
+        onClick={toggleDropdown}
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11 bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-          {profileData.profile ? (
-            <Image
-              width={44}
-              height={44}
-              src={profileData.profile}
-              alt="User"
-              className="w-full h-full object-cover rounded-full"
-            />
+        <span className="mr-3 overflow-hidden rounded-full h-11 w-11 bg-brand-100 dark:bg-brand-900 flex items-center justify-center flex-shrink-0">
+          {profilePicUrl ? (
+            <img src={profilePicUrl} alt="User" className="w-full h-full object-cover rounded-full" />
           ) : (
-            <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+            <span className="text-sm font-semibold text-brand-600 dark:text-brand-300">
               {profileData.name ? profileData.name.charAt(0).toUpperCase() : "A"}
             </span>
           )}
@@ -129,8 +100,7 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-                        {profileData.name || "Tenant"}
-
+            {profileData.name || "Agent"}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {profileData.email || ""}
@@ -163,10 +133,9 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
               Edit profile
             </DropdownItem>
           </li>
-         
         </ul>
         <Link
-                  href="/logout"
+          href="/logout"
           className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
         >
           <svg

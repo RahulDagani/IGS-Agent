@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle, ImageIcon } from "lucide-react";
+import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle, ImageIcon, UserCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Country, State, City } from "country-state-city";
 import { openSecureFile } from "@/utils/fileUrl";
@@ -44,6 +44,7 @@ interface AgentProfileResponse {
     business_name: string;
     business_certificate: string;
     agency_logo: string;
+    profile_pic: string;
     pan_card_upload: string;
     country_code: string;
     street_address: string;
@@ -75,7 +76,7 @@ interface AgentProfileResponse {
   };
 }
 
-type Tab = "business" | "payment" | "social" | "signature" | "logo";
+type Tab = "business" | "payment" | "social" | "logo" | "avatar" | "signature";
 
 const BASE_URL = "https://api.applystore.org/api";
 const STATIC_URL = "https://api.applystore.org";
@@ -226,6 +227,12 @@ export default function AgentAccountDetails() {
   const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
+  const [existingProfilePicUrl, setExistingProfilePicUrl] = useState<string | null>(null);
+  const [profilePicBlobUrl, setProfilePicBlobUrl] = useState<string | null>(null);
+  const [uploadingProfilePic, setUploadingProfilePic] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !authUser) {
       router.push('/signin/agent');
@@ -254,6 +261,24 @@ export default function AgentAccountDetails() {
       .catch(() => {});
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [existingLogoUrl, token]);
+
+  useEffect(() => {
+    if (!existingProfilePicUrl || !token) return;
+    let objectUrl: string;
+    const filename = existingProfilePicUrl.split("/").pop();
+    if (!filename) return;
+    fetch(`${BASE_URL}/files/view/agent-profile-pics/${encodeURIComponent(filename)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.ok ? res.blob() : null)
+      .then(blob => {
+        if (!blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setProfilePicBlobUrl(objectUrl);
+      })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [existingProfilePicUrl, token]);
 
   useEffect(() => {
     if (!signatureUrl || !token) return;
@@ -316,6 +341,9 @@ export default function AgentAccountDetails() {
       }
       if (profileData.profile.agency_logo) {
         setExistingLogoUrl(profileData.profile.agency_logo);
+      }
+      if (profileData.profile.profile_pic) {
+        setExistingProfilePicUrl(profileData.profile.profile_pic);
       }
       
     } catch (error) {
@@ -495,6 +523,7 @@ export default function AgentAccountDetails() {
     { id: "payment", label: "Payment", icon: CreditCard },
     { id: "social", label: "Social", icon: MessageCircle },
     { id: "logo", label: "Logo", icon: ImageIcon },
+    { id: "avatar", label: "Profile Pic", icon: UserCircle },
     { id: "signature", label: "Signature", icon: PenLine },
   ];
 
@@ -536,6 +565,139 @@ export default function AgentAccountDetails() {
       setUploadingSignature(false);
     }
   };
+
+  const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files are accepted (PNG, JPG, WEBP)");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Profile picture must be under 2 MB");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    setProfilePicFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setProfilePicPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleProfilePicUpload = async () => {
+    if (!profilePicFile || !token) return;
+    setUploadingProfilePic(true);
+    try {
+      const formData = new FormData();
+      formData.append("profile_pic", profilePicFile);
+      const response = await fetch(`${BASE_URL}/agent/business`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success || response.ok) {
+        setProfilePicBlobUrl(null);
+        setProfilePicFile(null);
+        setProfilePicPreview(null);
+        loadAgentProfile();
+        setSuccess("Profile picture updated successfully!");
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(data.message || "Failed to upload profile picture");
+        setTimeout(() => setError(""), 3000);
+      }
+    } catch {
+      setError("Failed to upload profile picture");
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setUploadingProfilePic(false);
+    }
+  };
+
+  const renderProfilePicTab = () => (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+          Upload your profile picture. It will appear in the header and dropdown menu.
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          Recommended: PNG or JPG &mdash; 400&times;400 px, max 2 MB.
+        </p>
+
+        {/* Current Profile Pic */}
+        <div className="mb-6 flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full overflow-hidden bg-brand-100 dark:bg-brand-900 flex items-center justify-center flex-shrink-0 border-2 border-gray-200 dark:border-gray-700">
+            {profilePicBlobUrl ? (
+              <img src={profilePicBlobUrl} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold text-brand-600 dark:text-brand-300">
+                {existingProfilePicUrl ? "..." : (authUser?.name ? authUser.name.charAt(0).toUpperCase() : "A")}
+              </span>
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {existingProfilePicUrl ? "Current profile picture" : "No profile picture set"}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {existingProfilePicUrl ? "Upload a new one below to replace it" : "Upload one below"}
+            </p>
+          </div>
+        </div>
+
+        {/* Upload */}
+        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+          {profilePicPreview ? (
+            <div className="space-y-4">
+              <img src={profilePicPreview} alt="Preview" className="w-20 h-20 rounded-full object-cover mx-auto border-2 border-brand-300" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">{profilePicFile?.name}</p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => { setProfilePicFile(null); setProfilePicPreview(null); }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Remove
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProfilePicUpload}
+                  disabled={uploadingProfilePic}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded-lg text-sm hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {uploadingProfilePic ? (
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                  ) : <Upload size={14} />}
+                  {uploadingProfilePic ? "Uploading..." : "Save Profile Picture"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="cursor-pointer">
+              <UserCircle size={32} className="mx-auto text-gray-400 mb-3" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Profile Picture</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG or WEBP &mdash; max 2 MB</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Recommended size: 400 &times; 400 px</p>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleProfilePicChange}
+                className="hidden"
+              />
+              <div className="mt-4 px-4 py-2 border border-brand-500 text-brand-600 rounded-lg text-sm inline-block hover:bg-brand-50">
+                Choose File
+              </div>
+            </label>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderLogoTab = () => (
     <div className="space-y-6">
@@ -1361,6 +1523,7 @@ export default function AgentAccountDetails() {
           {activeTab === "payment" && renderPaymentTab()}
           {activeTab === "social" && renderSocialTab()}
           {activeTab === "logo" && renderLogoTab()}
+          {activeTab === "avatar" && renderProfilePicTab()}
           {activeTab === "signature" && renderSignatureTab()}
         </div>
 
@@ -1372,7 +1535,8 @@ export default function AgentAccountDetails() {
               if (activeTab === "payment") setActiveTab("business");
               if (activeTab === "social") setActiveTab("payment");
               if (activeTab === "logo") setActiveTab("social");
-              if (activeTab === "signature") setActiveTab("logo");
+              if (activeTab === "avatar") setActiveTab("logo");
+              if (activeTab === "signature") setActiveTab("avatar");
             }}
             disabled={activeTab === "business"}
             className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
