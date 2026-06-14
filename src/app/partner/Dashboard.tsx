@@ -170,9 +170,6 @@ export default function PartnerDashboard() {
             Sign Now
           </button>
         </div>
-        {showAgreementModal && (
-          <AgreementModal onClose={() => setShowAgreementModal(false)} />
-        )}
       </div>
     );
   };
@@ -180,6 +177,9 @@ export default function PartnerDashboard() {
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-6">
       <AgreementBanner />
+      {showAgreementModal && (
+        <AgreementModal onClose={() => setShowAgreementModal(false)} />
+      )}
 
       {/* ── Left column ── */}
       <div className="col-span-12 xl:col-span-8 space-y-6">
@@ -401,6 +401,35 @@ export default function PartnerDashboard() {
             </a>
           </div>
         </div>
+
+        {/* Associate Agreement */}
+        {user?.role_key === 'agent' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-800 dark:text-white/90 text-sm">Associate Agreement</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {agreement?.signed ? 'Signed' : 'Pending signature'}
+                </p>
+              </div>
+              {agreement?.signed && (
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Signed
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAgreementModal(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-brand-300 dark:border-brand-700 text-brand-600 dark:text-brand-400 text-sm font-medium hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              {agreement?.signed ? 'View Agreement' : 'Sign Agreement'}
+            </button>
+          </div>
+        )}
 
         {/* Recent students */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
