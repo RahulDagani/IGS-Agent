@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle, ImageIcon, UserCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { PROFILE_PIC_UPDATED_EVENT } from "@/hooks/useAgentProfilePic";
 import { Country, State, City } from "country-state-city";
 import { openSecureFile } from "@/utils/fileUrl";
 
@@ -602,6 +603,7 @@ export default function AgentAccountDetails() {
         setProfilePicFile(null);
         setProfilePicPreview(null);
         loadAgentProfile();
+        window.dispatchEvent(new CustomEvent(PROFILE_PIC_UPDATED_EVENT));
         setSuccess("Profile picture updated successfully!");
         setTimeout(() => setSuccess(""), 3000);
       } else {
