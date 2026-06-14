@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Building, MapPin, Globe, MessageCircle, Facebook, Linkedin, Instagram, Twitter, Link, CreditCard, Briefcase, PenLine, Upload, CheckCircle, ImageIcon, UserCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { PROFILE_PIC_UPDATED_EVENT } from "@/hooks/useAgentProfilePic";
+import { AGENT_LOGO_UPDATED_EVENT } from "@/hooks/useAgentLogo";
 import { Country, State, City } from "country-state-city";
 import { openSecureFile } from "@/utils/fileUrl";
 
@@ -501,8 +502,8 @@ export default function AgentAccountDetails() {
       if (data.success || response.ok) {
         setLogoBlobUrl(null);
         setExistingLogoUrl(data.agency_logo || data.profile?.agency_logo || existingLogoUrl);
-        // reload profile to get the saved URL and trigger blob fetch
         loadAgentProfile();
+        window.dispatchEvent(new CustomEvent(AGENT_LOGO_UPDATED_EVENT));
         setLogoFile(null);
         setLogoPreview(null);
         setSuccess("Agency logo updated successfully!");
