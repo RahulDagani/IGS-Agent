@@ -223,6 +223,7 @@ export default function AgentAccountDetails() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [existingLogoUrl, setExistingLogoUrl] = useState<string | null>(null);
+  const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
@@ -235,6 +236,24 @@ export default function AgentAccountDetails() {
       loadAgentProfile();
     }
   }, [authUser, authLoading, router, token]);
+
+  useEffect(() => {
+    if (!existingLogoUrl || !token) return;
+    let objectUrl: string;
+    const filename = existingLogoUrl.split("/").pop();
+    if (!filename) return;
+    fetch(`${BASE_URL}/files/view/agent-logos/${encodeURIComponent(filename)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.ok ? res.blob() : null)
+      .then(blob => {
+        if (!blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setLogoBlobUrl(objectUrl);
+      })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [existingLogoUrl, token]);
 
   useEffect(() => {
     if (!signatureUrl || !token) return;
@@ -451,7 +470,10 @@ export default function AgentAccountDetails() {
       });
       const data = await response.json();
       if (data.success || response.ok) {
-        setExistingLogoUrl(logoPreview);
+        setLogoBlobUrl(null);
+        setExistingLogoUrl(data.agency_logo || data.profile?.agency_logo || existingLogoUrl);
+        // reload profile to get the saved URL and trigger blob fetch
+        loadAgentProfile();
         setLogoFile(null);
         setLogoPreview(null);
         setSuccess("Agency logo updated successfully!");
@@ -530,11 +552,11 @@ export default function AgentAccountDetails() {
           <div className="mb-6">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Logo</p>
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900 inline-block">
-              <img
-                src={existingLogoUrl.startsWith("data:") || existingLogoUrl.startsWith("http") ? existingLogoUrl : `${STATIC_URL}/${existingLogoUrl}`}
-                alt="Agency Logo"
-                className="max-h-20 max-w-[200px] object-contain"
-              />
+              {logoBlobUrl ? (
+                <img src={logoBlobUrl} alt="Agency Logo" className="max-h-20 max-w-[200px] object-contain" />
+              ) : (
+                <div className="w-24 h-12 flex items-center justify-center text-xs text-gray-400">Loading...</div>
+              )}
             </div>
           </div>
         )}

@@ -8,17 +8,33 @@ export function useAgentLogo() {
 
   useEffect(() => {
     if (!token) return;
+    let objectUrl: string;
     const BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_BASE;
+
     fetch(`${BASE_URL}/agent/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.success && data.profile?.agency_logo) {
-          setAgentLogoUrl(data.profile.agency_logo);
-        }
+        const storedUrl: string | undefined = data.profile?.agency_logo;
+        if (!storedUrl) return;
+        const filename = storedUrl.split("/").pop();
+        if (!filename) return;
+        return fetch(`${BASE_URL}/files/view/agent-logos/${encodeURIComponent(filename)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      })
+      .then((res) => (res?.ok ? res.blob() : null))
+      .then((blob) => {
+        if (!blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setAgentLogoUrl(objectUrl);
       })
       .catch(() => {});
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [token]);
 
   return { agentLogoUrl };
