@@ -522,7 +522,7 @@ export default function AgentAccountDetails() {
 
   const tabs = [
     { id: "business", label: "Business", icon: Building },
-    { id: "payment", label: "Payment", icon: CreditCard },
+    { id: "payment", label: "Bank Details", icon: CreditCard },
     { id: "social", label: "Social", icon: MessageCircle },
     { id: "logo", label: "Logo", icon: ImageIcon },
     { id: "avatar", label: "Profile Pic", icon: UserCircle },
