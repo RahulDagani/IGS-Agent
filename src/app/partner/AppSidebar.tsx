@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenantLogo } from "@/hooks/useTenantLogo";
+import { useAgentLogo } from "@/hooks/useAgentLogo";
 import AgreementModal from "@/components/agreement/AgreementModal";
 
 // Types for API response
@@ -131,6 +132,8 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const { logoUrl, companyName } = useTenantLogo();
+  const { agentLogoUrl } = useAgentLogo();
+  const displayLogoUrl = agentLogoUrl || logoUrl;
   const { agreement, user: authUser } = useAuth();
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const isAgent = authUser?.role_key === "agent";
@@ -509,8 +512,8 @@ const AppSidebar: React.FC = () => {
     return (
       <aside className="fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen w-[290px] border-r border-gray-200 z-50">
         <div className="py-8 flex justify-center">
-          {logoUrl ? (
-            <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+          {displayLogoUrl ? (
+            <img src={displayLogoUrl} alt={companyName} className="h-9 w-auto object-contain" />
           ) : (
             <span className="dark:text-white text-black font-semibold text-xl">{companyName}</span>
           )}
@@ -546,16 +549,16 @@ const AppSidebar: React.FC = () => {
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <div className="flex justify-center items-center">
-                {logoUrl ? (
-                  <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+                {displayLogoUrl ? (
+                  <img src={displayLogoUrl} alt={companyName} className="h-9 w-auto object-contain" />
                 ) : (
                   <span className="dark:text-white text-black font-semibold text-xl">{companyName}</span>
                 )}
               </div>
             </>
           ) : (
-            logoUrl ? (
-              <img src={logoUrl} alt={companyName} className="h-9 w-auto object-contain" />
+            displayLogoUrl ? (
+              <img src={displayLogoUrl} alt={companyName} className="h-9 w-auto object-contain" />
             ) : (
               <span className="dark:text-white text-black font-semibold text-xl">{companyName}</span>
             )
