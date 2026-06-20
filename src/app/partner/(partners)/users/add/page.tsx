@@ -164,23 +164,48 @@ const fetchAvailableRoles = async () => {
     };
 
     const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-    ) => {
-        const { name, value } = e.target;
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+) => {
+    const { name, value } = e.target;
+    
+    // Handle input filtering for text inputs (not select)
+    if (e.target instanceof HTMLInputElement) {
+        let cleanedValue = value;
+        
+        // For name field - ONLY allow letters (including Unicode/accents), spaces, hyphens, and apostrophes
+        if (name === "name") {
+            // This removes ANY character that is NOT a letter (any language), space, hyphen, or apostrophe
+            cleanedValue = value.replace(/[^\p{L}\s\-']/gu, "");
+        }
+        
+        // For phone - ONLY allow digits, plus sign, spaces, parentheses, and hyphens
+        if (name === "phone") {
+            cleanedValue = value.replace(/[^0-9+\s()\-]/g, "");
+        }
+        
+        // For email - no filtering (keep as is, validation handles it)
+        
+        setFormData(prev => ({
+            ...prev,
+            [name]: cleanedValue,
+        }));
+    } else {
+        // For select inputs (role, status)
         setFormData(prev => ({
             ...prev,
             [name]: value,
         }));
-        
-        // Clear validation error for this field
-        if (validationErrors[name]) {
-            setValidationErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors[name];
-                return newErrors;
-            });
-        }
-    };
+    }
+    
+    // Clear validation error for this field
+    if (validationErrors[name]) {
+        setValidationErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors[name];
+            return newErrors;
+        });
+    }
+};
 
     const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

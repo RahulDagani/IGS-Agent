@@ -185,13 +185,35 @@ export default function AddStudent() {
   }, [BASE_URL]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const cleaned = name === "phone" ? value.replace(/\D/g, "") : value;
+  const { name, value } = e.target;
+  
+  // For name fields, only allow letters, spaces, hyphens, and apostrophes
+  if (name === "first_name" || name === "middle_name" || name === "last_name") {
+    // Allow only letters (including accented), spaces, hyphens, and apostrophes
+    const cleaned = value.replace(/[^a-zA-Z\s\-']/g, "");
     setFormData(prev => ({ ...prev, [name]: cleaned }));
     if (errors[name as keyof StudentFormData]) {
       setErrors(prev => ({ ...prev, [name]: "" }));
     }
-  };
+    return;
+  }
+  
+  // For phone, only allow digits
+  if (name === "phone") {
+    const cleaned = value.replace(/\D/g, "");
+    setFormData(prev => ({ ...prev, [name]: cleaned }));
+    if (errors[name as keyof StudentFormData]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+    return;
+  }
+  
+  // For email and other fields
+  setFormData(prev => ({ ...prev, [name]: value }));
+  if (errors[name as keyof StudentFormData]) {
+    setErrors(prev => ({ ...prev, [name]: "" }));
+  }
+};
 
   const validateForm = (): boolean => {
     const newErrors: Partial<StudentFormData> = {};
